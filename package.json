@@ -9,10 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
-<<<<<<< HEAD
-=======
     "@tailgrids/icons": "^2.0.1",
->>>>>>> c1705f75b7a253a889c2ac904dc4372594084d2c
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "next": "16.4.4",
