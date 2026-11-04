@@ -105,7 +105,7 @@ export default function Login() {
                   <span className="text-[#0F172A]">พนักงานใหม่?</span>
                   <Link
                     href="/"
-                    className="text-[#166534] underline hover:text-[#166534]/90"
+                    className="text-[#166534] underline hover:text-[#166534]/90 font-bold"
                   >
                     ลงทะเบียนเข้าใช้งานระบบ{" "}
                     <span>
