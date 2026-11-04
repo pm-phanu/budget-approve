@@ -20,7 +20,7 @@ export default function Login() {
           </div>
           {/* bgCircleL */}
           <div className="absolute bottom-0">
-            <Image src={bgCircleL} alt="bgCircleL"/>
+            <Image src={bgCircleL} alt="bgCircleL" />
           </div>
           {/* container */}
           <div className="max-w-[720px] m-16">
@@ -61,13 +61,19 @@ export default function Login() {
           {/* container */}
           <div className="border-1 border-[#E5E9F0] bg-[#FFFFFF] shadow-md max-w-[480px] mx-auto my-60 rounded-2xl p-10">
             <div className="mb-6">
-              <h2 className="text-3xl font-bold mb-2 text-[#0F172A]">เข้าสู่ระบบ</h2>
-              <p className="text-[#64748B] text-[14px]">กรุณากรอกข้อมูลเพื่อเข้าใช้งานระบบอนุมัติงบประมาณ</p>
+              <h2 className="text-3xl font-bold mb-2 text-[#0F172A]">
+                เข้าสู่ระบบ
+              </h2>
+              <p className="text-[#64748B] text-[14px]">
+                กรุณากรอกข้อมูลเพื่อเข้าใช้งานระบบอนุมัติงบประมาณ
+              </p>
             </div>
             {/* form */}
             <form>
               <div className="mb-6">
-                <label className="text-[#0F172A]">ชื่อผู้ใช้ (username) หรือ อีเมลบริษัท (email) </label>
+                <label className="text-[#0F172A]">
+                  ชื่อผู้ใช้ (username) หรือ อีเมลบริษัท (email){" "}
+                </label>
                 <input
                   type="email"
                   placeholder="กรอกชื่อผู้ใช้ หรือ อีเมลบริษัท"
@@ -84,7 +90,12 @@ export default function Login() {
               </div>
               {/* btn login */}
               <div>
-                <Button variant={"success"} className={"my-6 w-full bg-[#166534]"}>เข้าสู่ระบบ</Button>
+                <Button
+                  variant={"success"}
+                  className={"my-6 w-full bg-[#166534]"}
+                >
+                  เข้าสู่ระบบ
+                </Button>
                 <div className="flex items-center gap-4 my-6">
                   <div className="border-t-2 border-[#E5E9F0] max-w-[180px] w-full"></div>
                   <p className="text-[#64748B]">or</p>
@@ -92,7 +103,10 @@ export default function Login() {
                 </div>
                 <p className="flex gap-2 justify-center items-center">
                   <span className="text-[#0F172A]">พนักงานใหม่?</span>
-                  <Link href="/" className="text-[#166534] underline hover:text-[#166534]/90">
+                  <Link
+                    href="/"
+                    className="text-[#166534] underline hover:text-[#166534]/90"
+                  >
                     ลงทะเบียนเข้าใช้งานระบบ{" "}
                     <span>
                       <ArrowRight />
