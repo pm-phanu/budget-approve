@@ -1,8 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import bgCircleR from "@/public/bgCircleR.svg";
-import bgCircleL from "@/public/bgCircleL.svg";
+import bgCircleR from "@/bgCircleR.svg";
+import bgCircleL from "@/bgCircleL.svg";
 import { Button } from "@/components/tailgrids/core/button";
 import { Link } from "@/components/tailgrids/core/link";
 import { ArrowRight } from "@tailgrids/icons";
