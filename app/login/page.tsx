@@ -1,4 +1,4 @@
-"use client";
+'use client'
 
 import Image from "next/image";
 import bgCircleR from "@/app/img/bgCircleR.svg";
