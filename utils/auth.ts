@@ -7,7 +7,7 @@ export function auth() {
 
   const registerUser = (formData: any) => {
     if (formData.password !== formData.confirmPassword) {
-      alert;
+      alert("รหัสผ่านและการยืนยันรหัสผ่านไม่ตรงกัน!");
       return;
     }
 
@@ -18,15 +18,24 @@ export function auth() {
       (user: any) => user.email === formData.email,
     );
 
+    const isUserExist = usersArray.some(
+      (user: any) => user.username === formData.username,
+    );
+
     if (isEmailExist) {
-      alert;
+      alert("อีเมลนี้มีอยู่ในระบบแล้ว!");
+      return;
+    }
+
+    if (isUserExist) {
+      alert("ชื่อผู้ใช้นี้มีอยู่ในระบบแล้ว!");
       return;
     }
 
     const updateUsers = [...usersArray, formData];
     localStorage.setItem("users", JSON.stringify(updateUsers));
 
-    alert;
+    alert("สมัครสมาชิกสำเร็จ!");
     router.push("/login");
   };
 
@@ -36,15 +45,17 @@ export function auth() {
 
     const matchUser = usersArray.find(
       (user: any) =>
-        user.email === formData.email || user.username === formData.username && user.password === formData.password,
+        user.email === formData.identifier ||
+        (user.username === formData.identifier &&
+          user.password === formData.password),
     );
 
     if (matchUser) {
-      alert;
+      alert("เข้าสู่ระบบสำเร็จ!");
       localStorage.setItem("currentUser", JSON.stringify(matchUser));
       router.push("/");
     } else {
-      alert;
+      alert("ชื่อผู้ใช้/อีเมล หรือรหัสผ่านไม่ถูกต้อง!");
     }
   };
   return { registerUser, loginUser };

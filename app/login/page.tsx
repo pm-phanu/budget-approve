@@ -104,7 +104,7 @@ export default function Login() {
                   onChange={handleChange}
                   value={formData.email}
                   type="email"
-                  name="email"
+                  name="identifier"
                   required
                   placeholder="กรอกชื่อผู้ใช้ หรือ อีเมลบริษัท"
                   className="w-full border border-[#E5E9F0] rounded-lg mt-2 focus:outline-none focus:ring-alert-success-title placeholder:text-[14px] placeholder:text-[#64748B]"
