@@ -5,9 +5,35 @@ import bgCircleR from "@/app/img/bgCircleR.svg";
 import bgCircleL from "@/app/img/bgCircleL.svg";
 import { Button } from "@/components/tailgrids/core/button";
 import { Link } from "@/components/tailgrids/core/link";
-import { ArrowRight } from "@tailgrids/icons";
+import { ArrowRight, Eye, EyeDisabled } from "@tailgrids/icons";
+import { auth } from "@/utils/auth";
+import { useState } from "react";
 
 export default function Login() {
+  const { loginUser } = auth();
+
+  const [formData, setFormData] = useState({
+    email: "",
+    username: "",
+    password: "",
+  });
+
+  const [showPassword, setShowPassword] = useState(false);
+  const [isFocus, setIsFocus] = useState(false);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault;
+    loginUser(formData);
+  };
+
   return (
     <div className="bg-[#F5F7FA] h-screen overflow-hidden">
       {/* container */}
@@ -75,7 +101,11 @@ export default function Login() {
                   ชื่อผู้ใช้ (username) หรือ อีเมลบริษัท (email){" "}
                 </label>
                 <input
+                  onChange={handleChange}
+                  value={formData.email}
                   type="email"
+                  name="email"
+                  required
                   placeholder="กรอกชื่อผู้ใช้ หรือ อีเมลบริษัท"
                   className="w-full border border-[#E5E9F0] rounded-lg mt-2 focus:outline-none focus:ring-alert-success-title placeholder:text-[14px] placeholder:text-[#64748B]"
                 />
@@ -83,10 +113,28 @@ export default function Login() {
               <div>
                 <label className="text-[#0F172A]">รหัสผ่าน (password)</label>
                 <input
-                  type="password"
+                  onChange={handleChange}
+                  onFocus={() => setIsFocus(true)}
+                  onBlur={() => setIsFocus(false)}
+                  value={formData.password}
+                  type={showPassword ? "text" : "password"}
+                  name="password"
                   placeholder="กรอกรหัสผ่าน"
                   className="w-full border border-[#E5E9F0] rounded-lg mt-2 focus:outline-none focus:ring-alert-success-title placeholder:text-[14px] placeholder:text-[#64748B]"
                 />
+                {(isFocus || formData.password.length > 0) && (
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? (
+                      <EyeDisabled size={18} />
+                    ) : (
+                      <Eye size={18} />
+                    )}
+                  </button>
+                )}
               </div>
               {/* btn login */}
               <div>

@@ -6,11 +6,11 @@ import bgCircleL from "@/app/img/bgCircleL.svg";
 import { Button } from "@/components/tailgrids/core/button";
 import { Link } from "@/components/tailgrids/core/link";
 import { ArrowRight, Eye, EyeDisabled, Shield1Check } from "@tailgrids/icons";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { auth } from "@/utils/auth";
 
 export default function Register() {
-  const router = useRouter();
+  const { registerUser } = auth();
   const [formData, setFormData] = useState({
     username: "",
     email: "",
@@ -31,6 +31,7 @@ export default function Register() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    registerUser(formData);
 
     if (formData.password !== formData.confirmPassword) {
       alert("รหัสผ่านไม่ตรงกัน กรุณาตรวจสอบอีกครั้ง");
@@ -60,8 +61,6 @@ export default function Register() {
     localStorage.setItem("users", JSON.stringify(updatedUsers));
 
     alert("สมัครสมาชิกสำเร็จ!");
-
-    router.push("/login");
   };
 
   return (
