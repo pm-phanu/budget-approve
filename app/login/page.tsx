@@ -13,8 +13,7 @@ export default function Login() {
   const { loginUser } = auth();
 
   const [formData, setFormData] = useState({
-    email: "",
-    username: "",
+    identifier: "",
     password: "",
   });
 
@@ -102,8 +101,8 @@ export default function Login() {
                 </label>
                 <input
                   onChange={handleChange}
-                  value={formData.email}
-                  type="email"
+                  value={formData.identifier}
+                  type="text"
                   name="identifier"
                   required
                   placeholder="กรอกชื่อผู้ใช้ หรือ อีเมลบริษัท"

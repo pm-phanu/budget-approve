@@ -7,7 +7,7 @@ export function auth() {
 
   const registerUser = (formData: any) => {
     if (formData.password !== formData.confirmPassword) {
-      alert("รหัสผ่านและการยืนยันรหัสผ่านไม่ตรงกัน!");
+      alert("รหัสผ่านไม่ตรงกัน กรุณาตรวจสอบอีกครั้ง");
       return;
     }
 
