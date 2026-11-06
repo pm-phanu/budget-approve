@@ -23,9 +23,9 @@ export default function Login() {
             <Image src={bgCircleL} alt="bgCircleL" />
           </div>
           {/* container */}
-          <div className="max-w-[720px] m-16">
+          <div className="max-w-3xl m-16">
             {/* header */}
-            <div className="text-[18px] font-semibold capitalize pb-80">
+            <div className="text-[1rem] font-semibold capitalize pb-80">
               <h1>budget approval system</h1>
             </div>
             {/* content */}
@@ -34,10 +34,10 @@ export default function Login() {
               <div>
                 {/* header content */}
                 <div className="mb-4">
-                  <p className="text-[44px] font-bold">ระบบอนุมัตงบประมาณ</p>
+                  <p className="text-5xl font-bold">ระบบอนุมัตงบประมาณ</p>
                 </div>
                 {/* footer content */}
-                <div className="text-balance text-[18px]">
+                <div className="text-balance text-[1rem]">
                   <p className="text-[#64748B]">
                     ยื่นคำขอ ติดตามสถานะ และอนุมัติงบประมาณได้ในที่เดียว โปร่งใส
                     ตรวจสอบได้ทุกขั้นตอน
@@ -59,7 +59,7 @@ export default function Login() {
         {/* right */}
         <div>
           {/* container */}
-          <div className="border-1 border-[#E5E9F0] bg-[#FFFFFF] shadow-md max-w-[480px] mx-auto my-60 rounded-2xl p-10">
+          <div className="border border-[#E5E9F0] bg-[#FFFFFF] shadow-md max-w-120 mx-auto my-60 rounded-2xl p-10">
             <div className="mb-6">
               <h2 className="text-3xl font-bold mb-2 text-[#0F172A]">
                 เข้าสู่ระบบ
@@ -77,7 +77,7 @@ export default function Login() {
                 <input
                   type="email"
                   placeholder="กรอกชื่อผู้ใช้ หรือ อีเมลบริษัท"
-                  className="w-full border-1 border-[#E5E9F0] rounded-[8px] mt-2 focus:outline-none focus:ring-[#166534] placeholder:text-[14px] placeholder:text-[#64748B]"
+                  className="w-full border border-[#E5E9F0] rounded-lg mt-2 focus:outline-none focus:ring-alert-success-title placeholder:text-[14px] placeholder:text-[#64748B]"
                 />
               </div>
               <div>
@@ -85,27 +85,27 @@ export default function Login() {
                 <input
                   type="password"
                   placeholder="กรอกรหัสผ่าน"
-                  className="w-full border-1 border-[#E5E9F0] rounded-[8px] mt-2 focus:outline-none focus:ring-[#166534] placeholder:text-[14px] placeholder:text-[#64748B]"
+                  className="w-full border border-[#E5E9F0] rounded-lg mt-2 focus:outline-none focus:ring-alert-success-title placeholder:text-[14px] placeholder:text-[#64748B]"
                 />
               </div>
               {/* btn login */}
               <div>
                 <Button
                   variant={"success"}
-                  className={"my-6 w-full bg-[#166534]"}
+                  className={"my-6 w-full bg-alert-success-title"}
                 >
                   เข้าสู่ระบบ
                 </Button>
                 <div className="flex items-center gap-4 my-6">
-                  <div className="border-t-2 border-[#E5E9F0] max-w-[180px] w-full"></div>
+                  <div className="border-t-2 border-[#E5E9F0] max-w-45 w-full"></div>
                   <p className="text-[#64748B]">or</p>
-                  <div className="border-t-2 border-[#E5E9F0] max-w-[180px] w-full"></div>
+                  <div className="border-t-2 border-[#E5E9F0] max-w-45 w-full"></div>
                 </div>
                 <p className="flex gap-2 justify-center items-center">
                   <span className="text-[#0F172A]">พนักงานใหม่?</span>
                   <Link
                     href="/"
-                    className="text-[#166534] underline hover:text-[#166534]/90 font-bold"
+                    className="text-alert-success-title underline hover:text-alert-success-title/90 font-bold"
                   >
                     ลงทะเบียนเข้าใช้งานระบบ{" "}
                     <span>
