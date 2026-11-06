@@ -94,7 +94,7 @@ export default function Login() {
               </p>
             </div>
             {/* form */}
-            <form>
+            <form onSubmit={handleSubmit}>
               <div className="mb-6">
                 <label className="text-[#0F172A]">
                   ชื่อผู้ใช้ (username) หรือ อีเมลบริษัท (email){" "}

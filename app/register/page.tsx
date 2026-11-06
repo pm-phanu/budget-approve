@@ -40,27 +40,6 @@ export default function Register() {
 
     const storeUsers = localStorage.getItem("users");
     const usersArray = storeUsers ? JSON.parse(storeUsers) : [];
-
-    const isEmailExist = usersArray.some(
-      (user: any) => user.email === formData.email,
-    );
-
-    const isUserExist = usersArray.some(
-      (user: any) => user.username === formData.username,
-    );
-
-    if (isEmailExist) {
-      alert("อีเมล นี้ถูกใช้งานแล้ว โปรดใช้อีเมลอื่น");
-    }
-    if (isUserExist) {
-      alert("ชื่อผู้ใช้ นี้ผู้ใช้งานแล้ว โปรดใช้ชื่อผู้ใช้อื่น");
-    }
-
-    const updatedUsers = [...usersArray, formData];
-
-    localStorage.setItem("users", JSON.stringify(updatedUsers));
-
-    alert("สมัครสมาชิกสำเร็จ!");
   };
 
   return (
