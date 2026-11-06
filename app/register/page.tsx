@@ -5,7 +5,7 @@ import bgCircleR from "@/app/img/bgCircleR.svg";
 import bgCircleL from "@/app/img/bgCircleL.svg";
 import { Button } from "@/components/tailgrids/core/button";
 import { Link } from "@/components/tailgrids/core/link";
-import { ArrowRight, Shield1Check } from "@tailgrids/icons";
+import { ArrowRight, Eye, EyeDisabled, Shield1Check } from "@tailgrids/icons";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -17,6 +17,9 @@ export default function Register() {
     password: "",
     confirmPassword: "",
   });
+
+  const [showPassword, setShowPassword] = useState(false);
+  const [isFocus, setIsFocus] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -30,8 +33,8 @@ export default function Register() {
     e.preventDefault();
 
     if (formData.password !== formData.confirmPassword) {
-      alert("รหัสผ่านไม่ตรงกัน กรุณาตรวจสอบอีกครั้ง")
-      return
+      alert("รหัสผ่านไม่ตรงกัน กรุณาตรวจสอบอีกครั้ง");
+      return;
     }
 
     const storeUsers = localStorage.getItem("users");
@@ -147,31 +150,55 @@ export default function Register() {
                     className="w-full border border-[#E5E9F0] rounded-lg mt-2 focus:outline-none focus:ring-alert-success-title placeholder:text-[14px] placeholder:text-[#64748B]"
                   />
                 </div>
-                <div>
+                <div className="relative">
                   <label className="text-[#0F172A]">รหัสผ่าน (password)</label>
                   <input
                     onChange={handleChange}
+                    onFocus={() => setIsFocus(true)}
+                    onBlur={() => setIsFocus(false)}
                     value={formData.password}
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     name="password"
                     required
                     placeholder="กำหนดรหัสผ่าน"
                     className="w-full border border-[#E5E9F0] rounded-lg mt-2 focus:outline-none focus:ring-alert-success-title placeholder:text-[14px] placeholder:text-[#64748B]"
                   />
+                  {(isFocus || formData.password.length > 0) && (
+                    <button
+                      className="absolute top-10 right-4 text-[#64748B]"
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? <EyeDisabled /> : <Eye />}
+                    </button>
+                  )}
                 </div>
-                <div>
+                <div className="relative">
                   <label className="text-[#0F172A]">
                     ยืนยันรหัสผ่าน (confirm password)
                   </label>
                   <input
                     onChange={handleChange}
+                    onFocus={() => setIsFocus(true)}
+                    onBlur={() => setIsFocus(false)}
                     value={formData.confirmPassword}
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     name="confirmPassword"
                     required
                     placeholder="กำหนดรหัสผ่านอีกครั้ง"
                     className="w-full border border-[#E5E9F0] rounded-lg mt-2 focus:outline-none focus:ring-alert-success-title placeholder:text-[14px] placeholder:text-[#64748B]"
                   />
+                  {(isFocus || formData.confirmPassword.length > 0) && (
+                    <button
+                      className="absolute top-10 right-4 text-[#64748B]"
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? <EyeDisabled /> : <Eye />}
+                    </button>
+                  )}
                 </div>
               </div>
               {/* noti */}
