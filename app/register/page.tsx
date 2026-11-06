@@ -6,8 +6,50 @@ import bgCircleL from "@/app/img/bgCircleL.svg";
 import { Button } from "@/components/tailgrids/core/button";
 import { Link } from "@/components/tailgrids/core/link";
 import { ArrowRight, Shield1Check } from "@tailgrids/icons";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 export default function Register() {
+  const router = useRouter();
+  const [formData, setFormData] = useState({
+    username: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+  });
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const storeUsers = localStorage.getItem("users");
+    const usersArray = storeUsers ? JSON.parse(storeUsers) : [];
+
+    const isEmailExist = usersArray.some(
+      (user: any) => user.email === formData.email,
+    );
+
+    if (isEmailExist) {
+      alert("อีเมลนี้ถูกใช้งานแล้ว โปรดใช้อีเมลอื่น");
+      return;
+    }
+
+    const updatedUsers = [...usersArray, formData];
+
+    localStorage.setItem("users", JSON.stringify(updatedUsers));
+
+    alert("สมัครสมาชิกสำเร็จ!");
+
+    router.push("/login");
+  };
+
   return (
     <div className="bg-[#F5F7FA] h-screen overflow-hidden">
       {/* container */}
@@ -70,14 +112,18 @@ export default function Register() {
               </p>
             </div>
             {/* form */}
-            <form>
+            <form onSubmit={handleSubmit}>
               <div className="flex flex-col gap-6">
                 <div>
                   <label className="text-[#0F172A]">
                     ชื่อ-นามสกุล (name-lastname)
                   </label>
                   <input
+                    onChange={handleChange}
+                    value={formData.username}
                     type="text"
+                    name="username"
+                    required
                     placeholder="กรอกชื่อและนามสกุล"
                     className="w-full border border-[#E5E9F0] rounded-lg mt-2 focus:outline-none focus:ring-alert-success-title placeholder:text-[14px] placeholder:text-[#64748B]"
                   />
@@ -87,7 +133,11 @@ export default function Register() {
                     อีเมลบริษัท (Company Email)
                   </label>
                   <input
+                    onChange={handleChange}
+                    value={formData.email}
                     type="email"
+                    name="email"
+                    required
                     placeholder="name@company.co.th"
                     className="w-full border border-[#E5E9F0] rounded-lg mt-2 focus:outline-none focus:ring-alert-success-title placeholder:text-[14px] placeholder:text-[#64748B]"
                   />
@@ -95,7 +145,11 @@ export default function Register() {
                 <div>
                   <label className="text-[#0F172A]">รหัสผ่าน (password)</label>
                   <input
+                    onChange={handleChange}
+                    value={formData.password}
                     type="password"
+                    name="password"
+                    required
                     placeholder="กำหนดรหัสผ่าน"
                     className="w-full border border-[#E5E9F0] rounded-lg mt-2 focus:outline-none focus:ring-alert-success-title placeholder:text-[14px] placeholder:text-[#64748B]"
                   />
@@ -105,7 +159,11 @@ export default function Register() {
                     ยืนยันรหัสผ่าน (confirm password)
                   </label>
                   <input
+                    onChange={handleChange}
+                    value={formData.confirmPassword}
                     type="password"
+                    name="confirmPassword"
+                    required
                     placeholder="กำหนดรหัสผ่านอีกครั้ง"
                     className="w-full border border-[#E5E9F0] rounded-lg mt-2 focus:outline-none focus:ring-alert-success-title placeholder:text-[14px] placeholder:text-[#64748B]"
                   />
