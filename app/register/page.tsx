@@ -183,6 +183,7 @@ export default function Register() {
               <div className="flex flex-col gap-6 mt-6">
                 <div>
                   <Button
+                    type="submit"
                     variant={"success"}
                     className={"w-full bg-alert-success-title"}
                   >
