@@ -165,12 +165,12 @@ export default function Register() {
                   />
                   {(isFocus || formData.password.length > 0) && (
                     <button
-                      className="absolute top-10 right-4 text-[#64748B]"
+                      className="absolute top-11 right-4 text-[#64748B]"
                       type="button"
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() => setShowPassword(!showPassword)}
                     >
-                      {showPassword ? <EyeDisabled /> : <Eye />}
+                      {showPassword ? <EyeDisabled size={18} /> : <Eye size={18} />}
                     </button>
                   )}
                 </div>
@@ -191,12 +191,12 @@ export default function Register() {
                   />
                   {(isFocus || formData.confirmPassword.length > 0) && (
                     <button
-                      className="absolute top-10 right-4 text-[#64748B]"
+                      className="absolute top-11 right-4 text-[#64748B]"
                       type="button"
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() => setShowPassword(!showPassword)}
                     >
-                      {showPassword ? <EyeDisabled /> : <Eye />}
+                      {showPassword ? <EyeDisabled size={18} /> : <Eye size={18} />}
                     </button>
                   )}
                 </div>
