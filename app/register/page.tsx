@@ -44,9 +44,15 @@ export default function Register() {
       (user: any) => user.email === formData.email,
     );
 
+    const isUserExist = usersArray.some(
+      (user: any) => user.username === formData.username,
+    );
+
     if (isEmailExist) {
-      alert("อีเมลนี้ถูกใช้งานแล้ว โปรดใช้อีเมลอื่น");
-      return;
+      alert("อีเมล นี้ถูกใช้งานแล้ว โปรดใช้อีเมลอื่น");
+    }
+    if (isUserExist) {
+      alert("ชื่อผู้ใช้ นี้ผู้ใช้งานแล้ว โปรดใช้ชื่อผู้ใช้อื่น");
     }
 
     const updatedUsers = [...usersArray, formData];
@@ -170,7 +176,11 @@ export default function Register() {
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() => setShowPassword(!showPassword)}
                     >
-                      {showPassword ? <EyeDisabled size={18} /> : <Eye size={18} />}
+                      {showPassword ? (
+                        <EyeDisabled size={18} />
+                      ) : (
+                        <Eye size={18} />
+                      )}
                     </button>
                   )}
                 </div>
@@ -196,7 +206,11 @@ export default function Register() {
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() => setShowPassword(!showPassword)}
                     >
-                      {showPassword ? <EyeDisabled size={18} /> : <Eye size={18} />}
+                      {showPassword ? (
+                        <EyeDisabled size={18} />
+                      ) : (
+                        <Eye size={18} />
+                      )}
                     </button>
                   )}
                 </div>
