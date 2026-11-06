@@ -13,7 +13,7 @@ export default function Login() {
       {/* container */}
       <div className="grid grid-cols-2">
         {/* left */}
-        <div className="bg-[#DCFCE7] relative">
+        <div className="bg-[#DCFCE7] h-screen relative">
           {/* bgCircleR */}
           <div className="absolute right-0">
             <Image src={bgCircleR} alt="bgCircleR" />
