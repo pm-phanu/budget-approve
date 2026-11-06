@@ -1,8 +1,9 @@
 'use client'
 
-export default function Register () {
-    return 
+export default function Register() {
+  return (
     <>
-        <h1>register</h1>
+      <h1>register</h1>
     </>
+  )
 }
