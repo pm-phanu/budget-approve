@@ -138,6 +138,7 @@ export default function Login() {
               {/* btn login */}
               <div>
                 <Button
+                  type="submit"
                   variant={"success"}
                   className={"my-6 w-full bg-alert-success-title"}
                 >

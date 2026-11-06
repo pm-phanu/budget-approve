@@ -198,7 +198,7 @@ export default function Register() {
                 <Shield1Check className="text-alert-success-title size-5" />
                 <p>รหัสผ่านต้องมีความยาวอย่างน้อย 8 ตัวอักษร</p>
               </div>
-              {/* btn login */}
+              {/* btn register */}
               <div className="flex flex-col gap-6 mt-6">
                 <div>
                   <Button
