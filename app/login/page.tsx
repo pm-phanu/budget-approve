@@ -1,4 +1,4 @@
-'use client'
+"use client";
 
 import Image from "next/image";
 import bgCircleR from "@/app/img/bgCircleR.svg";
@@ -96,15 +96,17 @@ export default function Login() {
                 >
                   เข้าสู่ระบบ
                 </Button>
-                <div className="flex items-center gap-4 my-6">
-                  <div className="border-t-2 border-[#E5E9F0] max-w-45 w-full"></div>
-                  <p className="text-[#64748B]">or</p>
-                  <div className="border-t-2 border-[#E5E9F0] max-w-45 w-full"></div>
-                </div>
+              </div>
+              <div className="flex items-center gap-4 my-6">
+                <div className="border-t-2 border-[#E5E9F0] max-w-45 w-full"></div>
+                <p className="text-[#64748B]">or</p>
+                <div className="border-t-2 border-[#E5E9F0] max-w-45 w-full"></div>
+              </div>
+              <div>
                 <p className="flex gap-2 justify-center items-center">
                   <span className="text-[#0F172A]">พนักงานใหม่?</span>
                   <Link
-                    href="/"
+                    href="/register"
                     className="text-alert-success-title underline hover:text-alert-success-title/90 font-bold"
                   >
                     ลงทะเบียนเข้าใช้งานระบบ{" "}
