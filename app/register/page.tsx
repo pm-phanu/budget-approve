@@ -74,7 +74,7 @@ export default function Register() {
               <div className="flex flex-col gap-6">
                 <div>
                   <label className="text-[#0F172A]">
-                    ชื่อ-นามสกุล (name-surname)
+                    ชื่อ-นามสกุล (name-lastname)
                   </label>
                   <input
                     type="text"
