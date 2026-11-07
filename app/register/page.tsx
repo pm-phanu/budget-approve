@@ -6,11 +6,11 @@ import bgCircleL from "@/app/img/bgCircleL.svg";
 import { Button } from "@/components/tailgrids/core/button";
 import { Link } from "@/components/tailgrids/core/link";
 import { ArrowRight, Eye, EyeDisabled, Shield1Check } from "@tailgrids/icons";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { auth } from "@/utils/auth";
 
 export default function Register() {
-  const router = useRouter();
+  const { registerUser } = auth();
   const [formData, setFormData] = useState({
     username: "",
     email: "",
@@ -31,6 +31,7 @@ export default function Register() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    registerUser(formData);
 
     if (formData.password !== formData.confirmPassword) {
       alert("รหัสผ่านไม่ตรงกัน กรุณาตรวจสอบอีกครั้ง");
@@ -39,29 +40,6 @@ export default function Register() {
 
     const storeUsers = localStorage.getItem("users");
     const usersArray = storeUsers ? JSON.parse(storeUsers) : [];
-
-    const isEmailExist = usersArray.some(
-      (user: any) => user.email === formData.email,
-    );
-
-    const isUserExist = usersArray.some(
-      (user: any) => user.username === formData.username,
-    );
-
-    if (isEmailExist) {
-      alert("อีเมล นี้ถูกใช้งานแล้ว โปรดใช้อีเมลอื่น");
-    }
-    if (isUserExist) {
-      alert("ชื่อผู้ใช้ นี้ผู้ใช้งานแล้ว โปรดใช้ชื่อผู้ใช้อื่น");
-    }
-
-    const updatedUsers = [...usersArray, formData];
-
-    localStorage.setItem("users", JSON.stringify(updatedUsers));
-
-    alert("สมัครสมาชิกสำเร็จ!");
-
-    router.push("/login");
   };
 
   return (
@@ -220,7 +198,7 @@ export default function Register() {
                 <Shield1Check className="text-alert-success-title size-5" />
                 <p>รหัสผ่านต้องมีความยาวอย่างน้อย 8 ตัวอักษร</p>
               </div>
-              {/* btn login */}
+              {/* btn register */}
               <div className="flex flex-col gap-6 mt-6">
                 <div>
                   <Button
