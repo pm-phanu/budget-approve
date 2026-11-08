@@ -18,14 +18,14 @@ export function auth() {
       (user: any) => user.email === formData.email,
     );
 
-    const isUserExist = usersArray.some(
-      (user: any) => user.username === formData.username,
-    );
-
     if (isEmailExist) {
       alert("อีเมลนี้มีอยู่ในระบบแล้ว!");
       return;
     }
+
+    const isUserExist = usersArray.some(
+      (user: any) => user.username === formData.username,
+    );
 
     if (isUserExist) {
       alert("ชื่อผู้ใช้นี้มีอยู่ในระบบแล้ว!");

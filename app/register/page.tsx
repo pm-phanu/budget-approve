@@ -31,15 +31,13 @@ export default function Register() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    registerUser(formData);
-
+    
     if (formData.password !== formData.confirmPassword) {
       alert("รหัสผ่านไม่ตรงกัน กรุณาตรวจสอบอีกครั้ง");
       return;
     }
 
-    const storeUsers = localStorage.getItem("users");
-    const usersArray = storeUsers ? JSON.parse(storeUsers) : [];
+    registerUser(formData)
   };
 
   return (
