@@ -346,8 +346,8 @@ export default function DH() {
 
                   {/* Stepper Progress */}
                   <div className="relative px-2 py-2">
-                    <div className="absolute top-1/2 left-6 right-6 -translate-y-1/2 h-0.5 bg-gray-200 z-0"></div>
-                    <div className="absolute top-1/2 left-6 w-1/2 -translate-y-1/2 h-0.5 bg-emerald-500 z-0"></div>
+                    <div className="absolute left-5 right-5 top-5 -translate-y-1/2 h-1 bg-gray-200 z-0"></div>
+                    <div className="absolute left-5 right-[50%] top-5 -translate-y-1/2 h-1 bg-emerald-500 z-0"></div>
 
                     <div className="relative z-10 flex justify-between items-center text-xs">
                       <div className="flex flex-col items-center gap-1">
@@ -391,7 +391,7 @@ export default function DH() {
 
                   {/* Stepper Progress */}
                   <div className="relative px-2 py-2">
-                    <div className="absolute top-1/2 left-6 right-6 -translate-y-1/2 h-0.5 bg-emerald-500 z-0"></div>
+                    <div className="absolute left-5 right-6 top-5 -translate-y-1/2 h-1 bg-emerald-500 z-0"></div>
 
                     <div className="relative z-10 flex justify-between items-center text-xs">
                       <div className="flex flex-col items-center gap-1">
@@ -441,8 +441,8 @@ export default function DH() {
 
                   {/* Stepper Progress */}
                   <div className="relative px-2 py-2">
-                    <div className="absolute top-1/2 left-6 right-6 -translate-y-1/2 h-0.5 bg-gray-200 z-0"></div>
-                    <div className="absolute top-1/2 left-6 w-1/2 -translate-y-1/2 h-0.5 bg-emerald-500 z-0"></div>
+                    <div className="absolute left-5 right-5 top-5 -translate-y-1/2 h-1 bg-gray-200 z-0"></div>
+                    <div className="absolute left-5 right-[50%] top-5 -translate-y-1/2 h-1 bg-emerald-500 z-0"></div>
 
                     <div className="relative z-10 flex justify-between items-center text-xs">
                       <div className="flex flex-col items-center gap-1">
