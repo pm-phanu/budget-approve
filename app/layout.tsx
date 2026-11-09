@@ -1,5 +1,8 @@
 "use client";
 
+// todo for pat
+// เขียนฟังก์ชั่่นไว้เช็ค current user จาก localstorage
+
 import { Link } from "@/components/tailgrids/core/link";
 import { DashboardSquare1, FileText, Gear1, Plus } from "@tailgrids/icons";
 import Image from "next/image";
