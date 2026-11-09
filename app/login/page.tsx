@@ -109,7 +109,7 @@ export default function Login() {
                   className="w-full border border-[#E5E9F0] rounded-lg mt-2 focus:outline-none focus:ring-alert-success-title placeholder:text-[14px] placeholder:text-[#64748B]"
                 />
               </div>
-              <div>
+              <div className="relative">
                 <label className="text-[#0F172A]">รหัสผ่าน (password)</label>
                 <input
                   onChange={handleChange}
@@ -123,6 +123,7 @@ export default function Login() {
                 />
                 {(isFocus || formData.password.length > 0) && (
                   <button
+                    className="absolute top-11 right-4 text-[#64748B]"
                     type="button"
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => setShowPassword(!showPassword)}
