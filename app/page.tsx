@@ -6,11 +6,10 @@ import Image from "next/image";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faHistory } from "@fortawesome/free-solid-svg-icons/faHistory";
 import { faArrowRightFromBracket } from "@fortawesome/free-solid-svg-icons";
-import { Button } from "@/components/tailgrids/core/button";
 
 export default function Home() {
   return (
-    <aside className="w-65 bg-[#0F172A] text-white h-screen p-9">
+    <aside className="flex flex-col w-65 bg-[#0F172A] text-white h-screen p-9">
       {/* container */}
       <div className="flex gap-1 mb-10">
         {/* icon */}
@@ -19,14 +18,14 @@ export default function Home() {
         <h1 className="font-bold text-2xl">BudgetFlow</h1>
       </div>
 
-      <nav className="">
+      <nav className="mb-10">
         {/* nav title */}
         <div className="text-[#64748B] font-semibold mb-4">เมนูหลัก</div>
         <div className="flex flex-col gap-4">
           <ul>
             <Link
               href="/"
-              className="bg-[#059669] rounded-md w-full text-white p-3.5 text-[16px] font-semibold"
+              className="bg-[#059669] rounded-xl w-full text-white p-3.5 text-[16px] font-semibold"
             >
               <DashboardSquare1 />
               แดชบอร์ด
@@ -35,7 +34,7 @@ export default function Home() {
           <ul>
             <Link
               href="/"
-              className="w-full text-white p-3.5 text-[16px] font-semibold"
+              className="w-full text-white py-3 text-[16px] font-semibold"
             >
               <Plus />
               สร้างคำขอ
@@ -44,7 +43,7 @@ export default function Home() {
           <ul>
             <Link
               href="/"
-              className="w-full text-white p-3.5 text-[16px] font-semibold"
+              className="w-full text-white py-3 text-[16px] font-semibold"
             >
               <FileText />
               คำขอของฉัน
@@ -53,20 +52,22 @@ export default function Home() {
           <ul>
             <Link
               href="/"
-              className="w-full text-white p-3.5 text-[16px] font-semibold"
+              className="w-full text-white py-3 text-[16px] font-semibold"
             >
               <FontAwesomeIcon icon={faHistory} />
               ประวัติการเบิก
             </Link>
           </ul>
         </div>
+      </nav>
 
+      <nav className="mb-10">
         <div className="text-[#64748B] font-semibold mb-4">บัญชี</div>
         <div className="flex flex-col gap-4">
           <ul>
             <Link
               href="/"
-              className="w-full text-white p-3.5 text-[16px] font-semibold"
+              className="w-full text-white py-3 text-[16px] font-semibold"
             >
               <Gear1 />
               ตั้งค่า
@@ -75,7 +76,7 @@ export default function Home() {
           <ul>
             <Link
               href="/"
-              className="w-full text-white p-3.5 text-[16px] font-semibold"
+              className="w-full text-white py-3 text-[16px] font-semibold"
             >
               <FontAwesomeIcon icon={faArrowRightFromBracket} />
               ออจากระบบ
@@ -85,10 +86,13 @@ export default function Home() {
       </nav>
 
       {/* user profile */}
-      <div>
+      <div className="mt-auto">
         {/* container */}
         <div>
-          <Link href="/" className="bg-white/7 text-white w-full p-2 rounded-xl border border-white/17">
+          <Link
+            href="/"
+            className="bg-white/7 text-white w-full p-2 rounded-xl border border-white/17"
+          >
             <div className="flex items-center gap-2">
               <div>
                 {/* img user */}
