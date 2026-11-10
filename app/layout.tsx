@@ -4,7 +4,13 @@
 // เขียนฟังก์ชั่่นไว้เช็ค current user จาก localstorage
 
 import { Link } from "@/components/tailgrids/core/link";
-import { DashboardSquare1, FileText, Gear1, Plus } from "@tailgrids/icons";
+import {
+  DashboardSquare1,
+  FileText,
+  Gear1,
+  MenuHamburger1,
+  Plus,
+} from "@tailgrids/icons";
 import Image from "next/image";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faHistory } from "@fortawesome/free-solid-svg-icons/faHistory";
@@ -33,7 +39,12 @@ export default function RootLayout({
               {/* icon */}
               <div className="border-[#059669] border-2 rounded-md"></div>
               {/* title */}
-              <h1 className="font-bold text-2xl">BudgetFlow</h1>
+              <div className="flex items-center gap-6">
+                <h1 className="font-bold text-2xl">BudgetFlow</h1>
+                <button type="button">
+                  <MenuHamburger1 />
+                </button>
+              </div>
             </div>
 
             <nav className="mb-10">
