@@ -4,12 +4,20 @@
 // เขียนฟังก์ชั่่นไว้เช็ค current user จาก localstorage
 
 import { Link } from "@/components/tailgrids/core/link";
-import { DashboardSquare1, FileText, Gear1, Plus } from "@tailgrids/icons";
+import {
+  DashboardSquare1,
+  FileText,
+  Gear1,
+  MenuHamburger1,
+  Plus,
+  Xmark,
+} from "@tailgrids/icons";
 import Image from "next/image";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faHistory } from "@fortawesome/free-solid-svg-icons/faHistory";
 import { faArrowRightFromBracket } from "@fortawesome/free-solid-svg-icons";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 import "./globals.css";
 
 export default function RootLayout({
@@ -19,111 +27,156 @@ export default function RootLayout({
 }) {
   const pathname = usePathname();
 
-  // เช็คว่าตอนนี้อยู่หน้า Login หรือ Register หรือไม่
+  const [isOpen, setIsOpen] = useState(false);
+
   const isAuthPage = pathname === "/login" || pathname === "/register";
 
   return (
     <html lang="th">
       <body className="flex min-h-screen bg-gray-100 text-gray-800">
-        {/* ถ้าไม่ใช่หน้า Auth (Login/Register) ถึงจะแสดง Sidebar */}
         {!isAuthPage && (
-          <aside className="flex flex-col w-65 bg-[#0F172A] text-white h-screen p-9 fixed">
-            {/* container */}
-            <div className="flex gap-1 mb-10">
-              {/* icon */}
+          <aside
+            className={`flex flex-col bg-[#0F172A] text-white h-screen fixed overflow-hidden transition-all duration-300 ${
+              isOpen ? "w-65 p-9" : "w-20 p-4"
+            }`}
+          >
+            <div
+              className={`flex gap-1 mb-10 ${!isOpen ? "justify-center" : ""}`}
+            >
               <div className="border-[#059669] border-2 rounded-md"></div>
-              {/* title */}
-              <h1 className="font-bold text-2xl">BudgetFlow</h1>
+              <div className="flex items-center gap-6">
+                {isOpen && (
+                  <h1 className="font-bold text-2xl whitespace-nowrap">
+                    BudgetFlow
+                  </h1>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setIsOpen(!isOpen)}
+                  aria-label={isOpen ? "หุบเมนู" : "ขยายเมนู"}
+                  aria-expanded={isOpen}
+                >
+                  {isOpen ? <Xmark /> : <MenuHamburger1 />}
+                </button>
+              </div>
             </div>
 
             <nav className="mb-10">
-              {/* nav title */}
-              <div className="text-[#64748B] font-semibold mb-4">เมนูหลัก</div>
+              {isOpen && (
+                <div className="text-[#64748B] font-semibold mb-4">
+                  เมนูหลัก
+                </div>
+              )}
               <div className="flex flex-col gap-4">
                 <ul>
                   <Link
                     href="/"
-                    className="bg-[#059669] rounded-xl w-full text-white p-3.5 text-[16px] font-semibold flex items-center gap-3"
+                    title="แดชบอร์ด"
+                    className={`bg-[#059669] rounded-xl w-full text-white p-3.5 text-[16px] font-semibold flex items-center gap-3 ${
+                      !isOpen ? "justify-center" : ""
+                    }`}
                   >
                     <DashboardSquare1 />
-                    แดชบอร์ด
+                    {isOpen && <span>แดชบอร์ด</span>}
                   </Link>
                 </ul>
                 <ul>
                   <Link
                     href="/"
-                    className="w-full text-white py-3 text-[16px] font-semibold flex items-center gap-3"
+                    title="สร้างคำขอ"
+                    className={`w-full text-white py-3 text-[16px] font-semibold flex items-center gap-3 ${
+                      !isOpen ? "justify-center" : ""
+                    }`}
                   >
                     <Plus />
-                    สร้างคำขอ
+                    {isOpen && <span>สร้างคำขอ</span>}
                   </Link>
                 </ul>
                 <ul>
                   <Link
                     href="/"
-                    className="w-full text-white py-3 text-[16px] font-semibold flex items-center gap-3"
+                    title="คำขอของฉัน"
+                    className={`w-full text-white py-3 text-[16px] font-semibold flex items-center gap-3 ${
+                      !isOpen ? "justify-center" : ""
+                    }`}
                   >
                     <FileText />
-                    คำขอของฉัน
+                    {isOpen && <span>คำขอของฉัน</span>}
                   </Link>
                 </ul>
                 <ul>
                   <Link
                     href="/"
-                    className="w-full text-white py-3 text-[16px] font-semibold flex items-center gap-3"
+                    title="ประวัติการเบิก"
+                    className={`w-full text-white py-3 text-[16px] font-semibold flex items-center gap-3 ${
+                      !isOpen ? "justify-center" : ""
+                    }`}
                   >
                     <FontAwesomeIcon icon={faHistory} />
-                    ประวัติการเบิก
+                    {isOpen && <span>ประวัติการเบิก</span>}
                   </Link>
                 </ul>
               </div>
             </nav>
 
             <nav className="mb-10">
-              <div className="text-[#64748B] font-semibold mb-4">บัญชี</div>
+              {isOpen && (
+                <div className="text-[#64748B] font-semibold mb-4">บัญชี</div>
+              )}
               <div className="flex flex-col gap-4">
                 <ul>
                   <Link
                     href="/"
-                    className="w-full text-white py-3 text-[16px] font-semibold flex items-center gap-3"
+                    title="ตั้งค่า"
+                    className={`w-full text-white py-3 text-[16px] font-semibold flex items-center gap-3 ${
+                      !isOpen ? "justify-center" : ""
+                    }`}
                   >
                     <Gear1 />
-                    ตั้งค่า
+                    {isOpen && <span>ตั้งค่า</span>}
                   </Link>
                 </ul>
                 <ul>
                   <Link
                     href="/"
-                    className="w-full text-white py-3 text-[16px] font-semibold flex items-center gap-3"
+                    title="ออกจากระบบ"
+                    className={`w-full text-white py-3 text-[16px] font-semibold flex items-center gap-3 ${
+                      !isOpen ? "justify-center" : ""
+                    }`}
                   >
                     <FontAwesomeIcon icon={faArrowRightFromBracket} />
-                    ออกจากระบบ
+                    {isOpen && <span>ออกจากระบบ</span>}
                   </Link>
                 </ul>
               </div>
             </nav>
 
-            {/* user profile */}
             <div className="mt-auto">
-              {/* container */}
               <div>
                 <Link
                   href="/"
-                  className="bg-white/7 text-white w-full p-2 rounded-xl border border-white/17 block"
+                  className={`bg-white/7 text-white w-full rounded-xl border border-white/17 block ${
+                    isOpen ? "p-2" : "p-1"
+                  }`}
                 >
-                  <div className="flex items-center gap-2">
+                  <div
+                    className={`flex items-center gap-2 ${
+                      !isOpen ? "justify-center" : ""
+                    }`}
+                  >
                     <div>
-                      {/* img user */}
                       <img
                         className="rounded-full w-10 h-10 object-cover border border-white"
                         src="https://plus.unsplash.com/premium_photo-1671656349322-41de944d259b?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D"
                         alt="profile"
                       />
                     </div>
-                    <div className="text-left">
-                      <h1 className="text-[14px] font-bold">ชื่อผู้ใช้</h1>
-                      <p className="text-[12px]">พนักงาน : การตลาด</p>
-                    </div>
+                    {isOpen && (
+                      <div className="text-left whitespace-nowrap">
+                        <h1 className="text-[14px] font-bold">ชื่อผู้ใช้</h1>
+                        <p className="text-[12px]">พนักงาน : การตลาด</p>
+                      </div>
+                    )}
                   </div>
                 </Link>
               </div>
@@ -131,8 +184,11 @@ export default function RootLayout({
           </aside>
         )}
 
-        {/* พื้นที่แสดงเนื้อหาหลัก: ถ้าเป็นหน้า Login จะแสดงเต็มจอ / ถ้าไม่ใช่จะเว้นซ้าย ml-65 ให้ Sidebar */}
-        <main className={`flex-1 p-8 ${!isAuthPage ? "ml-65" : ""}`}>
+        <main
+          className={`flex-1 p-8 transition-all duration-300 ${
+            !isAuthPage ? (isOpen ? "ml-65" : "ml-20") : ""
+          }`}
+        >
           {children}
         </main>
       </body>
