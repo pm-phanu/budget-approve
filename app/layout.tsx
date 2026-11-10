@@ -138,7 +138,7 @@ export default function RootLayout({
                 </ul>
                 <ul>
                   <Link
-                    href="/"
+                    href="/login"
                     title="ออกจากระบบ"
                     className={`w-full text-white py-3 text-[16px] font-semibold flex items-center gap-3 ${
                       !isOpen ? "justify-center" : ""
@@ -185,7 +185,7 @@ export default function RootLayout({
         )}
 
         <main
-          className={`flex-1 p-8 transition-all duration-300 ${
+          className={`flex-1 transition-all duration-300 ${
             !isAuthPage ? (isOpen ? "ml-65" : "ml-20") : ""
           }`}
         >
