@@ -186,7 +186,7 @@ export default function RootLayout({
 
         <main
           className={`flex-1 transition-all duration-300 ${
-            !isAuthPage ? (isOpen ? "ml-65" : "ml-20") : ""
+            !isAuthPage ? (isOpen ? "ml-65 p-9" : "ml-20 p-9") : ""
           }`}
         >
           {children}
