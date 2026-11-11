@@ -1,8 +1,5 @@
 "use client";
 
-// todo for pat
-// เขียนฟังก์ชั่่นไว้เช็ค current user จาก localstorage
-
 import { Link } from "@/components/tailgrids/core/link";
 import {
   DashboardSquare1,
@@ -62,11 +59,13 @@ export default function RootLayout({
         {!isAuthPage && isAuthenticated === true && (
           <aside
             className={`flex flex-col bg-[#0F172A] text-white h-screen fixed overflow-hidden transition-all duration-300 ${
-              isOpen ? "w-65 p-9" : "w-20 p-4"
+              isOpen ? "w-65 p-9" : "w-20 px-4 pt-9 pb-4"
             }`}
           >
             <div
-              className={`flex gap-1 mb-10 ${!isOpen ? "justify-center" : ""}`}
+              className={`flex min-h-12 gap-1 mb-10 ${
+                !isOpen ? "justify-center" : ""
+              }`}
             >
               <div className="border-[#059669] border-2 rounded-md"></div>
               <div className="flex items-center gap-6">
