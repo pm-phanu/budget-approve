@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   ArrowRight,
   Bell1,
@@ -12,7 +13,7 @@ import {
 
 export default function DH() {
   return (
-    <div className=" bg-[#F1F5F9] min-h-screen " >
+    <div className=" bg-[#F1F5F9] min-h-screen ">
       <div className="max-w-7xl mx-auto ">
         <header className="flex justify-between gap-4 relative">
           <div>
@@ -152,9 +153,12 @@ export default function DH() {
                 <span className="font-bold">$12,800</span>
               </div>
               <div>
-                <button className="text-green-700 font-bold text- flex text-xs items-center gap-1 ">
+                <Link
+                  href="/Approved-DH"
+                  className="text-green-700 font-bold flex text-xs items-center gap-1 hover:underline"
+                >
                   ตรวจสอบ <ArrowRight size={15} />
-                </button>
+                </Link>
               </div>
             </div>
             {/* collum2 */}
