@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -11,10 +12,90 @@ import {
   Search1,
 } from "@tailgrids/icons";
 
-export default function departmentHeadHomePage() {
+/* ------------------------------------------------------------------
+   ชนิดข้อมูล + ฟังก์ชันช่วย (ตรงกับที่หน้าสร้างคำขอบันทึกไว้)
+------------------------------------------------------------------- */
+interface ExpenseRequest {
+  id: number;
+  type: "advance" | "invoice";
+  title: string;
+  total: number;
+  approver: string; // "ไม่ต้องผ่านหัวหน้า" | "หัวหน้าแผนก" | "หัวหน้าสายงาน"
+  status: string; // "รออนุมัติ" | "ร่าง"
+  requesterName?: string; // ยังไม่มีในข้อมูลเก่า
+  createdAt?: string; // ยังไม่มีในข้อมูลเก่า
+}
+
+const STORAGE_KEY = "requests";
+
+// ความกว้างคอลัมน์ของแถวรายการ ใช้ร่วมกันทั้ง "รอคุณตรวจสอบ" และ "อนุมัติล่าสุด"
+// (ชื่อ | ป้ายรอ | ยอดเงิน | ปุ่ม/สถานะ) ถ้าจะปรับความกว้าง แก้ที่นี่ที่เดียว
+const ROW_GRID =
+  "grid h-[93px] grid-cols-[260px_90px_110px_1fr] items-center gap-3";
+
+function loadRequests(): ExpenseRequest[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    const data = JSON.parse(raw);
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
+// "เมื่อ 2 ชั่วโมงที่แล้ว"
+function timeAgo(iso: string) {
+  const mins = Math.max(
+    0,
+    Math.floor((Date.now() - new Date(iso).getTime()) / 60000),
+  );
+  if (mins < 1) return "เมื่อสักครู่";
+  if (mins < 60) return `เมื่อ ${mins} นาทีที่แล้ว`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `เมื่อ ${hours} ชั่วโมงที่แล้ว`;
+  return `เมื่อ ${Math.floor(hours / 24)} วันที่แล้ว`;
+}
+
+// "รอ 2 วัน" (อย่างน้อย 1 วัน)
+function waitDays(iso: string) {
+  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+  return `รอ ${Math.max(1, days)} วัน`;
+}
+
+// ข้อมูลตัวอย่างของ "อนุมัติล่าสุด" (ต่อ localStorage ภายหลังได้)
+const recentApproved = [
+  { title: "ค่าเดินทางไป ที่เชียงใหม่", amount: 8000 },
+  { title: "ค่าเดินทางไป ที่เชียงใหม่", amount: 5000 },
+  { title: "ค่าเดินทางไป ที่เชียงใหม่", amount: 10000 },
+];
+
+/* ------------------------------------------------------------------
+   หน้า Home
+------------------------------------------------------------------- */
+export default function DH() {
+  const [requests, setRequests] = useState<ExpenseRequest[]>([]);
+
+  // โหลดใน useEffect เท่านั้น (ฝั่งเซิร์ฟเวอร์ไม่มี localStorage)
+  useEffect(() => {
+    setRequests(loadRequests());
+
+    // อัปเดตอัตโนมัติถ้าแท็บอื่นแก้ข้อมูล
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEY) setRequests(loadRequests());
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
+  // เฉพาะคำขอที่ส่งแล้ว (ไม่เอาร่าง) และต้องผ่านหัวหน้า
+  const pending = requests.filter(
+    (r) => r.status === "รออนุมัติ" && r.approver !== "ไม่ต้องผ่านหัวหน้า",
+  );
+
   return (
-    <div className=" bg-[#F1F5F9] min-h-screen " >
-      <div className="max-w-7xl mx-auto ">
+    <div className="bg-[#F1F5F9] min-h-screen">
+      <div className="max-w-7xl mx-auto">
         <header className="flex justify-between gap-4 relative">
           <div>
             <h1 className="text-2xl font-bold items-center justify-between mt-8">
@@ -22,7 +103,9 @@ export default function departmentHeadHomePage() {
             </h1>
             <p className="text-sm text-gray-500 mt-3">
               วันพฤหัสบดีที่ 15 ตุลาคม 2569 · คำขอรอคุณอนุมัติ{" "}
-              <span className="font-semibold text-[#00a86b]">3 รายการ</span>
+              <span className="font-semibold text-[#00a86b]">
+                {pending.length} รายการ
+              </span>
             </p>
           </div>
 
@@ -32,26 +115,30 @@ export default function departmentHeadHomePage() {
               <input
                 type="text"
                 placeholder=" ค้นหาคำขอ..."
-                className=" w-full md:w-80 pl-10 pr-4 py-2.5 bg-white rounded-xl text-sm border border-gray-200 outline-none focus:border-primary focus:ring-1 focus:ring-primary transition"
+                className="w-full md:w-80 pl-10 pr-4 py-2.5 bg-white rounded-xl text-sm border border-gray-200 outline-none focus:border-primary focus:ring-1 focus:ring-primary transition"
               />
             </div>
 
             <button className="p-2.5 bg-white rounded-xl border border-gray-200 hover:bg-gray-50 relative transition">
               <Bell1 />
             </button>
-            <button className="flex items-center justify-center gap-2 bg-[#00875a] text-white px-5 py-2.5 rounded-xl hover:bg-[#00704a]  text-md font-medium shadow-sm w-42.5">
+            <Link
+              href="/request/new"
+              className="flex items-center justify-center gap-2 bg-[#00875a] text-white px-5 py-2.5 rounded-xl hover:bg-[#00704a] text-md font-medium shadow-sm w-42.5"
+            >
               <span>
                 <Plus />
               </span>
               ยื่นคำขอ
-            </button>
+            </Link>
           </div>
         </header>
+
         {/* card1 */}
-        <div className="flex gap-5 ">
-          <div className="bg-[#0e4b3e] text-white-100 relative flex justify-between p-6 mt-5  overflow-hidden flex-col rounded-2xl w-150 ">
+        <div className="flex gap-5">
+          <div className="bg-[#0e4b3e] text-white relative flex justify-between p-6 mt-5 overflow-hidden flex-col rounded-2xl w-150">
             <div>
-              <div className="items-center flex justify-between mb-1 ">
+              <div className="items-center flex justify-between mb-1">
                 <div>
                   <span>งบประมาณคงเหลือ</span>
                 </div>
@@ -79,8 +166,9 @@ export default function departmentHeadHomePage() {
               </div>
             </div>
           </div>
+
           {/* card2 */}
-          <div className="bg-white-100  relative flex justify-between p-6 mt-5   flex-col rounded-2xl w-80 border-gray-100 shadow-sm">
+          <div className="bg-white relative flex justify-between p-6 mt-5 flex-col rounded-2xl w-80 border-gray-100 shadow-sm">
             <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center">
               <ClockThree />
             </div>
@@ -89,15 +177,16 @@ export default function departmentHeadHomePage() {
                 กำลังดำเนินการ
               </div>
               <div className="text-3xl font-bold mt-1 text-gray-800">
-                3{" "}
+                {pending.length}{" "}
                 <span className="text-base font-normal text-gray-500">
                   รายการ
                 </span>
               </div>
             </div>
           </div>
+
           {/* card3 */}
-          <div className="bg-white-100  relative flex justify-between p-6 mt-5   flex-col rounded-2xl w-80 border-gray-100 shadow-sm">
+          <div className="bg-white relative flex justify-between p-6 mt-5 flex-col rounded-2xl w-80 border-gray-100 shadow-sm">
             <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
               <Check />
             </div>
@@ -113,209 +202,135 @@ export default function departmentHeadHomePage() {
         </div>
 
         {/* รอคุณตรวจสอบ */}
-        <div className="flex gap5">
-          <div className="bg-white-100  relative flex justify-between p-6 mt-5   flex-col rounded-2xl w-180 border-gray-100 shadow-sm">
-            <div className="items-center flex justify-between mb-1 ">
+        <div className="flex gap-5">
+          <div className="bg-white relative flex justify-between p-6 mt-5 flex-col rounded-2xl w-180 border-gray-100 shadow-sm">
+            <div className="items-center flex justify-between mb-1">
               <div>
                 <span className="font-bold text-md">รอคุณตรวจสอบ</span>
                 <span className="bg-amber-50 text-amber-600 text-xs px-2.5 py-1 rounded-full border border-amber-200 ml-2">
-                  3
+                  {pending.length}
                 </span>
               </div>
               <div>
-                <button className="text-green-700 font-bold text- flex text-xs items-center gap-1 ">
+                <button className="text-green-700 font-bold flex text-xs items-center gap-1">
                   ดูทั้งหมด <ArrowRight size={15} />
                 </button>
               </div>
             </div>
-            {/* collum1 */}
-            <div className="flex items-center justify-between mb-1 mt-3">
-              <div className="flex items-center">
-                <div>
-                  <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-green-700 font-bold">
-                    เน
-                  </div>
-                </div>
-                <div className="flex flex-col ml-3">
-                  <div className="font-bold">ค่าเดินทางไป ที่เชียงใหม่</div>
-                  <div className="text-xs text-gray-400">
-                    เนส เมื่อ2ชั่วโมงที่แล้ว
-                  </div>
-                </div>
-              </div>
 
-              <div>
-                <span className="bg-amber-50 text-amber-600 text-xs px-2.5 py-1 rounded-full border border-amber-200">
-                  รอ 2 วัน
-                </span>
-              </div>
-              <div>
-                <span className="font-bold">$12,800</span>
-              </div>
-              <div>
-                <button className="text-green-700 font-bold text- flex text-xs items-center gap-1 ">
-                  ตรวจสอบ <ArrowRight size={15} />
-                </button>
-              </div>
-            </div>
-            {/* collum2 */}
-            <div className="flex items-center justify-between mb-1 mt-3">
-              <div className="flex items-center">
-                <div>
-                  <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-green-700 font-bold">
-                    เน
-                  </div>
+            {/* รายการรอตรวจสอบ: grid คอลัมน์คงที่ / พื้นที่สูงเท่า 3 แถวเสมอ */}
+            <div className="min-h-[279px]">
+              {pending.length === 0 ? (
+                <div className="flex h-[279px] flex-col items-center justify-center gap-2 text-gray-400">
+                  <CheckCircle1 />
+                  <span className="text-sm">ไม่มีคำขอ</span>
                 </div>
-                <div className="flex flex-col ml-3">
-                  <div className="font-bold">ค่าเดินทางไป ที่เชียงใหม่</div>
-                  <div className="text-xs text-gray-400">
-                    เนส เมื่อ2ชั่วโมงที่แล้ว
-                  </div>
-                </div>
-              </div>
+              ) : (
+                pending.map((r) => {
+                  const name = r.requesterName ?? "เนส"; // ข้อมูลเก่าไม่มีชื่อ ใช้ค่าเริ่มต้น
+                  return (
+                    <div key={r.id} className={ROW_GRID}>
+                      {/* คอลัมน์ 1: ผู้ขอ + ชื่อคำขอ */}
+                      <div className="flex min-w-0 items-center">
+                        <div className="w-10 h-10 shrink-0 rounded-full bg-emerald-100 flex items-center justify-center text-green-700 font-bold">
+                          {name.slice(0, 2)}
+                        </div>
+                        <div className="flex min-w-0 flex-col ml-3">
+                          <div className="truncate font-bold">{r.title}</div>
+                          <div className="text-xs text-gray-400">
+                            {name} {r.createdAt ? timeAgo(r.createdAt) : ""}
+                          </div>
+                        </div>
+                      </div>
 
-              <div>
-                <span className="bg-amber-50 text-amber-600 text-xs px-2.5 py-1 rounded-full border border-amber-200">
-                  รอ 2 วัน
-                </span>
-              </div>
-              <div>
-                <span className="font-bold">$12,800</span>
-              </div>
-              <div>
-                <button className="text-green-700 font-bold text- flex text-xs items-center gap-1 ">
-                  ตรวจสอบ <ArrowRight size={15} />
-                </button>
-              </div>
-            </div>
-            {/* collum3 */}
-            <div className="flex items-center justify-between mb-1 mt-3">
-              <div className="flex items-center">
-                <div>
-                  <div className="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center text-amber-600 font-bold border-amber-200">
-                    เน
-                  </div>
-                </div>
-                <div className="flex flex-col ml-3">
-                  <div className="font-bold">ค่าเดินทางไป ที่เชียงใหม่</div>
-                  <div className="text-xs text-gray-400">
-                    เนส เมื่อ2ชั่วโมงที่แล้ว
-                  </div>
-                </div>
-              </div>
+                      {/* คอลัมน์ 2: รอกี่วัน */}
+                      <div className="flex justify-center">
+                        {r.createdAt && (
+                          <span className="whitespace-nowrap bg-amber-50 text-amber-600 text-xs px-2.5 py-1 rounded-full border border-amber-200">
+                            {waitDays(r.createdAt)}
+                          </span>
+                        )}
+                      </div>
 
-              <div>
-                <span className="bg-amber-50 text-amber-600 text-xs px-2.5 py-1 rounded-full border border-amber-200">
-                  รอ 1 วัน
-                </span>
-              </div>
-              <div>
-                <span className="font-bold">$8,000</span>
-              </div>
-              <div>
-                <button className="text-green-700 font-bold text- flex text-xs items-center gap-1 ">
-                  ตรวจสอบ <ArrowRight size={15} />
-                </button>
-              </div>
+                      {/* คอลัมน์ 3: ยอดเงิน (ชิดขวา) */}
+                      <div className="text-right">
+                        <span className="font-bold tabular-nums">
+                          ฿{r.total.toLocaleString("en-US")}
+                        </span>
+                      </div>
+
+                      {/* คอลัมน์ 4: ปุ่มตรวจสอบ */}
+                      <div className="flex justify-end">
+                        <Link
+                          href={`/Approved-DH?id=${r.id}`}
+                          className="text-green-700 font-bold flex text-xs items-center gap-1 hover:underline"
+                        >
+                          ตรวจสอบ <ArrowRight size={15} />
+                        </Link>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
+
             {/* report */}
             <div className="mt-4 bg-gray-50 border border-gray-200/60 rounded-xl p-3.5 flex items-center gap-2 text-xs text-gray-500">
-              <div className="w-5 h-5 rounded-xl  flex items-center justify-center ">
+              <div className="w-5 h-5 rounded-xl flex items-center justify-center">
                 <CheckCircle1 />
               </div>
               <span>คำขอที่รอเกิน 3 วันระบบจะแจ้งเตือนคุณอีกครั้ง</span>
             </div>
+
             {/* อนุมัติแล้ว */}
             <div className="mt-5">
-              <div className="items-center flex justify-between mb-1 ">
+              <div className="items-center flex justify-between mb-1">
                 <div>
                   <span className="font-bold text-md">อนุมัติล่าสุด</span>
                 </div>
                 <div>
-                  <button className="text-green-700 font-bold text- flex text-xs items-center gap-1 ">
+                  <button className="text-green-700 font-bold flex text-xs items-center gap-1">
                     ดูประวัติ <ArrowRight size={16} />
                   </button>
                 </div>
               </div>
             </div>
-            {/* collum1 */}
-            <div className="flex items-center justify-between mb-1 mt-3">
-              <div className="flex items-center">
-                <div>
-                  <div className="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center text-amber-600 font-bold border-amber-200">
+
+            {/* อนุมัติล่าสุด: ใช้ grid เดียวกับด้านบน ยอดเงินจึงตรงกัน */}
+            {recentApproved.map((a, i) => (
+              <div key={i} className={ROW_GRID}>
+                <div className="flex min-w-0 items-center">
+                  <div className="w-10 h-10 shrink-0 rounded-full bg-amber-50 flex items-center justify-center text-amber-600 font-bold border-amber-200">
                     เน
                   </div>
-                </div>
-                <div className="flex flex-col ml-3">
-                  <div className="font-bold">ค่าเดินทางไป ที่เชียงใหม่</div>
-                  <div className="text-xs text-gray-400">
-                    อนุมัติเมื่อ 2 ชั่วโมงก่อน
+                  <div className="flex min-w-0 flex-col ml-3">
+                    <div className="truncate font-bold">{a.title}</div>
+                    <div className="text-xs text-gray-400">
+                      อนุมัติเมื่อ 2 ชั่วโมงก่อน
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div>
-                <span className="font-bold">$8,000</span>
-              </div>
-              <div>
-                <span className="bg-emerald-50 text-emerald-700 text-xs px-2.5 py-1 rounded-full border border-emerald-200">
-                  อนุมัติแล้ว
-                </span>
-              </div>
-            </div>
-            {/* collum2 */}
-            <div className="flex items-center justify-between mb-1 mt-3">
-              <div className="flex items-center">
-                <div>
-                  <div className="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center text-amber-600 font-bold border-amber-200">
-                    เน
-                  </div>
-                </div>
-                <div className="flex flex-col ml-3">
-                  <div className="font-bold">ค่าเดินทางไป ที่เชียงใหม่</div>
-                  <div className="text-xs text-gray-400">
-                    อนุมัติเมื่อ 2 ชั่วโมงก่อน
-                  </div>
-                </div>
-              </div>
+                {/* คอลัมน์ 2 เว้นว่างไว้ให้ตรงกับด้านบน */}
+                <div />
 
-              <div>
-                <span className="font-bold">$5,000</span>
-              </div>
-              <div>
-                <span className="bg-emerald-50 text-emerald-700 text-xs px-2.5 py-1 rounded-full border border-emerald-200">
-                  อนุมัติแล้ว
-                </span>
-              </div>
-            </div>
-            {/* collum3 */}
-            <div className="flex items-center justify-between mb-1 mt-3">
-              <div className="flex items-center">
-                <div>
-                  <div className="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center text-amber-600 font-bold border-amber-200">
-                    เน
-                  </div>
+                <div className="text-right">
+                  <span className="font-bold tabular-nums">
+                    ฿{a.amount.toLocaleString("en-US")}
+                  </span>
                 </div>
-                <div className="flex flex-col ml-3">
-                  <div className="font-bold">ค่าเดินทางไป ที่เชียงใหม่</div>
-                  <div className="text-xs text-gray-400">
-                    อนุมัติเมื่อ 2 ชั่วโมงก่อน
-                  </div>
-                </div>
-              </div>
 
-              <div>
-                <span className="font-bold">$10,000</span>
+                <div className="flex justify-end">
+                  <span className="whitespace-nowrap bg-emerald-50 text-emerald-700 text-xs px-2.5 py-1 rounded-full border border-emerald-200">
+                    อนุมัติแล้ว
+                  </span>
+                </div>
               </div>
-              <div>
-                <span className="bg-emerald-50 text-emerald-700 text-xs px-2.5 py-1 rounded-full border border-emerald-200">
-                  อนุมัติแล้ว
-                </span>
-              </div>
-            </div>
+            ))}
           </div>
 
-          <div className="w-full lg:w-5/12 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-6 flex flex-col justify-between ml-5 mt-5">
+          {/* คำขอของฉัน (self-start = ความสูงตามเนื้อหาตัวเอง ไม่ยืดตามฝั่งซ้าย) */}
+          <div className="w-full lg:w-5/12 self-start bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-6 flex flex-col justify-between mt-5">
             <div>
               {/* Header: คำขอของฉัน */}
               <div className="flex items-center justify-between mb-2">
