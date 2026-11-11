@@ -4,7 +4,7 @@ const SESSION_CHANGE_EVENT = "budget-approve:session-change";
 
 export function hasCurrentUserSession() {
   if (typeof window === "undefined") {
-    return false;
+    return null;
   }
 
   const storedUser = window.localStorage.getItem(CURRENT_USER_KEY);

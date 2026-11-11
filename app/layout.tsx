@@ -37,14 +37,14 @@ export default function RootLayout({
   const isAuthenticated = useSyncExternalStore(
     subscribeToAuthSession,
     hasCurrentUserSession,
-    () => false,
+    () => null,
   );
 
   const isAuthPage = pathname === "/login" || pathname === "/register";
-  const canAccessPage = isAuthPage || isAuthenticated;
+  const canAccessPage = isAuthPage || isAuthenticated === true;
 
   useEffect(() => {
-    if (!isAuthPage && !isAuthenticated) {
+    if (!isAuthPage && isAuthenticated === false) {
       localStorage.removeItem(CURRENT_USER_KEY);
       router.replace("/login");
     }
@@ -59,7 +59,7 @@ export default function RootLayout({
   return (
     <html lang="th">
       <body className="flex min-h-screen bg-gray-100 text-gray-800">
-        {!isAuthPage && isAuthenticated && (
+        {!isAuthPage && isAuthenticated === true && (
           <aside
             className={`flex flex-col bg-[#0F172A] text-white h-screen fixed overflow-hidden transition-all duration-300 ${
               isOpen ? "w-65 p-9" : "w-20 p-4"
