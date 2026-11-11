@@ -10,7 +10,7 @@ import {
   Search1,
 } from "@tailgrids/icons";
 
-export default function DH() {
+export default function departmentHeadHomePage() {
   return (
     <div className=" bg-[#F1F5F9] min-h-screen " >
       <div className="max-w-7xl mx-auto ">
