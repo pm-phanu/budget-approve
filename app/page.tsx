@@ -141,53 +141,128 @@ export default function Home() {
               </div>
             </div>
 
-            {/* content */}
-            <div className="bg-white rounded-[20px] mt-4">
-              <div className="container p-9">
-                <div className="content">
-                  <div className="flex justify-between items-center mb-4">
-                    <h1 className="text-2xl font-bold">คำขอของฉัน</h1>
-                    <Link href="/" className="text-[#047857] font-bold">
-                      ดูทั้งหมด <ArrowRight />
-                    </Link>
-                  </div>
-                  <div className="">
-                    <div className="flex items-center justify-between font-bold">
-                      <h1>[เรื่องที่ยื่น]</h1>
-                      <div className="bg-warning-500/20 rounded-xl px-4 text-badge-warning-text">
-                        <p>รอ [user]</p>
+            {/* แถวล่าง: คำขอของฉัน + แจ้งเตือนล่าสุด */}
+            <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+              {/* การ์ด "คำขอของฉัน" (ส่วนที่ 2) วางตรงนี้ โดยเปลี่ยน class เป็น "bg-white rounded-[20px]" */}
+              {/* content: คำขอของฉัน */}
+              <div className="bg-white rounded-[20px] mt-4">
+                <div className="container p-9">
+                  <div className="content">
+                    <div className="flex justify-between items-center mb-4">
+                      <h1 className="text-2xl font-bold">คำขอของฉัน</h1>
+                      <Link href="/" className="text-[#047857] font-bold">
+                        ดูทั้งหมด <ArrowRight />
+                      </Link>
+                    </div>
+
+                    {/* TODO: map ข้อมูลคำขอจริง แล้วทำซ้ำบล็อก request-item นี้ต่อ 1 รายการ */}
+                    <div className="request-item">
+                      {/* หัวข้อ + ป้ายสถานะ */}
+                      <div className="flex items-center justify-between font-bold">
+                        <h1>[เรื่องที่ยื่น]</h1>
+                        <div className="bg-warning-500/20 rounded-xl px-4 text-badge-warning-text">
+                          <p>รอ [user]</p>
+                        </div>
                       </div>
-                    </div>
-                    <div className="text-[#647488] font-semibold">
-                      <p>
-                        [ส่งเมื่อ] <span className="text-black">฿0,000,000</span>
-                      </p>
-                    </div>
-                  </div>
-                  <div>
-                    <div>
-                      <div></div>
-                      <p>ส่งคำขอ</p>
-                    </div>
-                    <div>
-                      <div></div>
-                      <p>หัวหน้าแผนก</p>
-                    </div>
-                    <div>
-                      <div></div>
-                      <p>ฝ่ายบัญชี</p>
-                    </div>
-                    <div>
-                      <div>
+                      <div className="text-[#647488] font-semibold">
+                        <p>
+                          [ส่งเมื่อ]{" "}
+                          <span className="text-black">฿0,000,000</span>
+                        </p>
+                      </div>
+
+                      {/* เส้นความคืบหน้า */}
+                      <div className="relative mt-4">
+                        {/* เส้นพื้น + เส้นที่เดินแล้ว (width = % ที่ผ่านแล้ว) */}
+                        <div className="absolute left-3 right-3 top-3 h-0.5 -translate-y-1/2 bg-[#E2E8F0]">
+                          <div className="h-full w-1/2 bg-[#059669]" />
+                        </div>
+
+                        <div className="relative grid grid-cols-3 text-xs">
+                          {/* ขั้น 1: ส่งคำขอ (done) */}
+                          <div className="flex flex-col items-start gap-1.5">
+                            <div className="z-10 flex h-6 w-6 items-center justify-center rounded-full bg-[#059669] font-bold text-white">
+                              ✓
+                            </div>
+                            <p className="text-[#94A3B8]">ส่งคำขอ</p>
+                          </div>
+
+                          {/* ขั้น 2: หัวหน้าแผนก (current) */}
+                          <div className="flex flex-col items-center gap-1.5">
+                            <div className="z-10 h-6 w-6 rounded-full border-2 border-dashed border-[#059669] bg-white" />
+                            <p className="font-bold text-[#047857]">
+                              หัวหน้าแผนก
+                            </p>
+                          </div>
+
+                          {/* ขั้น 3: ฝ่ายบัญชี (todo) */}
+                          <div className="flex flex-col items-end gap-1.5">
+                            <div className="z-10 h-6 w-6 rounded-full border-2 border-[#CBD5E1] bg-white" />
+                            <p className="text-[#94A3B8]">ฝ่ายบัญชี</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* แถบข้อความล่าง */}
+                      <div className="mt-3 flex items-center justify-between rounded-lg bg-[#FEF3C7] px-4 py-1.5 text-sm text-badge-warning-text">
                         <p>
                           คาดว่าได้เงิน <span>[วันที่]</span>
                         </p>
-                      </div>
-                      <div>
                         <p>
                           ถ้าหัวหน้าอนุมัติภายใน <span>[วันที่]</span>
                         </p>
                       </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              {/* การ์ด "แจ้งเตือนล่าสุด" (3.2 ด้านล่าง) วางต่อจากนี้ */}
+              {/* แจ้งเตือนล่าสุด */}
+              <div className="bg-white rounded-[20px] h-fit">
+                <div className="container p-9">
+                  <div className="content">
+                    <div className="flex justify-between items-center mb-4">
+                      <h1 className="text-2xl font-bold">แจ้งเตือนล่าสุด</h1>
+                      <Link href="/" className="text-[#047857] font-bold">
+                        ดูทั้งหมด <ArrowRight />
+                      </Link>
+                    </div>
+
+                    {/* TODO: map ข้อมูลแจ้งเตือนจริง ทำซ้ำบล็อก notification-item ต่อ 1 รายการ */}
+                    <div className="divide-y divide-[#E2E8F0]">
+                      {/* แจ้งเตือนแบบสำเร็จ (สีเขียว) */}
+                      <div className="notification-item flex gap-3 py-4 first:pt-0">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#D1FAE5] text-[#047857]">
+                          <CheckCircle1 size={22} />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm">
+                            <span className="font-bold">[ชื่อคำขอ]</span>{" "}
+                            [ข้อความแจ้งเตือน]
+                          </p>
+                          <p className="mt-1 text-xs text-[#94A3B8]">[เวลา]</p>
+                        </div>
+                      </div>
+
+                      {/* แจ้งเตือนแบบรอดำเนินการ (สีเหลือง) */}
+                      <div className="notification-item flex gap-3 py-4">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#FEF3C7] text-badge-warning-text">
+                          <ClockThree size={22} />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm">
+                            <span className="font-bold">[ชื่อคำขอ]</span>{" "}
+                            [ข้อความแจ้งเตือน]
+                          </p>
+                          <p className="mt-1 text-xs text-[#94A3B8]">[เวลา]</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* หมายเหตุด้านล่าง */}
+                    <div className="mt-2 flex items-center gap-2 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-3 text-xs text-[#64748B]">
+                      <CheckCircle1 size={16} />
+                      <p>ระบบจะแจ้งเตือนทุกครั้งที่สถานะคำขอเปลี่ยน</p>
                     </div>
                   </div>
                 </div>
