@@ -1,5 +1,6 @@
 import { cn } from "@/utils/cn";
 import { cva, type VariantProps } from "class-variance-authority";
+import NextLink from "next/link";
 import type { ComponentProps } from "react";
 
 export const linkStyles = cva(
@@ -27,6 +28,9 @@ type PropsType = ComponentProps<"a"> &
 
 export function Link({ className, variant, size, ...props }: PropsType) {
   return (
-    <a className={cn(linkStyles({ variant, size }), className)} {...props} />
+    <NextLink
+      className={cn(linkStyles({ variant, size }), className)}
+      {...props}
+    />
   );
 }

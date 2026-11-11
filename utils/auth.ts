@@ -1,22 +1,66 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import {
+  CURRENT_USER_KEY,
+  notifyAuthSessionChange,
+} from "@/utils/auth-session";
 
-export function auth() {
+type RegistrationFormData = {
+  username: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+};
+
+type LoginFormData = {
+  identifier: string;
+  password: string;
+};
+
+type StoredUser = Pick<RegistrationFormData, "username" | "email" | "password">;
+
+function isStoredUser(value: unknown): value is StoredUser {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "username" in value &&
+    typeof value.username === "string" &&
+    "email" in value &&
+    typeof value.email === "string" &&
+    "password" in value &&
+    typeof value.password === "string"
+  );
+}
+
+function getStoredUsers(): StoredUser[] {
+  const storedUsers = localStorage.getItem("users");
+
+  if (!storedUsers) {
+    return [];
+  }
+
+  const users: unknown = JSON.parse(storedUsers);
+
+  if (!Array.isArray(users) || !users.every(isStoredUser)) {
+    throw new Error("ข้อมูลผู้ใช้ในเบราว์เซอร์ไม่ถูกต้อง");
+  }
+
+  return users;
+}
+
+export function useAuth() {
   const router = useRouter();
 
-  const registerUser = (formData: any) => {
+  const registerUser = (formData: RegistrationFormData) => {
     if (formData.password !== formData.confirmPassword) {
       alert("รหัสผ่านไม่ตรงกัน กรุณาตรวจสอบอีกครั้ง");
       return;
     }
 
-    const storeUsers = localStorage.getItem("users");
-    const usersArray = storeUsers ? JSON.parse(storeUsers) : [];
+    const usersArray = getStoredUsers();
 
-    const isEmailExist = usersArray.some(
-      (user: any) => user.email === formData.email,
-    );
+    const isEmailExist = usersArray.some((user) => user.email === formData.email);
 
     if (isEmailExist) {
       alert("อีเมลนี้มีอยู่ในระบบแล้ว!");
@@ -24,7 +68,7 @@ export function auth() {
     }
 
     const isUserExist = usersArray.some(
-      (user: any) => user.username === formData.username,
+      (user) => user.username === formData.username,
     );
 
     if (isUserExist) {
@@ -39,20 +83,26 @@ export function auth() {
     router.push("/login");
   };
 
-  const loginUser = (formData: any) => {
-    const storeUsers = localStorage.getItem("users");
-    const usersArray = storeUsers ? JSON.parse(storeUsers) : [];
+  const loginUser = (formData: LoginFormData) => {
+    const usersArray = getStoredUsers();
 
     const matchUser = usersArray.find(
-      (user: any) =>
-        user.email === formData.identifier ||
-        (user.username === formData.identifier &&
-          user.password === formData.password),
+      (user) =>
+        (user.email === formData.identifier ||
+          user.username === formData.identifier) &&
+        user.password === formData.password,
     );
 
     if (matchUser) {
       alert("เข้าสู่ระบบสำเร็จ!");
-      localStorage.setItem("currentUser", JSON.stringify(matchUser));
+      localStorage.setItem(
+        CURRENT_USER_KEY,
+        JSON.stringify({
+          username: matchUser.username,
+          email: matchUser.email,
+        }),
+      );
+      notifyAuthSessionChange();
       router.push("/");
     } else {
       alert("ชื่อผู้ใช้/อีเมล หรือรหัสผ่านไม่ถูกต้อง!");

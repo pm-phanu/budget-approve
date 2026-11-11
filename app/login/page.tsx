@@ -6,11 +6,11 @@ import bgCircleL from "@/app/img/bgCircleL.svg";
 import { Button } from "@/components/tailgrids/core/button";
 import { Link } from "@/components/tailgrids/core/link";
 import { ArrowRight, Eye, EyeDisabled } from "@tailgrids/icons";
-import { auth } from "@/utils/auth";
+import { useAuth } from "@/utils/auth";
 import { useState } from "react";
 
 export default function Login() {
-  const { loginUser } = auth();
+  const { loginUser } = useAuth();
 
   const [formData, setFormData] = useState({
     identifier: "",
