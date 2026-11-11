@@ -7,10 +7,10 @@ import { Button } from "@/components/tailgrids/core/button";
 import { Link } from "@/components/tailgrids/core/link";
 import { ArrowRight, Eye, EyeDisabled, Shield1Check } from "@tailgrids/icons";
 import { useState } from "react";
-import { auth } from "@/utils/auth";
+import { useAuth } from "@/utils/auth";
 
 export default function Register() {
-  const { registerUser } = auth();
+  const { registerUser } = useAuth();
   const [formData, setFormData] = useState({
     username: "",
     email: "",
