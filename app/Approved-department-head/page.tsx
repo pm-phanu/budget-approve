@@ -2,6 +2,13 @@
 
 export default function approvedDH() {
     return(
-        <h1>Approved</h1>
+        <div>
+            <h1>
+                dasd
+            </h1>
+            <h1>
+                sasda
+            </h1>
+        </div>
     )
 }
