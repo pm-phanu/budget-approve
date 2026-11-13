@@ -21,12 +21,15 @@ interface ExpenseRequest {
   title: string;
   total: number;
   approver: string; // "ไม่ต้องผ่านหัวหน้า" | "หัวหน้าแผนก" | "หัวหน้าสายงาน"
-  status: string; // "รออนุมัติ" | "ร่าง"
+  status: string; // "รออนุมัติ" | "ร่าง" | "อนุมัติแล้ว" | "ตีกลับ"
   requesterName?: string; // ยังไม่มีในข้อมูลเก่า
   createdAt?: string; // ยังไม่มีในข้อมูลเก่า
+  reviewedAt?: string; // เวลาที่หัวหน้าอนุมัติ/ตีกลับ (หน้า Approved เป็นคนบันทึก)
 }
 
 const STORAGE_KEY = "requests";
+const APPROVED_PATH = "/Approved-department-head"; // ← path หน้าตรวจสอบ ต้องตรงกับชื่อโฟลเดอร์
+const RECENT_LIMIT = 3; // จำนวนรายการที่แสดงใน "อนุมัติล่าสุด"
 
 // ความกว้างคอลัมน์ของแถวรายการ ใช้ร่วมกันทั้ง "รอคุณตรวจสอบ" และ "อนุมัติล่าสุด"
 // (ชื่อ | ป้ายรอ | ยอดเงิน | ปุ่ม/สถานะ) ถ้าจะปรับความกว้าง แก้ที่นี่ที่เดียว
@@ -63,12 +66,11 @@ function waitDays(iso: string) {
   return `รอ ${Math.max(1, days)} วัน`;
 }
 
-// ข้อมูลตัวอย่างของ "อนุมัติล่าสุด" (ต่อ localStorage ภายหลังได้)
-const recentApproved = [
-  { title: "ค่าเดินทางไป ที่เชียงใหม่", amount: 8000 },
-  { title: "ค่าเดินทางไป ที่เชียงใหม่", amount: 5000 },
-  { title: "ค่าเดินทางไป ที่เชียงใหม่", amount: 10000 },
-];
+// เวลาสำหรับเรียงลำดับ (ไม่มี reviewedAt ให้ถือว่าเก่าสุด)
+function reviewedTime(r: ExpenseRequest) {
+  const t = r.reviewedAt ? new Date(r.reviewedAt).getTime() : 0;
+  return isNaN(t) ? 0 : t;
+}
 
 /* ------------------------------------------------------------------
    หน้า Home
@@ -92,6 +94,13 @@ export default function DH() {
   const pending = requests.filter(
     (r) => r.status === "รออนุมัติ" && r.approver !== "ไม่ต้องผ่านหัวหน้า",
   );
+
+  // อนุมัติล่าสุด: เรียงจากอนุมัติล่าสุดไปเก่าสุด (ล่าสุดอยู่บนสุด)
+  // ถ้าเวลาเท่ากันหรือไม่มีเวลา ใช้ id ที่มากกว่า (สร้างทีหลัง) ขึ้นก่อน
+  const recentApproved = requests
+    .filter((r) => r.status === "อนุมัติแล้ว")
+    .sort((a, b) => reviewedTime(b) - reviewedTime(a) || b.id - a.id)
+    .slice(0, RECENT_LIMIT);
 
   return (
     <div className="bg-[#F1F5F9] min-h-screen">
@@ -262,7 +271,7 @@ export default function DH() {
                       {/* คอลัมน์ 4: ปุ่มตรวจสอบ */}
                       <div className="flex justify-end">
                         <Link
-                          href={`/Approved-DH?id=${r.id}`}
+                          href={`${APPROVED_PATH}?id=${r.id}`}
                           className="text-green-700 font-bold flex text-xs items-center gap-1 hover:underline"
                         >
                           ตรวจสอบ <ArrowRight size={15} />
@@ -296,37 +305,54 @@ export default function DH() {
               </div>
             </div>
 
-            {/* อนุมัติล่าสุด: ใช้ grid เดียวกับด้านบน ยอดเงินจึงตรงกัน */}
-            {recentApproved.map((a, i) => (
-              <div key={i} className={ROW_GRID}>
-                <div className="flex min-w-0 items-center">
-                  <div className="w-10 h-10 shrink-0 rounded-full bg-amber-50 flex items-center justify-center text-amber-600 font-bold border-amber-200">
-                    เน
-                  </div>
-                  <div className="flex min-w-0 flex-col ml-3">
-                    <div className="truncate font-bold">{a.title}</div>
-                    <div className="text-xs text-gray-400">
-                      อนุมัติเมื่อ 2 ชั่วโมงก่อน
+            {/* อนุมัติล่าสุด: ล่าสุดอยู่บนสุด / ใช้ grid เดียวกับด้านบน / ว่างก็เว้นที่ไว้ 3 แถว */}
+            <div style={{ minHeight: RECENT_LIMIT * 93 }}>
+              {recentApproved.length === 0 ? (
+                <div
+                  className="flex flex-col items-center justify-center gap-2 text-gray-400"
+                  style={{ height: RECENT_LIMIT * 93 }}
+                >
+                  <CheckCircle1 />
+                  <span className="text-sm">ยังไม่มีรายการที่อนุมัติ</span>
+                </div>
+              ) : (
+                recentApproved.map((a) => {
+                  const name = a.requesterName ?? "เนส";
+                  return (
+                    <div key={a.id} className={ROW_GRID}>
+                      <div className="flex min-w-0 items-center">
+                        <div className="w-10 h-10 shrink-0 rounded-full bg-amber-50 flex items-center justify-center text-amber-600 font-bold border-amber-200">
+                          {name.slice(0, 2)}
+                        </div>
+                        <div className="flex min-w-0 flex-col ml-3">
+                          <div className="truncate font-bold">{a.title}</div>
+                          <div className="text-xs text-gray-400">
+                            {a.reviewedAt
+                              ? `อนุมัติ${timeAgo(a.reviewedAt)}`
+                              : "อนุมัติแล้ว"}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* คอลัมน์ 2 เว้นว่างไว้ให้ตรงกับด้านบน */}
+                      <div />
+
+                      <div className="text-right">
+                        <span className="font-bold tabular-nums">
+                          ฿{a.total.toLocaleString("en-US")}
+                        </span>
+                      </div>
+
+                      <div className="flex justify-end">
+                        <span className="whitespace-nowrap bg-emerald-50 text-emerald-700 text-xs px-2.5 py-1 rounded-full border border-emerald-200">
+                          อนุมัติแล้ว
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                </div>
-
-                {/* คอลัมน์ 2 เว้นว่างไว้ให้ตรงกับด้านบน */}
-                <div />
-
-                <div className="text-right">
-                  <span className="font-bold tabular-nums">
-                    ฿{a.amount.toLocaleString("en-US")}
-                  </span>
-                </div>
-
-                <div className="flex justify-end">
-                  <span className="whitespace-nowrap bg-emerald-50 text-emerald-700 text-xs px-2.5 py-1 rounded-full border border-emerald-200">
-                    อนุมัติแล้ว
-                  </span>
-                </div>
-              </div>
-            ))}
+                  );
+                })
+              )}
+            </div>
           </div>
 
           {/* คำขอของฉัน (self-start = ความสูงตามเนื้อหาตัวเอง ไม่ยืดตามฝั่งซ้าย) */}
