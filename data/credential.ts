@@ -2,7 +2,7 @@ export type User = {
   id: string;
   username: string;
   fullName: string;
-  role: "EMPLOYEE" | "HEAD" | "DIRECTOR" | "MD" | "ACCOUNTANT_ADMIN" | "FINANCE";
+  role: "EMPLOYEE" | "HEAD" | "DIRECTOR" | "MANAGING_DIRECTOR" | "ACCOUNTANT_ADMIN" | "FINANCE";
   email?: string;
   password?: string;
   departmentInfo: {
