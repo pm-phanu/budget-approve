@@ -21,6 +21,7 @@ export const users: User[] = [
     id: "u_01",
     username: "phanu",
     fullName: "ภาณุ ศรีบุญเพ็ง",
+    email: "riampaat@gmail.com",
     password: "pass",
     role: "EMPLOYEE",
     departmentInfo: {
