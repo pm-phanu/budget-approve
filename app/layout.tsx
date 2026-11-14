@@ -38,14 +38,10 @@ export default function RootLayout({
   );
 
   const isAuthPage = pathname === "/login" || pathname === "/register";
-  const canAccessPage = isAuthPage
-    ? isAuthenticated !== true
-    : isAuthenticated === true;
-
+  const canAccessPage = isAuthPage || isAuthenticated === true;
+  
   useEffect(() => {
-    if (isAuthPage && isAuthenticated === true) {
-      router.replace("/");
-    } else if (!isAuthPage && isAuthenticated === false) {
+    if (!isAuthPage && isAuthenticated === false) {
       localStorage.removeItem(CURRENT_USER_KEY);
       router.replace("/login");
     }
