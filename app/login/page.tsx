@@ -6,31 +6,43 @@ import bgCircleL from "@/app/img/bgCircleL.svg";
 import { Button } from "@/components/tailgrids/core/button";
 import { Link } from "@/components/tailgrids/core/link";
 import { ArrowRight, Eye, EyeDisabled } from "@tailgrids/icons";
-import { useAuth } from "@/utils/auth";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { login } from "@/data/credential";
 
 export default function Login() {
-  const { loginUser } = useAuth();
-
+  const router = useRouter();
   const [formData, setFormData] = useState({
     identifier: "",
     password: "",
   });
-
   const [showPassword, setShowPassword] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
   const [isFocus, setIsFocus] = useState(false);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = event.target;
+    setFormData((previous) => ({ ...previous, [name]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    loginUser(formData);
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setErrorMessage("");
+
+    try {
+      login(formData.identifier, formData.password);
+      const requestedPath = localStorage.getItem("returnPath");
+      localStorage.removeItem("returnPath");
+      const returnPath =
+        requestedPath?.startsWith("/") && !requestedPath.startsWith("//")
+          ? requestedPath
+          : "/";
+      router.replace(returnPath);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "เข้าสู่ระบบไม่สำเร็จ",
+      );
+    }
   };
 
   return (
@@ -125,7 +137,7 @@ export default function Login() {
                   <button
                     className="absolute top-11 right-4 text-[#64748B]"
                     type="button"
-                    onMouseDown={(e) => e.preventDefault()}
+                    onMouseDown={(event) => event.preventDefault()}
                     onClick={() => setShowPassword(!showPassword)}
                   >
                     {showPassword ? (
@@ -136,6 +148,11 @@ export default function Login() {
                   </button>
                 )}
               </div>
+              {errorMessage && (
+                <p className="mt-3 text-sm text-red-600" role="alert">
+                  {errorMessage}
+                </p>
+              )}
               {/* btn login */}
               <div>
                 <Button
