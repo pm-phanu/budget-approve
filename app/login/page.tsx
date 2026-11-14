@@ -5,9 +5,46 @@ import bgCircleR from "@/app/img/bgCircleR.svg";
 import bgCircleL from "@/app/img/bgCircleL.svg";
 import { Button } from "@/components/tailgrids/core/button";
 import { Link } from "@/components/tailgrids/core/link";
-import { ArrowRight } from "@tailgrids/icons";
+import { ArrowRight, Eye, EyeDisabled } from "@tailgrids/icons";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { login } from "@/data/credential";
 
 export default function Login() {
+  const router = useRouter();
+  const [formData, setFormData] = useState({
+    identifier: "",
+    password: "",
+  });
+  const [showPassword, setShowPassword] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [isFocus, setIsFocus] = useState(false);
+
+  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = event.target;
+    setFormData((previous) => ({ ...previous, [name]: value }));
+  };
+
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setErrorMessage("");
+
+    try {
+      login(formData.identifier, formData.password);
+      const requestedPath = localStorage.getItem("returnPath");
+      localStorage.removeItem("returnPath");
+      const returnPath =
+        requestedPath?.startsWith("/") && !requestedPath.startsWith("//")
+          ? requestedPath
+          : "/";
+      router.replace(returnPath);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "เข้าสู่ระบบไม่สำเร็จ",
+      );
+    }
+  };
+
   return (
     <div className="bg-[#F5F7FA] h-screen overflow-hidden">
       {/* container */}
@@ -69,28 +106,57 @@ export default function Login() {
               </p>
             </div>
             {/* form */}
-            <form>
+            <form onSubmit={handleSubmit}>
               <div className="mb-6">
                 <label className="text-[#0F172A]">
                   ชื่อผู้ใช้ (username) หรือ อีเมลบริษัท (email){" "}
                 </label>
                 <input
-                  type="email"
+                  onChange={handleChange}
+                  value={formData.identifier}
+                  type="text"
+                  name="identifier"
+                  required
                   placeholder="กรอกชื่อผู้ใช้ หรือ อีเมลบริษัท"
                   className="w-full border border-[#E5E9F0] rounded-lg mt-2 focus:outline-none focus:ring-alert-success-title placeholder:text-[14px] placeholder:text-[#64748B]"
                 />
               </div>
-              <div>
+              <div className="relative">
                 <label className="text-[#0F172A]">รหัสผ่าน (password)</label>
                 <input
-                  type="password"
+                  onChange={handleChange}
+                  onFocus={() => setIsFocus(true)}
+                  onBlur={() => setIsFocus(false)}
+                  value={formData.password}
+                  type={showPassword ? "text" : "password"}
+                  name="password"
                   placeholder="กรอกรหัสผ่าน"
                   className="w-full border border-[#E5E9F0] rounded-lg mt-2 focus:outline-none focus:ring-alert-success-title placeholder:text-[14px] placeholder:text-[#64748B]"
                 />
+                {(isFocus || formData.password.length > 0) && (
+                  <button
+                    className="absolute top-11 right-4 text-[#64748B]"
+                    type="button"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? (
+                      <EyeDisabled size={18} />
+                    ) : (
+                      <Eye size={18} />
+                    )}
+                  </button>
+                )}
               </div>
+              {errorMessage && (
+                <p className="mt-3 text-sm text-red-600" role="alert">
+                  {errorMessage}
+                </p>
+              )}
               {/* btn login */}
               <div>
                 <Button
+                  type="submit"
                   variant={"success"}
                   className={"my-6 w-full bg-alert-success-title"}
                 >
