@@ -1,532 +1,733 @@
 "use client";
-// หน้าสร้างคำขอเบิก
-//
-// [1]  ชนิดข้อมูล
-// [2]  ข้อมูลสมมติ: รายการงบ
-// [3]  ฟังก์ชันช่วย: ใส่ลูกน้ำ, หาผู้อนุมัติตามยอดเงิน
-// [4]  หน้าหลัก (ส่วนคิด)
-//   [4.1] state: ค่าที่ผู้ใช้กรอก
-//   [4.2] ยอดรวม (reduce) + งบที่เลือก
-//   [4.3] เพิ่ม / ลบ / แก้ รายการค่าใช้จ่าย
-//   [4.4] แนบไฟล์ / ลบไฟล์
-//   [4.5] บันทึกลง localStorage
-//   [4.6] ตรวจก่อนส่ง + ส่งคำขอ
-//   [4.7] บันทึกร่าง
-// [5]  หน้าจอ (ส่วนแสดงผล)
-//   [5.1] เมนูซ้าย
-//   [5.2] หัวข้อหน้า
-//   [5.3] ประเภทคำขอ (ปุ่มสลับ)
-//   [5.4] ชื่อคำขอ
-//   [5.5] เลือกงบ + วันที่ใช้จ่าย
-//   [5.6] เหตุผลการเบิก
-//   [5.7] รายการค่าใช้จ่าย (แต่ละแถว + ปุ่มถังขยะ)
-//   [5.8] ปุ่มเพิ่มรายการ + กล่องยอดรวม
-//   [5.9] แนบไฟล์
-//   [5.10] การ์ดสรุปยอด (คอลัมน์ขวา)
-//   [5.11] เส้นทางการอนุมัติ
-//   [5.12] บัญชีรับเงิน + ข้อความแจ้ง + ปุ่มส่ง/ร่าง
-// [6]  ชิ้นส่วนเล็กที่ใช้ซ้ำ: MenuItem, Label, TypeButton, Step
+// ════════════════════════════════════════════════════════════
+//  หน้าสร้างคำขอเบิก  (/request/new)
+// ════════════════════════════════════════════════════════════
 
-import { useState } from "react";
+//   [1] ชนิดข้อมูล
+//   [2] ข้อมูลงบ: โครงการ → หมวด → วงเงิน   (data/budget.ts)
+//   [3] กฎการอนุมัติตามวงเงิน             (data/approval.ts)
+//   [4] ฟังก์ชันช่วย
+//   [5] หน้าหลัก
+//       [5.1] state            [5.2] ค่าที่คำนวณ
+//       [5.3] รายการค่าใช้จ่าย    [5.4] แนบหลักฐานรายแถว
+//       [5.5] ตรวจก่อนส่ง        [5.6] บันทึก localStorage
+//       [5.7] ส่ง / บันทึกร่าง / ล้างฟอร์ม
+//   [6] หน้าจอ
+//       [6.1] ข้อมูลคำขอ   [6.2] โครงการ + วันที่   [6.3] เหตุผล
+//       [6.4] ตารางค่าใช้จ่าย + หลักฐาน   [6.5] ยอดรวม
+//       [6.6] การ์ดสรุป   [6.7] เส้นทางอนุมัติ   [6.8] บัญชีรับเงิน + ปุ่ม
+//   [7] ชิ้นส่วนที่ใช้ซ้ำ
+//  * เมนูซ้ายอยู่ที่ app/layout.tsx (ใช้ร่วมทุกหน้า)
+// ════════════════════════════════════════════════════════════
+
+import { useEffect, useState } from "react";
+import type { Credential } from "@/data/credential";
+import { projects, addRequestsToBudget, type Project } from "@/data/budget";
 import {
-  DashboardSquare1,
-  Plus,
-  FileText,
+  APPROVAL_RULES_KEY,
+  DEFAULT_RULES,
+  ROLE_LABEL,
+  getApprovalSteps,
+  type ApprovalRule,
+  type StepRole,
+} from "@/data/approval";
+import {
+  REQUESTS_KEY,
+  loadRequests,
+  type SavedRequest,
+  type RequestStatus,
+} from "@/data/request";
+import {
   ClockThree,
-  Gear1,
-  Exit,
   Wallet2,
   Calendar,
   Trash1,
   Upload1,
   Send1,
   User2,
+  Plus,
+  FileText,
 } from "@tailgrids/icons";
 
-// ===== [1] ชนิดข้อมูล (TypeScript) =====
-// บอกว่า "รายการค่าใช้จ่าย 1 แถว" ต้องมีอะไรบ้าง
-type Item = { name: string; amount: string };
+// ════════════════════════════════════════
+//  [1] ชนิดข้อมูล
+// ════════════════════════════════════════
+// 1 แถวค่าใช้จ่าย = หมวด + รายละเอียด + จำนวนเงิน + หลักฐาน (หลายไฟล์ได้)
+// ※ amount เป็นข้อความก่อน เพราะช่องกรอกส่งค่ามาเป็นข้อความ ตอนบันทึกค่อยแปลงเป็นตัวเลข
+type Item = {
+  categoryId: string;
+  name: string;
+  amount: string;
+  files: string[];
+};
 
-// ===== [2] ข้อมูลสมมติ (ตอนนี้ยังไม่มี backend) =====
-const budgets = [
-  { id: 1, name: "การตลาด › สัมมนาประจำปี › ค่าเดินทาง", remaining: 42000 },
-  { id: 2, name: "การตลาด › สัมมนาประจำปี › ค่าที่พัก", remaining: 22000 },
-  { id: 3, name: "การตลาด › เปิดตัวสินค้า › ค่าออกแบบ", remaining: 15000 },
-];
+// แถวว่าง 1 แถว (ใช้ตอนเปิดหน้า / กดเพิ่มรายการ / ล้างฟอร์ม)
+function emptyItem(): Item {
+  return { categoryId: "", name: "", amount: "", files: [] };
+}
 
-// สไตล์ช่องกรอก ใช้ซ้ำทุกช่อง
-const inputClass =
-  "w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm outline-none focus:border-[#059669] focus:bg-white focus:ring-0";
+// ════════════════════════════════════════
+//  [2] ข้อมูลงบ: โครงการ → หมวด → วงเงิน
+// ════════════════════════════════════════
+// อยู่ที่ data/budget.ts (ใช้ร่วมกับหน้ารายงาน)
 
-// ===== [3] ฟังก์ชันช่วย =====
+// ════════════════════════════════════════
+//  [3] กฎการอนุมัติตามวงเงิน
+// ════════════════════════════════════════
+// อยู่ที่ data/approval.ts (ใช้ร่วมกับหน้าอนุมัติ / ตั้งค่า)
+//   ≤ 3,000 → บัญชี → การเงิน
+//   3,001 – 30,000 → หัวหน้า → บัญชี → การเงิน
+//   30,001 – 300,000 → หัวหน้า → ผอ.ฝ่าย → บัญชี → การเงิน
+//   300,001 ขึ้นไป → หัวหน้า → ผอ.ฝ่าย → กรรมการผู้จัดการ → บัญชี → การเงิน
 
-// ใส่ลูกน้ำให้ตัวเลข เช่น 12500 → "12,500"
+// ════════════════════════════════════════
+//  [4] ฟังก์ชันช่วย
+// ════════════════════════════════════════
+
+// ใส่ลูกน้ำ เช่น 12500 → "12,500"
 function money(n: number) {
-  return n.toLocaleString("th-TH"); // toLocaleString = ใส่ลูกน้ำแบบไทย
+  return n.toLocaleString("th-TH");
 }
 
-// หาผู้อนุมัติตามยอดเงิน
-function getApprover(total: number) {
-  // เช็กจากยอดน้อยไปมาก เจอข้อแรกที่จริง → return ตอบแล้วออกเลย บรรทัดล่างไม่ทำ
-  if (total <= 5000) return "ไม่ต้องผ่านหัวหน้า";
-  if (total <= 10000) return "หัวหน้าแผนก";
-  return "หัวหน้าสายงาน"; // ไม่เข้าข้อไหนเลย (เกิน 10,000) ตกมาบรรทัดนี้
-}
+// บัญชีรับเงินคืนของผู้ขอ (ข้อมูลสมมติ ยังไม่มีในข้อมูลผู้ใช้)
+const BANK_ACCOUNT = "กสิกรไทย ••• 4521";
 
-// ===== [4] หน้าหลัก =====
+// ════════════════════════════════════════
+//  [5] หน้าหลัก
+// ════════════════════════════════════════
 export default function NewRequest() {
-  // ---- [4.1] state = ตัวแปรที่เปลี่ยนแล้วหน้าจอเปลี่ยนตาม ----
-  // [ของ, setของ] = useState(ค่าเริ่มต้น) · ของ = กล่องเก็บค่า · setของ = มือที่ใช้เปลี่ยนค่าในกล่อง
-  const [type, setType] = useState("advance"); // advance = สำรองจ่าย, invoice = ใบแจ้งหนี้
-  const [title, setTitle] = useState(""); // ชื่อคำขอ (เริ่มว่าง เพราะยังไม่ได้พิมพ์)
-  const [budgetId, setBudgetId] = useState(""); // id ของงบที่เลือก (ได้จาก <select> เป็นตัวหนังสือ)
-  const [useDate, setUseDate] = useState(""); // วันที่ใช้จ่าย
-  const [reason, setReason] = useState(""); // เหตุผลการเบิก
-  const [items, setItems] = useState<Item[]>([{ name: "", amount: "" }]); // เริ่มที่ 1 แถว
-  const [files, setFiles] = useState<string[]>([]); // ชื่อไฟล์ที่แนบ
-  const [errors, setErrors] = useState<string[]>([]); // ข้อผิดพลาด ตอนกดส่งแต่กรอกไม่ครบ
-  const [message, setMessage] = useState(""); // ข้อความสำเร็จ เช่น "ส่งคำขอเรียบร้อย"
+  // ---------- [5.1] state ----------
+  // ช่องในฟอร์ม
+  const [type, setType] = useState("advance"); // advance = สำรองจ่าย · invoice = ใบแจ้งหนี้
+  const [title, setTitle] = useState("");
+  const [projectId, setProjectId] = useState("");
+  const [useDate, setUseDate] = useState("");
+  const [reason, setReason] = useState("");
+  const [items, setItems] = useState<Item[]>([emptyItem()]);
 
-  // ---- [4.2] ค่าที่คำนวณจาก state ----
-  // ไม่ต้องใช้ useState เพราะคิดใหม่จาก items ได้เองทุกครั้ง · sum = ยอดสะสม · it = แถวที่กำลังบวก · Number เปลี่ยนตัวหนังสือเป็นตัวเลข · || 0 = ช่องว่างนับเป็น 0 · 0 ท้ายสุด = เริ่มนับจาก 0
-  const total = items.reduce((sum, it) => sum + Number(it.amount || 0), 0); // รวมยอดทุกแถว
-  const budget = budgets.find((b) => b.id === Number(budgetId)); // find หางบที่ id ตรงกับที่เลือก · Number เปลี่ยน "1" เป็น 1
-  const fileLabel = type === "advance" ? "ใบเสร็จ" : "ใบแจ้งหนี้"; // ทางแยก ? : → advance ได้ "ใบเสร็จ" ไม่ใช่ได้ "ใบแจ้งหนี้"
+  // ข้อความแจ้งผล
+  const [errors, setErrors] = useState<string[]>([]);
+  const [message, setMessage] = useState("");
 
-  // ---- [4.3] รายการค่าใช้จ่าย ----
-  function addItem() {
-    setItems([...items, { name: "", amount: "" }]); // ก๊อปของเดิม + เพิ่มแถวว่าง
+  // เลขที่ร่างที่กำลังแก้ (ยังไม่เคยบันทึกร่าง = "")
+  // ※ กดบันทึกร่างซ้ำ → ทับใบเดิม ไม่เกิดร่างซ้ำหลายใบ
+  const [draftId, setDraftId] = useState("");
+
+  // ค่าที่อ่านจาก localStorage
+  const [rules, setRules] = useState<ApprovalRule[]>(DEFAULT_RULES); // วงเงินอนุมัติ
+  const [user, setUser] = useState<Credential | null>(null); // คนที่ล็อกอินอยู่
+  const [budget, setBudget] = useState<Project[]>(projects); // งบที่หักคำขอที่ส่งไปแล้ว
+
+  // อ่าน localStorage ครั้งเดียวตอนเปิดหน้า ([] ท้ายสุด = ทำครั้งเดียว)
+  // ※ ต้องอ่านใน useEffect เพราะ localStorage มีแค่ในเบราว์เซอร์
+  useEffect(() => {
+    const savedRules = localStorage.getItem(APPROVAL_RULES_KEY);
+    const savedUser = localStorage.getItem("current_user");
+    /* eslint-disable react-hooks/set-state-in-effect -- อ่านได้หลังเปิดหน้าเท่านั้น */
+    if (savedRules) setRules(JSON.parse(savedRules));
+    if (savedUser) setUser(JSON.parse(savedUser));
+    setBudget(addRequestsToBudget(loadRequests()));
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, []);
+
+  // ---------- [5.2] ค่าที่คำนวณจาก state ----------
+  // ※ ไม่ต้องเก็บใน state เพราะคิดใหม่เองทุกครั้งที่ฟอร์มเปลี่ยน
+
+  // ยอดรวม = บวกจำนวนเงินทุกแถว
+  let total = 0;
+  for (const it of items) total += Number(it.amount || 0);
+
+  // จำนวนไฟล์ทั้งหมด / จำนวนแถวที่แนบแล้ว
+  let fileCount = 0;
+  let rowsWithFile = 0;
+  for (const it of items) {
+    fileCount += it.files.length;
+    if (it.files.length > 0) rowsWithFile += 1;
   }
+
+  // โครงการที่เลือก + หมวดของโครงการนั้น
+  const project = budget.find((p) => p.id === projectId); // ไม่ได้เลือก = undefined
+  const categories = project ? project.categories : [];
+
+  // งบคงเหลือของโครงการ = รวม (วงเงิน − ใช้ไป) ทุกหมวด
+  let projectRemaining = 0;
+  for (const c of categories) projectRemaining += c.limit - c.used;
+
+  // เส้นทางอนุมัติตามยอดรวม
+  const steps = getApprovalSteps(total, rules);
+
+  // คำที่เปลี่ยนตามประเภท
+  const isAdvance = type === "advance";
+  const fileLabel = isAdvance ? "ใบเสร็จ" : "ใบแจ้งหนี้";
+
+  // ---------- [5.3] รายการค่าใช้จ่าย ----------
+  function addItem() {
+    setItems([...items, emptyItem()]); // ... = ก๊อปแถวเดิม แล้วต่อแถวใหม่ท้ายสุด
+  }
+
   function removeItem(index: number) {
-    // _ = ไม่ใช้ข้อมูลแถว · i = ลำดับแถว (เริ่มนับ 0)
     setItems(items.filter((_, i) => i !== index)); // เก็บทุกแถว ยกเว้นแถวที่กดลบ
   }
-  function changeName(index: number, value: string) {
-    const copy = [...items]; // ก๊อปรายการทั้งหมด
-    copy[index] = { name: value, amount: copy[index].amount }; // แถวนี้: เปลี่ยนชื่อ จำนวนเงินเหมือนเดิม
-    setItems(copy); // ส่งลิสต์ใหม่ใส่กล่อง → React วาดหน้าจอใหม่ (ต้องเป็นลิสต์ใหม่ ไม่งั้น React ไม่รู้ว่าเปลี่ยน)
-  }
-  function changeAmount(index: number, value: string) {
-    const copy = [...items]; // ก๊อปรายการทั้งหมด
-    copy[index] = { name: copy[index].name, amount: value }; // แถวนี้: ชื่อเหมือนเดิม เปลี่ยนจำนวนเงิน
-    setItems(copy); // ส่งลิสต์ใหม่ใส่กล่อง → หน้าจออัปเดต
+
+  // แก้ 1 ช่อง ของ 1 แถว
+  function changeItem(
+    index: number,
+    field: "categoryId" | "name" | "amount",
+    value: string,
+  ) {
+    const copy = [...items]; // ก๊อปทั้งลิสต์ (React ต้องได้ลิสต์ใหม่ถึงจะวาดจอใหม่)
+    const row = { ...copy[index] }; // ก๊อปแถวที่จะแก้
+    row[field] = value; // เปลี่ยนเฉพาะช่องที่ชื่อ field
+    copy[index] = row; // ใส่แถวที่แก้แล้วกลับเข้าไป
+    setItems(copy);
   }
 
-  // ---- [4.4] แนบไฟล์ ----
-  function addFiles(e: React.ChangeEvent<HTMLInputElement>) {
-    const names = Array.from(e.target.files ?? []).map((f) => f.name); // ?? [] = ไม่มีไฟล์ใช้ลิสต์ว่าง · Array.from แปลงเป็นลิสต์ · map เอาแค่ชื่อไฟล์
-    setFiles([...files, ...names]); // ชื่อไฟล์เดิม + ชื่อไฟล์ใหม่ (ยังไม่มี backend เลยเก็บแค่ชื่อ)
-  }
-  function removeFile(index: number) {
-    setFiles(files.filter((_, i) => i !== index)); // เก็บทุกไฟล์ ยกเว้นไฟล์ที่กดลบ
+  // เปลี่ยนโครงการ → ล้างหมวดเดิมทุกแถว (หมวดผูกกับโครงการ)
+  function changeProject(id: string) {
+    setProjectId(id);
+    setItems(items.map((it) => ({ ...it, categoryId: "" })));
   }
 
-  // ---- [4.5] บันทึกลง localStorage ----
-  function saveRequest(status: string) {
-    const stored = localStorage.getItem("requests"); // ดึงคำขอเก่าที่เคยบันทึกไว้ (ได้มาเป็นตัวหนังสือ)
-    const requests = stored ? JSON.parse(stored) : []; // มี → JSON.parse แปลงกลับเป็นลิสต์ · ไม่มี → ลิสต์ว่าง
-    const newRequest = {
-      id: requests.length + 1, // เลขที่คำขอ = จำนวนที่มีอยู่ + 1
-      type,
+  // ---------- [5.4] แนบหลักฐานรายแถว ----------
+  function addFiles(index: number, e: React.ChangeEvent<HTMLInputElement>) {
+    const picked = e.target.files; // ไฟล์ที่เลือกมา
+    if (!picked) return; // ไม่ได้เลือก = ไม่ทำอะไร
+
+    const names = Array.from(picked).map((f) => f.name); // เก็บแค่ชื่อไฟล์
+    const copy = [...items];
+    const row = { ...copy[index] };
+    row.files = [...row.files, ...names]; // ไฟล์เดิม + ไฟล์ใหม่
+    copy[index] = row;
+    setItems(copy);
+
+    e.target.value = ""; // ล้างช่อง จะได้เลือกไฟล์ชื่อเดิมซ้ำได้
+  }
+
+  function removeFile(index: number, fileIndex: number) {
+    const copy = [...items];
+    const row = { ...copy[index] };
+    row.files = row.files.filter((_, i) => i !== fileIndex);
+    copy[index] = row;
+    setItems(copy);
+  }
+
+  // ---------- [5.5] ตรวจก่อนส่ง ----------
+  // คืนลิสต์ข้อความผิด · ลิสต์ว่าง = ผ่าน
+  function validate() {
+    const list: string[] = [];
+    if (!user) list.push("ไม่พบผู้ใช้ กรุณาเข้าสู่ระบบก่อน");
+    if (!title) list.push("กรุณากรอกชื่อคำขอ");
+    if (!project) list.push("กรุณาเลือกโครงการ");
+    if (!useDate) list.push("กรุณาเลือกวันที่ใช้จ่าย");
+
+    // ตรวจทีละแถว
+    items.forEach((it, i) => {
+      const row = "แถวที่ " + (i + 1);
+      if (!it.categoryId) list.push(row + ": เลือกหมวดค่าใช้จ่าย");
+      if (!it.name) list.push(row + ": กรอกรายละเอียด");
+      if (Number(it.amount || 0) <= 0) list.push(row + ": กรอกจำนวนเงิน");
+      if (it.files.length === 0)
+        list.push(row + ": แนบ" + fileLabel + "อย่างน้อย 1 ไฟล์");
+    });
+
+    // รวมยอดต่อหมวด แล้วเทียบกับงบคงเหลือของหมวดนั้น
+    // ※ หลายแถวใช้หมวดเดียวกันได้ เลยต้องรวมก่อนเทียบ
+    for (const c of categories) {
+      let sum = 0;
+      for (const it of items) {
+        if (it.categoryId === c.id) sum += Number(it.amount || 0);
+      }
+      const left = c.limit - c.used;
+      if (sum > left)
+        list.push(c.name + " เกินงบคงเหลือ (เหลือ ฿" + money(left) + ")");
+    }
+    return list;
+  }
+
+  // ---------- [5.6] บันทึก localStorage ----------
+  // เก็บครบทุกอย่างที่หน้าอื่นต้องใช้ (หน้าอนุมัติ / ประวัติ / รายงาน)
+  // รูปแบบเต็มดูที่ data/request.ts
+  function saveRequest(status: RequestStatus) {
+    const now = new Date().toISOString();
+    const all = loadRequests();
+
+    // เคยบันทึกร่างไว้ → ใช้ใบเดิม · ยังไม่เคย → ออกเลขใหม่
+    // ※ ใช้เวลาเป็นเลขที่ ไม่ซ้ำแม้ลบคำขอเก่า
+    const id = draftId ? draftId : "REQ-" + new Date().getTime();
+    const old = all.find((r) => r.id === id);
+
+    // แปลงแถวในฟอร์ม → แถวที่บันทึก (จำนวนเงินเป็นตัวเลข + ใส่ชื่อหมวด)
+    const savedItems = items.map((it) => {
+      const cat = categories.find((c) => c.id === it.categoryId);
+      return {
+        categoryId: it.categoryId,
+        categoryName: cat ? cat.name : "",
+        name: it.name,
+        amount: Number(it.amount || 0),
+        files: it.files,
+      };
+    });
+
+    // ข้อมูลผู้ขอ (ไม่ได้ล็อกอิน = null)
+    let requester = null;
+    if (user) {
+      requester = {
+        id: user.id,
+        fullName: user.fullName,
+        role: user.role,
+        department: user.departmentInfo.department,
+        lineOfWork: user.departmentInfo.lineOfWork,
+        headId: user.hierarchy ? user.hierarchy.headId : null,
+        directorId: user.hierarchy ? user.hierarchy.directorId : null,
+      };
+    }
+    const byName = user ? user.fullName : "-";
+
+    const request: SavedRequest = {
+      id,
+      createdAt: old ? old.createdAt : now, // แก้ร่าง = วันสร้างเดิม
+      updatedAt: now,
+      status,
+      type: isAdvance ? "advance" : "invoice",
+      typeLabel: isAdvance ? "สำรองจ่ายแล้ว (ขอเบิกคืน)" : "ให้บัญชีจ่ายตามใบแจ้งหนี้",
       title,
-      budgetId,
       useDate,
       reason,
-      items,
-      files,
+      project: project
+        ? { id: project.id, name: project.name, dept: project.dept }
+        : null,
+      items: savedItems,
       total,
-      approver: getApprover(total),
-      status,
+      fileCount,
+      requester,
+      payTo: isAdvance ? "โอนคืนเข้าบัญชีผู้ขอ" : "โอนให้ผู้ขายตามใบแจ้งหนี้",
+      bankAccount: isAdvance ? BANK_ACCOUNT : null,
+      // ทุกขั้นเริ่มที่ "รอ" · หน้าอนุมัติเป็นคนเปลี่ยน
+      approvalSteps: steps.map((role) => ({
+        role,
+        label: ROLE_LABEL[role],
+        status: "รอ",
+        by: null,
+        at: null,
+        note: "",
+      })),
+      currentStep: 0, // ขั้นแรกในลิสต์
+      history: [
+        ...(old ? old.history : []), // ประวัติเดิมของร่าง
+        {
+          action: status === "ร่าง" ? "บันทึกร่าง" : "ส่งคำขอ",
+          by: byName,
+          at: now,
+        },
+      ],
     };
-    // ต่อคำขอใหม่ไว้ท้าย แล้ว JSON.stringify แปลงเป็นตัวหนังสือเก็บกลับ (localStorage เก็บได้แค่ตัวหนังสือ)
-    localStorage.setItem("requests", JSON.stringify([...requests, newRequest]));
+
+    // มีใบเดิม = แทนที่ · ไม่มี = ต่อท้าย
+    const others = all.filter((r) => r.id !== id);
+    localStorage.setItem(REQUESTS_KEY, JSON.stringify([...others, request]));
+    return id;
   }
 
-  // ---- [4.6] ตรวจก่อนส่ง ----
-  function submit() {
-    const list: string[] = []; // ลิสต์เก็บข้อผิดพลาด เริ่มว่าง
-    if (!title) list.push("กรุณากรอกชื่อคำขอ"); // !title = ยังไม่ได้พิมพ์ชื่อ · push = ต่อข้อความท้ายลิสต์
-    if (!budget) list.push("กรุณาเลือกงบที่ใช้"); // ยังไม่ได้เลือกงบ
-    if (total <= 0) list.push("กรุณากรอกจำนวนเงินอย่างน้อย 1 รายการ"); // ยังไม่ได้กรอกเงิน
-    if (files.length === 0) list.push("กรุณาแนบ" + fileLabel); // ยังไม่ได้แนบไฟล์
-    if (budget && total > budget.remaining) list.push("ยอดเงินเกินงบคงเหลือ"); // เลือกงบแล้ว และยอดเกินงบที่เหลือ
+  // ---------- [5.7] ส่ง / บันทึกร่าง / ล้างฟอร์ม ----------
+  function resetForm() {
+    setTitle("");
+    setProjectId("");
+    setUseDate("");
+    setReason("");
+    setItems([emptyItem()]);
+    setDraftId("");
+  }
 
-    setErrors(list); // เอาข้อผิดพลาดไปโชว์บนหน้าจอ
+  function submit() {
+    const list = validate();
+    setErrors(list);
     if (list.length > 0) {
       setMessage("");
-      return; // มีข้อผิด → หยุดตรงนี้ ไม่บันทึก
+      return; // มีข้อผิด → หยุด ไม่บันทึก
     }
-    saveRequest("รออนุมัติ"); // ผ่านหมด → บันทึกสถานะ "รออนุมัติ"
-    setMessage("ส่งคำขอเรียบร้อย ระบบส่งต่อให้ " + getApprover(total)); // บอกว่าส่งต่อให้ใคร (ใช้ getApprover)
+    const id = saveRequest("รออนุมัติ");
+    // ส่งแล้วล้างฟอร์ม กันกดส่งซ้ำ + อัปเดตงบคงเหลือใหม่
+    resetForm();
+    setBudget(addRequestsToBudget(loadRequests()));
+    setMessage("ส่งคำขอ " + id + " เรียบร้อย ส่งต่อให้" + ROLE_LABEL[steps[0]]);
   }
 
-  // ---- [4.7] บันทึกร่าง ----
+  // ร่างไม่ต้องตรวจ (ยังกรอกไม่ครบได้) แต่ต้องมีชื่อคำขอ ไว้หาเจอทีหลัง
   function saveDraft() {
-    saveRequest("ร่าง"); // ใช้ฟังก์ชันบันทึกตัวเดียวกัน แค่สถานะเป็น "ร่าง" (ไม่ต้องตรวจ)
+    if (!title) {
+      setErrors(["กรอกชื่อคำขอก่อนบันทึกร่าง"]);
+      setMessage("");
+      return;
+    }
+    const id = saveRequest("ร่าง");
+    setDraftId(id); // กดบันทึกร่างอีกครั้ง → ทับใบนี้
     setErrors([]);
-    setMessage("บันทึกร่างแล้ว");
+    setMessage("บันทึกร่าง " + id + " แล้ว");
   }
 
-  // ===== [5] หน้าจอ =====
+  // ════════════════════════════════════════
+  //  [6] หน้าจอ
+  // ════════════════════════════════════════
   return (
-    <div className="flex min-h-screen bg-[#F5F7FA] text-[#0F172A]">
-      {/* ---------- [5.1] เมนูซ้าย (ถ้าทีมทำเมนูกลางแล้ว ลบส่วนนี้ได้) ---------- */}
-      <aside className="flex w-64 shrink-0 flex-col bg-[#0F172A] p-4 text-[#94A3B8]">
-        <div className="mb-8 flex items-center gap-2 px-2 text-xl font-bold text-white">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#059669] text-base">
-            B
+    <div className="min-h-screen bg-[#F5F7FA] p-10 text-[#0F172A]">
+      <p className="text-sm text-[#64748B]">
+        ‹ แดชบอร์ด /{" "}
+        <span className="font-semibold text-[#047857]">สร้างคำขอ</span>
+      </p>
+      <h1 className="mb-6 text-3xl font-bold">สร้างคำขอเบิก</h1>
+
+      <div className="flex gap-6">
+        {/* ===== คอลัมน์ซ้าย: ฟอร์ม ===== */}
+        <section className="flex-1 rounded-2xl border border-gray-200 bg-white p-6">
+          {/* ---------- [6.1] ข้อมูลคำขอ ---------- */}
+          <h2 className="text-lg font-bold">ข้อมูลคำขอ</h2>
+          <Label text="ประเภทคำขอ" />
+          <div className="mb-4 flex gap-2 rounded-xl bg-gray-100 p-1">
+            <TypeButton
+              active={type === "invoice"}
+              onClick={() => setType("invoice")}
+              icon={<ClockThree size={16} />}
+              text="ให้บัญชีจ่ายตามใบแจ้งหนี้"
+            />
+            <TypeButton
+              active={type === "advance"}
+              onClick={() => setType("advance")}
+              text="สำรองจ่ายแล้ว (ขอเบิกคืน)"
+            />
           </div>
-          BudgetFlow
-        </div>
-        <p className="mb-2 px-3 text-xs">เมนูหลัก</p>
-        <MenuItem icon={<DashboardSquare1 size={20} />} text="แดชบอร์ด" />
-        <MenuItem icon={<Plus size={20} />} text="สร้างคำขอ" active />
-        <MenuItem icon={<FileText size={20} />} text="คำขอของฉัน" badge={2} />
-        <MenuItem icon={<ClockThree size={20} />} text="ประวัติการเบิก" />
-        <p className="mb-2 mt-6 px-3 text-xs">บัญชี</p>
-        <MenuItem icon={<Gear1 size={20} />} text="ตั้งค่า" />
-        <MenuItem icon={<Exit size={20} />} text="ออกจากระบบ" />
 
-        {/* ผู้ใช้ */}
-        <div className="mt-auto flex items-center gap-3 rounded-xl bg-white/5 p-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#34D399] text-sm font-bold text-[#0F172A]">
-            เน
-          </div>
-          <div>
-            <p className="text-sm font-bold text-white">คุณเนส</p>
-            <p className="text-xs">พนักงาน · การตลาด</p>
-          </div>
-        </div>
-      </aside>
+          <Label text="ชื่อคำขอ" />
+          <input
+            className={`${inputClass} mb-4`}
+            placeholder="เช่น ค่าเดินทางสัมมนา เชียงใหม่"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+          />
 
-      {/* ---------- เนื้อหา ---------- */}
-      <main className="flex-1 p-10">
-        {/* ---------- [5.2] หัวข้อหน้า ---------- */}
-        <p className="text-sm text-[#64748B]">
-          ‹ แดชบอร์ด /{" "}
-          <span className="font-semibold text-[#047857]">สร้างคำขอ</span>
-        </p>
-        <h1 className="mb-6 text-3xl font-bold">สร้างคำขอเบิก</h1>
-
-        <div className="flex gap-6">
-          {/* ===== คอลัมน์ซ้าย: ฟอร์ม ===== */}
-          <section className="flex-1 rounded-2xl border border-gray-200 bg-white p-6">
-            <h2 className="text-lg font-bold">ข้อมูลคำขอ</h2>
-
-            {/* ---------- [5.3] ประเภทคำขอ (ปุ่มสลับ) ---------- */}
-            <Label text="ประเภทคำขอ" />
-            <div className="mb-4 flex gap-2 rounded-xl bg-gray-100 p-1">
-              <TypeButton
-                active={type === "invoice"} // ค่าในกล่องตรงกับปุ่มนี้ → ไฮไลต์
-                onClick={() => setType("invoice")} // กดแล้วเปลี่ยนค่าในกล่อง type · () => = ห่อไว้ รอทำตอนกด
-                icon={<ClockThree size={16} />}
-                text="ให้บัญชีจ่ายตามใบแจ้งหนี้"
-              />
-              <TypeButton
-                active={type === "advance"}
-                onClick={() => setType("advance")}
-                text="สำรองจ่ายแล้ว (ขอเบิกคืน)"
+          {/* ---------- [6.2] โครงการ + วันที่ ---------- */}
+          <div className="mb-4 flex gap-4">
+            <div className="flex-[2]">
+              <Label text="โครงการ" />
+              <select
+                className={inputClass}
+                value={projectId}
+                onChange={(e) => changeProject(e.target.value)}
+              >
+                <option value="">-- เลือกโครงการ --</option>
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.dept} › {p.name}
+                  </option>
+                ))}
+              </select>
+              {/* ยังไม่เลือก = บอกว่าต้องเลือกก่อน · เลือกแล้ว = โชว์งบคงเหลือ */}
+              {!project && (
+                <p className="mt-1 text-xs text-[#B45309]">
+                  เลือกโครงการก่อน แล้วจึงเลือกหมวดในรายการค่าใช้จ่ายได้
+                </p>
+              )}
+              {project && (
+                <p className="mt-1 text-xs text-[#64748B]">
+                  งบโครงการคงเหลือ{" "}
+                  <b className="text-[#047857]">฿{money(projectRemaining)}</b> ·{" "}
+                  {categories.length} หมวด
+                </p>
+              )}
+            </div>
+            <div className="flex-1">
+              <Label text="วันที่ใช้จ่าย" />
+              <input
+                type="date"
+                className={inputClass}
+                value={useDate}
+                onChange={(e) => setUseDate(e.target.value)}
               />
             </div>
+          </div>
 
-            {/* ---------- [5.4] ชื่อคำขอ ---------- */}
-            <Label text="ชื่อคำขอ" />
-            <input
-              className={`${inputClass} mb-4`}
-              placeholder="เช่น ค่าเดินทางสัมมนา เชียงใหม่"
-              value={title} // value = โชว์ค่าในกล่อง title
-              onChange={(e) => setTitle(e.target.value)} // onChange = พิมพ์ทุกครั้ง → เก็บข้อความลงกล่อง · e.target.value = ข้อความในช่อง
-            />
+          {/* ---------- [6.3] เหตุผล ---------- */}
+          <Label text="เหตุผลการเบิก" />
+          <textarea
+            className={`${inputClass} mb-6 h-20`}
+            placeholder="เช่น เดินทางไปสัมมนาที่เชียงใหม่ ใช้เงินส่วนตัวสำรองจ่ายไปก่อน"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+          />
 
-            {/* ---------- [5.5] เลือกงบ + วันที่ใช้จ่าย ---------- */}
-            <div className="mb-4 flex gap-4">
-              <div className="flex-[2]">
-                <Label text="งบที่ใช้" />
+          {/* ---------- [6.4] ตารางค่าใช้จ่าย + หลักฐานรายแถว ---------- */}
+          <div className="mb-3 flex items-center justify-between border-t border-gray-100 pt-4">
+            <h2 className="text-base font-bold">รายการค่าใช้จ่าย</h2>
+            <span className="rounded-full bg-gray-100 px-3 py-0.5 text-xs text-[#64748B]">
+              {items.length} รายการ
+            </span>
+          </div>
+
+          <div className="mb-1.5 flex gap-2 px-1 text-xs font-semibold text-[#64748B]">
+            <span className="w-36">หมวด</span>
+            <span className="flex-1">รายละเอียด</span>
+            <span className="w-32">จำนวนเงิน</span>
+            <span className="w-28 text-center">{fileLabel}</span>
+            <span className="w-10" />
+          </div>
+
+          {items.map((it, i) => (
+            <div key={i} className="mb-2.5">
+              <div className="flex gap-2">
                 <select
-                  className={inputClass}
-                  value={budgetId}
-                  onChange={(e) => setBudgetId(e.target.value)} // เลือกงบ → เก็บ id ลงกล่อง
+                  className={`${fieldClass} w-36 shrink-0 bg-white px-3`}
+                  value={it.categoryId}
+                  onChange={(e) => changeItem(i, "categoryId", e.target.value)}
+                  disabled={!project}
                 >
-                  <option value="">-- เลือกงบ --</option>
-                  {/* map = ปั๊มตัวเลือกจากลิสต์งบทีละอัน · key = ป้ายชื่อให้ React แยกแต่ละอัน */}
-                  {budgets.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.name}
+                  <option value="">
+                    {project ? "-- หมวด --" : "เลือกโครงการก่อน"}
+                  </option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
                     </option>
                   ))}
                 </select>
-                {/* && = มีงบ (เลือกแล้ว) ค่อยโชว์ยอดคงเหลือ · ไม่มีงบ ไม่โชว์ */}
-                {budget && (
-                  <p className="mt-1 text-xs text-[#64748B]">
-                    คงเหลือในรายการนี้{" "}
-                    <b className="text-[#047857]">฿{money(budget.remaining)}</b>
-                  </p>
-                )}
-              </div>
-              <div className="flex-1">
-                <Label text="วันที่ใช้จ่าย" />
                 <input
-                  type="date"
-                  className={inputClass}
-                  value={useDate}
-                  onChange={(e) => setUseDate(e.target.value)}
-                />
-              </div>
-            </div>
-
-            {/* ---------- [5.6] เหตุผลการเบิก ---------- */}
-            <Label text="เหตุผลการเบิก" />
-            <textarea
-              className={`${inputClass} mb-6 h-20`}
-              placeholder="เช่น เดินทางไปสัมมนาที่เชียงใหม่ ใช้เงินส่วนตัวสำรองจ่ายไปก่อน"
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-            />
-
-            {/* ---------- [5.7] รายการค่าใช้จ่าย ---------- */}
-            <div
-              className="mb-3 flex items-center just
-            .y-between border-t border-gray-100 pt-4"
-            >
-              <h2 className="text-base font-bold">รายการค่าใช้จ่าย</h2>
-              <span className="rounded-full bg-gray-100 px-3 py-0.5 text-xs text-[#64748B]">
-                {items.length} รายการ
-              </span>
-            </div>
-
-            {/* หัวคอลัมน์ */}
-            <div className="mb-1.5 flex gap-2 px-1 text-xs font-semibold text-[#64748B]">
-              <span className="flex-1">รายการ</span>
-              <span className="w-40">จำนวนเงิน</span>
-              <span className="w-11" />
-            </div>
-
-            {/* แถวรายการ */}
-            {/* map = วาดแถวตามจำนวนใน items · it = ข้อมูลแถวนั้น · i = แถวที่เท่าไหร่ */}
-            {items.map((it, i) => (
-              <div key={i} className="mb-2.5 flex gap-2">
-                <input
-                  className={`${inputClass} flex-1 bg-white`}
-                  placeholder="เช่น ค่าตั๋วเครื่องบิน"
+                  className={`${fieldClass} min-w-0 flex-1 bg-white`}
+                  placeholder="เช่น ตั๋วเครื่องบินไป-กลับ"
                   value={it.name}
-                  onChange={(e) => changeName(i, e.target.value)} // พิมพ์ชื่อ → แก้เฉพาะแถว i
+                  onChange={(e) => changeItem(i, "name", e.target.value)}
                 />
-                <div className="flex w-40 items-center rounded-xl border border-gray-200 bg-white px-3 focus-within:border-[#059669]">
+                <div className="flex w-32 shrink-0 items-center rounded-xl border border-gray-200 bg-white px-3 focus-within:border-[#059669]">
                   <span className="text-sm text-[#94A3B8]">฿</span>
                   <input
                     type="number"
                     className="w-full border-0 bg-transparent px-1 py-2.5 text-right text-sm font-bold outline-none focus:ring-0"
                     placeholder="0"
                     value={it.amount}
-                    onChange={(e) => changeAmount(i, e.target.value)} // พิมพ์เงิน → แก้เฉพาะแถว i
+                    onChange={(e) => changeItem(i, "amount", e.target.value)}
                   />
                 </div>
+                {/* ปุ่มแนบ: ยังไม่มีไฟล์ = ขอบแดงประ · มีแล้ว = เขียว + จำนวนไฟล์ */}
+                <label
+                  className={`flex w-28 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-xl text-sm font-semibold ${
+                    it.files.length > 0
+                      ? "border border-[#A7F3D0] bg-[#ECFDF5] text-[#047857]"
+                      : "border border-dashed border-[#FDA4AF] bg-[#FFF1F2] text-[#BE123C]"
+                  }`}
+                >
+                  <Upload1 size={16} />
+                  {it.files.length > 0 ? `${it.files.length} ไฟล์` : "แนบไฟล์"}
+                  <input
+                    type="file"
+                    multiple
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    className="hidden"
+                    onChange={(e) => addFiles(i, e)}
+                  />
+                </label>
                 <button
-                  onClick={() => removeItem(i)} // กดถังขยะ → ส่งเลขแถวไปลบ
-                  disabled={items.length === 1} // เหลือแถวเดียว → กดไม่ได้ กันลบจนหมด
-                  className="flex w-11 items-center justify-center rounded-xl border border-[#FECACA] bg-[#FEF2F2] text-[#DC2626] hover:bg-[#FECACA] disabled:opacity-30"
+                  onClick={() => removeItem(i)}
+                  disabled={items.length === 1}
+                  className="flex w-10 shrink-0 items-center justify-center rounded-xl border border-[#FECACA] bg-[#FEF2F2] text-[#DC2626] hover:bg-[#FECACA] disabled:opacity-30"
                 >
                   <Trash1 size={18} />
                 </button>
               </div>
-            ))}
 
-            {/* ---------- [5.8] ปุ่มเพิ่มรายการ + ยอดรวม ---------- */}
-            <button
-              onClick={addItem} // ใส่ชื่อฟังก์ชันเฉยๆ ไม่มี () = รอให้กดก่อนค่อยทำ
-              className="flex w-full items-center justify-center gap-1 rounded-xl border border-dashed border-[#059669] py-2.5 text-sm font-semibold text-[#047857] hover:bg-[#ECFDF5]"
-            >
-              <Plus size={16} /> เพิ่มรายการ
-            </button>
-
-            {/* ยอดรวม */}
-            <div className="mb-6 mt-3 flex items-center justify-between rounded-xl bg-[#ECFDF5] px-4 py-3.5 text-[#047857]">
-              <span className="text-sm">ยอดรวม</span>
-              <b className="text-2xl">฿{money(total)}</b>
-            </div>
-
-            {/* ---------- [5.9] แนบไฟล์ ---------- */}
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-base font-bold">
-                {type === "advance" ? "ใบเสร็จรับเงิน" : "ใบแจ้งหนี้"}
-                <span className="ml-2 rounded-md bg-red-100 px-2 py-0.5 text-xs text-red-700">
-                  จำเป็น
-                </span>
-              </h2>
-              <span className="text-xs text-[#94A3B8]">
-                PDF, JPG ไม่เกิน 10 MB
-              </span>
-            </div>
-            <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-gray-300 bg-gray-50 py-4 text-sm text-[#64748B] hover:bg-gray-100">
-              <Upload1 size={20} className="text-[#059669]" />
-              ลากไฟล์มาวาง หรือ <b className="text-[#047857]">เลือกไฟล์</b>
-              <input
-                type="file"
-                multiple
-                accept=".pdf,.jpg,.jpeg,.png"
-                className="hidden"
-                onChange={addFiles} // เลือกไฟล์เสร็จ → เรียก addFiles
-              />
-            </label>
-            <div className="mt-3 grid grid-cols-3 gap-3">
-              {/* map = วาดการ์ดไฟล์ทีละไฟล์ */}
-              {files.map((name, i) => (
-                <div
-                  key={i}
-                  className="flex items-center gap-2 rounded-xl border border-gray-200 p-2 text-sm"
-                >
-                  <div className="rounded-lg bg-red-100 p-1.5">
-                    <FileText size={16} className="text-red-600" />
-                  </div>
-                  <span className="flex-1 truncate">{name}</span>
-                  <button
-                    onClick={() => removeFile(i)} // กดลบ → ส่งเลขไฟล์ไปลบ
-                    className="text-gray-400 hover:text-red-600"
-                  >
-                    <Trash1 size={16} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          {/* ===== คอลัมน์ขวา: สรุป ===== */}
-          <section className="w-96 shrink-0 space-y-6">
-            {/* ---------- [5.10] การ์ดสรุปยอด ---------- */}
-            <div className="rounded-2xl bg-gradient-to-br from-[#0F172A] via-[#0F172A] to-[#047857] p-6 text-white">
-              <p className="flex items-center gap-2 text-sm text-gray-300">
-                <Wallet2 size={18} className="text-[#34D399]" /> ยอดรวมที่ขอเบิก
-              </p>
-              <p className="my-1 text-4xl font-bold">฿{money(total)}</p>
-              <p className="text-sm text-[#A7F3D0]">
-                {/* length = นับจำนวน (กี่แถว / กี่ไฟล์) */}
-                {items.length} รายการ · {fileLabel} {files.length} ไฟล์
-              </p>
-              <hr className="my-4 border-white/15" />
-              <div className="flex items-center justify-between text-sm text-gray-300">
-                <span className="flex items-center gap-2">
-                  <Calendar size={16} className="text-[#34D399]" />{" "}
-                  งบคงเหลือหลังอนุมัติ
-                </span>
-                <b className="text-lg text-white">
-                  {/* ทางแยก ? : → มีงบ = คงเหลือ − ยอดรวม · ไม่มีงบ = ขีด - */}
-                  {budget ? "฿" + money(budget.remaining - total) : "-"}
-                </b>
-              </div>
-              <p className="mt-2 rounded-lg bg-white/10 px-3 py-2 text-xs text-[#D1FAE5]">
-                ได้รับเงินทันทีเมื่อฝ่ายบัญชีอนุมัติ
-              </p>
-            </div>
-
-            {/* ---------- [5.11] เส้นทางการอนุมัติ (เปลี่ยนตามยอดเงิน) ---------- */}
-            <div className="rounded-2xl border border-gray-200 bg-white p-6">
-              <h2 className="mb-4 text-lg font-bold">เส้นทางการอนุมัติ</h2>
-              <Step
-                avatar={
-                  <span className="text-xs font-bold text-[#0F172A]">เน</span>
-                }
-                color="bg-[#34D399]"
-                text="คุณ (ผู้ขอ)"
-                sub="ส่งคำขอ"
-              />
-              <Step
-                avatar={<User2 size={18} className="text-[#047857]" />}
-                color="bg-[#D1FAE5]"
-                text={getApprover(total)}
-                sub="อนุมัติขั้นที่ 1"
-              />
-              <Step
-                avatar={<User2 size={18} className="text-[#3730A3]" />}
-                color="bg-[#E0E7FF]"
-                text="ฝ่ายบัญชี"
-                sub="ตรวจและจ่ายเงิน · ขั้นสุดท้าย"
-                last
-              />
-            </div>
-
-            {/* ---------- [5.12] บัญชีรับเงิน + ข้อความแจ้ง + ปุ่ม ---------- */}
-            <div className="rounded-2xl border border-gray-200 bg-white p-6">
-              <Label text="โอนเงินคืนเข้าบัญชี" />
-              <div className="mb-4 flex items-center gap-3 rounded-xl border border-gray-200 p-3">
-                <div className="h-9 w-9 rounded-full bg-[#D1FAE5]" />
-                <div className="flex-1">
-                  <p className="text-sm font-bold">กสิกรไทย ••• 4521</p>
-                  <p className="text-xs text-[#64748B]">คุณเนส</p>
-                </div>
-              </div>
-
-              {/* ข้อความผิดพลาด / สำเร็จ */}
-              {/* มีข้อผิดพลาดอย่างน้อย 1 ข้อ → โชว์กล่องแดง */}
-              {errors.length > 0 && (
-                <ul className="mb-3 list-disc rounded-xl bg-red-50 py-2 pl-8 pr-3 text-sm text-red-700">
-                  {errors.map((e) => (
-                    <li key={e}>{e}</li>
+              {/* รายชื่อไฟล์ของแถวนี้ */}
+              {it.files.length > 0 && (
+                <div className="mt-1.5 flex flex-wrap gap-1.5 pl-[9.5rem]">
+                  {it.files.map((name, f) => (
+                    <span
+                      key={f}
+                      className="flex items-center gap-1 rounded-lg bg-gray-100 px-2 py-1 text-xs text-[#334155]"
+                    >
+                      <FileText size={12} className="text-red-600" />
+                      {name}
+                      <button
+                        onClick={() => removeFile(i, f)}
+                        className="ml-0.5 text-gray-400 hover:text-red-600"
+                      >
+                        ×
+                      </button>
+                    </span>
                   ))}
-                </ul>
+                </div>
               )}
-              {/* มีข้อความสำเร็จ → โชว์กล่องเขียว */}
-              {message && (
-                <p className="mb-3 rounded-xl bg-[#ECFDF5] p-3 text-sm text-[#047857]">
-                  {message}
-                </p>
-              )}
-
-              <button
-                onClick={submit} // กดส่ง → ตรวจก่อนส่ง [4.6]
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#059669] py-3 font-bold text-white hover:bg-[#047857]"
-              >
-                <Send1 size={18} /> ส่งคำขอ
-              </button>
-              <button
-                onClick={saveDraft} // กดร่าง → บันทึกร่าง [4.7]
-                className="mt-2 w-full rounded-xl bg-gray-100 py-3 font-semibold text-gray-600 hover:bg-gray-200"
-              >
-                บันทึกร่าง
-              </button>
             </div>
-          </section>
-        </div>
-      </main>
+          ))}
+
+          <button
+            onClick={addItem}
+            className="flex w-full items-center justify-center gap-1 rounded-xl border border-dashed border-[#059669] py-2.5 text-sm font-semibold text-[#047857] hover:bg-[#ECFDF5]"
+          >
+            <Plus size={16} /> เพิ่มรายการ
+          </button>
+
+          {/* ---------- [6.5] ยอดรวม + สถานะหลักฐาน ---------- */}
+          <div className="mt-3 flex items-center justify-between rounded-xl bg-[#ECFDF5] px-4 py-3.5">
+            <span
+              className={`text-sm ${rowsWithFile < items.length ? "text-[#BE123C]" : "text-[#047857]"}`}
+            >
+              แนบ{fileLabel}แล้ว{" "}
+              <b>
+                {rowsWithFile}/{items.length}
+              </b>{" "}
+              รายการ
+            </span>
+            <span className="text-[#047857]">
+              <span className="mr-2 text-sm">ยอดรวม</span>
+              <b className="text-2xl">฿{money(total)}</b>
+            </span>
+          </div>
+        </section>
+
+        {/* ===== คอลัมน์ขวา: สรุป ===== */}
+        <section className="w-96 shrink-0 space-y-6">
+          {/* ---------- [6.6] การ์ดสรุป ---------- */}
+          <div className="rounded-2xl bg-gradient-to-br from-[#0F172A] via-[#0F172A] to-[#047857] p-6 text-white">
+            <p className="flex items-center gap-2 text-sm text-gray-300">
+              <Wallet2 size={18} className="text-[#34D399]" /> ยอดรวมที่ขอเบิก
+            </p>
+            <p className="my-1 text-4xl font-bold">฿{money(total)}</p>
+            <p className="text-sm text-[#A7F3D0]">
+              {items.length} รายการ · {fileLabel} {fileCount} ไฟล์
+            </p>
+            <hr className="my-4 border-white/15" />
+            <div className="flex items-center justify-between text-sm text-gray-300">
+              <span className="flex items-center gap-2">
+                <Calendar size={16} className="text-[#34D399]" />{" "}
+                งบโครงการหลังอนุมัติ
+              </span>
+              {project ? (
+                <b className="text-lg text-white">
+                  ฿{money(projectRemaining - total)}
+                </b>
+              ) : (
+                <span className="text-xs text-gray-400">เลือกโครงการเพื่อดูงบ</span>
+              )}
+            </div>
+            <p className="mt-2 rounded-lg bg-white/10 px-3 py-2 text-xs text-[#D1FAE5]">
+              {isAdvance
+                ? "ได้รับเงินคืนเมื่อการเงินทำจ่าย"
+                : "การเงินโอนให้ผู้ขายตามใบแจ้งหนี้"}
+            </p>
+          </div>
+
+          {/* ---------- [6.7] เส้นทางอนุมัติ (เปลี่ยนตามยอดเงิน) ---------- */}
+          <div className="rounded-2xl border border-gray-200 bg-white p-6">
+            <h2 className="mb-4 text-lg font-bold">เส้นทางการอนุมัติ</h2>
+            <Step
+              avatar={
+                <span className="text-xs font-bold text-[#0F172A]">คุณ</span>
+              }
+              color="bg-[#34D399]"
+              text={user ? user.fullName : "คุณ (ผู้ขอ)"}
+              sub="ส่งคำขอ"
+            />
+            {steps.map((role, i) => (
+              <Step
+                key={role}
+                avatar={<User2 size={18} className={STEP_STYLE[role].icon} />}
+                color={STEP_STYLE[role].bg}
+                text={ROLE_LABEL[role]}
+                sub={STEP_SUB[role]}
+                last={i === steps.length - 1}
+              />
+            ))}
+            {total > 0 && steps[0] === "ACCOUNTANT_ADMIN" && (
+              <p className="mt-1 rounded-lg bg-[#ECFDF5] px-3 py-2 text-xs text-[#047857]">
+                ยอดไม่เกิน ฿{money(rules[0].max ?? 0)} ไม่ต้องผ่านหัวหน้า
+              </p>
+            )}
+          </div>
+
+          {/* ---------- [6.8] บัญชีรับเงิน + ปุ่ม ---------- */}
+          <div className="rounded-2xl border border-gray-200 bg-white p-6">
+            {/* สำรองจ่าย = โอนคืนเข้าบัญชีผู้ขอ · ใบแจ้งหนี้ = โอนให้ผู้ขาย */}
+            {isAdvance ? (
+              <>
+                <Label text="โอนเงินคืนเข้าบัญชี" />
+                <div className="mb-4 flex items-center gap-3 rounded-xl border border-gray-200 p-3">
+                  <div className="h-9 w-9 rounded-full bg-[#D1FAE5]" />
+                  <div className="flex-1">
+                    <p className="text-sm font-bold">{BANK_ACCOUNT}</p>
+                    <p className="text-xs text-[#64748B]">
+                      {user ? user.fullName : "-"}
+                    </p>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <Label text="การจ่ายเงิน" />
+                <p className="mb-4 rounded-xl border border-gray-200 p-3 text-sm text-[#64748B]">
+                  การเงินจะโอนให้ผู้ขายตามใบแจ้งหนี้ที่แนบ
+                </p>
+              </>
+            )}
+
+            {errors.length > 0 && (
+              <ul className="mb-3 list-disc rounded-xl bg-red-50 py-2 pl-8 pr-3 text-sm text-red-700">
+                {errors.map((e) => (
+                  <li key={e}>{e}</li>
+                ))}
+              </ul>
+            )}
+            {message && (
+              <p className="mb-3 rounded-xl bg-[#ECFDF5] p-3 text-sm text-[#047857]">
+                {message}
+              </p>
+            )}
+
+            <button
+              onClick={submit}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#059669] py-3 font-bold text-white hover:bg-[#047857]"
+            >
+              <Send1 size={18} /> ส่งคำขอ
+            </button>
+            <button
+              onClick={saveDraft}
+              className="mt-2 w-full rounded-xl bg-gray-100 py-3 font-semibold text-gray-600 hover:bg-gray-200"
+            >
+              บันทึกร่าง
+            </button>
+          </div>
+        </section>
+      </div>
     </div>
   );
 }
 
-// ===== [6] ชิ้นส่วนเล็ก ๆ ที่ใช้ซ้ำ (component) =====
+// ════════════════════════════════════════
+//  [7] ชิ้นส่วนที่ใช้ซ้ำ
+// ════════════════════════════════════════
 
-// component = ชิ้นส่วนหน้าจอที่ใช้ซ้ำได้ · ของใน { } คือ props = ค่าที่ส่งเข้ามาจากข้างนอก
-// [6.1] MenuItem = ปุ่มเมนูซ้าย 1 อัน
-function MenuItem({
-  icon,
-  text,
-  active,
-  badge,
-}: {
-  icon: React.ReactNode;
-  text: string;
-  active?: boolean;
-  badge?: number;
-}) {
-  return (
-    <div
-      className={`mb-1 flex items-center gap-3 rounded-xl px-3 py-3 text-sm ${active ? "bg-[#059669] font-semibold text-white" : "hover:bg-white/5"}`} // active = เมนูหน้านี้ → สีเขียว
-    >
-      {icon} <span className="flex-1">{text}</span>
-      {/* มีเลข badge ค่อยโชว์วงกลมตัวเลข */}
-      {badge && (
-        <span className="rounded-full bg-[#059669] px-2 text-xs font-bold text-white">
-          {badge}
-        </span>
-      )}
-    </div>
-  );
-}
+// fieldClass = หน้าตาช่องกรอก · inputClass = แบบเต็มความกว้าง
+const fieldClass =
+  "rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm outline-none focus:border-[#059669] focus:bg-white focus:ring-0";
+const inputClass = "w-full " + fieldClass;
 
-// [6.2] Label = ข้อความหัวช่องกรอก
+// สีและคำอธิบายของแต่ละขั้นในเส้นทางอนุมัติ
+// ※ Record<StepRole, ...> = ตารางจับคู่ role แต่ละตัว → ค่าของมัน (ต้องครบทุก role)
+const STEP_STYLE: Record<StepRole, { bg: string; icon: string }> = {
+  HEAD: { bg: "bg-[#D1FAE5]", icon: "text-[#047857]" },
+  DIRECTOR: { bg: "bg-[#FEF3C7]", icon: "text-[#B45309]" },
+  MD: { bg: "bg-[#FCE7F3]", icon: "text-[#BE185D]" },
+  ACCOUNTANT_ADMIN: { bg: "bg-[#E0E7FF]", icon: "text-[#3730A3]" },
+  FINANCE: { bg: "bg-[#DBEAFE]", icon: "text-[#1D4ED8]" },
+};
+const STEP_SUB: Record<StepRole, string> = {
+  HEAD: "อนุมัติ",
+  DIRECTOR: "อนุมัติ",
+  MD: "อนุมัติ",
+  ACCOUNTANT_ADMIN: "ตรวจสอบหลักฐาน",
+  FINANCE: "ทำจ่าย",
+};
+
+// [7.1] หัวข้อช่องกรอก
 function Label({ text }: { text: string }) {
   return <p className="mb-1.5 mt-3 text-sm font-semibold">{text}</p>;
 }
 
-// [6.3] TypeButton = ปุ่มเลือกประเภทคำขอ
+// [7.2] ปุ่มเลือกประเภทคำขอ
 function TypeButton({
   active,
   onClick,
@@ -541,14 +742,14 @@ function TypeButton({
   return (
     <button
       onClick={onClick}
-      className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-sm font-semibold ${active ? "border-2 border-[#059669] bg-white text-[#047857]" : "text-[#64748B]"}`} // active → ขอบเขียว พื้นขาว · ไม่ active → ตัวเทา
+      className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-sm font-semibold ${active ? "border-2 border-[#059669] bg-white text-[#047857]" : "text-[#64748B]"}`}
     >
       {icon} {text}
     </button>
   );
 }
 
-// [6.4] Step = 1 ขั้นในเส้นทางการอนุมัติ
+// [7.3] 1 ขั้นในเส้นทางอนุมัติ
 function Step({
   avatar,
   color,
@@ -570,7 +771,6 @@ function Step({
         >
           {avatar}
         </div>
-        {/* !last = ไม่ใช่ขั้นสุดท้าย → วาดเส้นเชื่อมลงไป */}
         {!last && <div className="my-1 w-0.5 flex-1 bg-gray-300" />}
       </div>
       <div className="pb-4">
