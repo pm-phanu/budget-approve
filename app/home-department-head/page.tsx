@@ -1,8 +1,8 @@
 "use client";
 
+import { NotificationBell } from "@/app/notification/noti";
 import {
   ArrowRight,
-  Bell1,
   Check,
   CheckCircle1,
   ClockThree,
@@ -35,9 +35,7 @@ export default function departmentHeadHomePage() {
               />
             </div>
 
-            <button className="p-2.5 bg-white rounded-xl border border-gray-200 hover:bg-gray-50 relative transition">
-              <Bell1 />
-            </button>
+            <NotificationBell />
             <button className="flex items-center justify-center gap-2 bg-[#00875a] text-white px-5 py-2.5 rounded-xl hover:bg-[#00704a]  text-md font-medium shadow-sm w-42.5">
               <span>
                 <Plus />

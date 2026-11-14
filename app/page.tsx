@@ -1,10 +1,10 @@
 "use client";
 
+import { NotificationBell } from "@/app/notification/noti";
 import { Button } from "@/components/tailgrids/core/button";
 import { Link } from "@/components/tailgrids/core/link";
 import {
   ArrowRight,
-  Bell1,
   CheckCircle1,
   ClockThree,
   Plus,
@@ -29,14 +29,7 @@ export default function Home() {
                 className="border-none outline-none focus:outline-none focus:ring-0"
               />
             </div>
-            <div className="relative">
-              <Button appearance="outline" className="border border-[#e2e8f0]">
-                <Bell1 />
-                <span className="absolute top-1 right-3 h-4.5 w-4.5 rounded-full bg-red-500 text-[12px] font-bold text-white">
-                  0
-                </span>
-              </Button>
-            </div>
+            <NotificationBell />
             <div className="mx-auto flex min-w-40 items-center">
               <Button className="w-full bg-[#059669] hover:bg-[#036647]">
                 <p className="flex gap-2 font-bold">

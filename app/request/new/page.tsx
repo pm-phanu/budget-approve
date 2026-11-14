@@ -27,7 +27,9 @@
 //   [5.12] บัญชีรับเงิน + ข้อความแจ้ง + ปุ่มส่ง/ร่าง
 // [6]  ชิ้นส่วนเล็กที่ใช้ซ้ำ: MenuItem, Label, TypeButton, Step
 
+import Link from "next/link";
 import { useState } from "react";
+import { addNotification, NotificationBell } from "@/app/notification/noti";
 import {
   DashboardSquare1,
   Plus,
@@ -135,6 +137,41 @@ export default function NewRequest() {
       status,
     };
     localStorage.setItem("requests", JSON.stringify([...requests, newRequest]));
+    return newRequest;
+  }
+
+  function pushRequestNotification(
+    newRequest: ReturnType<typeof saveRequest>,
+    isDraft: boolean,
+  ) {
+    const requestLabel = newRequest.title.trim() || `คำขอ #${newRequest.id}`;
+    addNotification({
+      category: isDraft ? "request_draft" : "request_submitted",
+      title: isDraft
+        ? `บันทึกร่าง: ${requestLabel}`
+        : `ส่งคำขอ: ${requestLabel}`,
+      message: isDraft
+        ? `บันทึกร่างคำขอเบิกจำนวน ${money(newRequest.total)} บาทเรียบร้อยแล้ว`
+        : `ส่งคำขอจำนวน ${money(newRequest.total)} บาท ให้ ${newRequest.approver} เรียบร้อยแล้ว`,
+      meta: {
+        requestId: newRequest.id,
+        requestTitle: newRequest.title || undefined,
+        requestType: newRequest.type,
+        budgetName: budget?.name,
+        total: newRequest.total,
+        approver: newRequest.approver,
+        status: newRequest.status,
+        useDate: newRequest.useDate || undefined,
+        reason: newRequest.reason || undefined,
+        items: newRequest.items
+          .filter((it) => it.name.trim() !== "" || Number(it.amount || 0) > 0)
+          .map((it) => ({
+            name: it.name.trim() || "ไม่ระบุรายการ",
+            amount: it.amount || "0",
+          })),
+        files: newRequest.files,
+      },
+    });
   }
 
   // ---- [4.6] ตรวจก่อนส่ง ----
@@ -151,13 +188,15 @@ export default function NewRequest() {
       setMessage("");
       return;
     }
-    saveRequest("รออนุมัติ");
+    const saved = saveRequest("รออนุมัติ");
+    pushRequestNotification(saved, false);
     setMessage("ส่งคำขอเรียบร้อย ระบบส่งต่อให้ " + getApprover(total));
   }
 
   // ---- [4.7] บันทึกร่าง ----
   function saveDraft() {
-    saveRequest("ร่าง");
+    const saved = saveRequest("ร่าง");
+    pushRequestNotification(saved, true);
     setErrors([]);
     setMessage("บันทึกร่างแล้ว");
   }
@@ -197,11 +236,18 @@ export default function NewRequest() {
       {/* ---------- เนื้อหา ---------- */}
       <main className="flex-1 p-10">
         {/* ---------- [5.2] หัวข้อหน้า ---------- */}
-        <p className="text-sm text-[#64748B]">
-          ‹ แดชบอร์ด /{" "}
-          <span className="font-semibold text-[#047857]">สร้างคำขอ</span>
-        </p>
-        <h1 className="mb-6 text-3xl font-bold">สร้างคำขอเบิก</h1>
+        <div className="mb-6 flex items-start justify-between gap-4">
+          <div>
+            <p className="text-sm text-[#64748B]">
+              <Link href="/" className="hover:underline">
+                ‹ แดชบอร์ด
+              </Link>{" "}
+              / <span className="font-semibold text-[#047857]">สร้างคำขอ</span>
+            </p>
+            <h1 className="text-3xl font-bold">สร้างคำขอเบิก</h1>
+          </div>
+          <NotificationBell />
+        </div>
 
         <div className="flex gap-6">
           {/* ===== คอลัมน์ซ้าย: ฟอร์ม ===== */}

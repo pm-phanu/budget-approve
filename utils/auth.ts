@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { addNotification } from "@/app/notification/noti";
 import {
   CURRENT_USER_KEY,
   notifyAuthSessionChange,
@@ -78,6 +79,12 @@ export function useAuth() {
 
     const updateUsers = [...usersArray, formData];
     localStorage.setItem("users", JSON.stringify(updateUsers));
+    addNotification({
+      userEmail: formData.email,
+      category: "auth",
+      title: "สมัครสมาชิกสำเร็จ",
+      message: `สร้างบัญชีสำหรับ ${formData.username || formData.email} เรียบร้อยแล้ว`,
+    });
 
     alert("สมัครสมาชิกสำเร็จ!");
     router.push("/login");
@@ -102,6 +109,12 @@ export function useAuth() {
           email: matchUser.email,
         }),
       );
+      addNotification({
+        userEmail: matchUser.email,
+        category: "auth",
+        title: "เข้าสู่ระบบสำเร็จ",
+        message: `ยินดีต้อนรับ ${matchUser.username || matchUser.email} เข้าสู่ระบบแจ้งเบิกงบประมาณ`,
+      });
       notifyAuthSessionChange();
       router.push("/");
     } else {
