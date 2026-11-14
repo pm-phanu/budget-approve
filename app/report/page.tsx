@@ -274,8 +274,8 @@ const months = ["มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "
 const chart = months.map((m) => ({
   month: m,
   amount: requests
-    .filter((r) => r.date.includes(m))
-    .reduce((sum, r) => sum + r.amount, 0),
+    .filter((r) => r.date.includes(m))  // เก็บคำขอที่วันที่มีชื่อเดือนนี้
+    .reduce((sum, r) => sum + r.amount, 0),  // บวกยอดเงินของเดือนนั้น
 }));
 
 // แท็บช่วงเวลา: days = ย้อนหลังกี่วัน
@@ -292,38 +292,44 @@ const depts = ["การตลาด", "ขาย", "ไอที", "อื่�
 
 // ใส่ลูกน้ำให้ตัวเลข เช่น 12500 → "12,500"
 function money(n: number) {
-  return n.toLocaleString("th-TH");
+  return n.toLocaleString("th-TH");  // toLocaleString = ใส่ลูกน้ำแบบไทย
 }
 
 // ===== [4] หน้าหลัก =====
 export default function Report() {
   // ---- [4.1] state = ตัวแปรที่เปลี่ยนแล้วหน้าจอเปลี่ยนตาม ----
+  // [ของ, setของ] = useState(ค่าเริ่มต้น) · ค่าในกล่องเปลี่ยน → หน้าจอวาดใหม่ → ตัวเลขทุกอย่างข้างล่างคิดใหม่เอง
   const [days, setDays] = useState(30); // แท็บที่เลือก (เริ่มที่รายเดือน)
   const [dept, setDept] = useState("การตลาด"); // ฝ่ายที่เลือกในตาราง
   const [search, setSearch] = useState(""); // คำค้นเลขที่เอกสาร
 
   // ---- [4.2] เก็บเฉพาะคำขอที่อยู่ในช่วงเวลาที่เลือก ----
-  const list = requests.filter((r) => r.daysAgo <= days);
+  const list = requests.filter((r) => r.daysAgo <= days);  // filter = เก็บเฉพาะที่ผ่านเงื่อนไข: เบิกไม่เกินจำนวนวันของแท็บที่เลือก
 
   // ---- [4.3] ตัวเลขบนการ์ด ----
+  // reduce = บวกทีละใบ · sum = ยอดสะสม · 0 ท้ายสุด = เริ่มนับจาก 0
   const total = list.reduce((sum, r) => sum + r.amount, 0); // รวมยอดเบิก
   const remaining = BUDGET - total; // งบคงเหลือ
   const count = list.length; // จำนวนคำขอ
-  const sumDays = list.reduce((sum, r) => sum + r.approveDays, 0);
+  const sumDays = list.reduce((sum, r) => sum + r.approveDays, 0);  // รวมจำนวนวันที่ใช้อนุมัติทุกใบ
+  // ทางแยก ? : → มีคำขอ = รวมวัน ÷ จำนวนใบ (toFixed(1) = ทศนิยม 1 ตำแหน่ง) · ไม่มี = "0" (กันหารด้วย 0)
   const avgDays = count > 0 ? (sumDays / count).toFixed(1) : "0"; // เวลาอนุมัติเฉลี่ย
+  // Math.round = ปัดเป็นจำนวนเต็ม
   const usedPercent = Math.round((total / BUDGET) * 100); // ใช้งบไปกี่ %
 
   // ---- [4.4] 4 อันดับที่เบิกเยอะสุด ----
+  // ต้อง [...list] ก๊อปก่อน เพราะ sort จะไปเปลี่ยนลิสต์เดิม · b.amount - a.amount = เรียงมากไปน้อย
   const top = [...list].sort((a, b) => b.amount - a.amount).slice(0, 4); // ก๊อป → เรียงมากไปน้อย → ตัด 4 อันแรก
 
   // ---- [4.5] ตาราง: เก็บเฉพาะฝ่ายที่เลือก และเลขที่เอกสารมีคำที่ค้น ----
   const rows = list.filter(
     (r) =>
+      // === dept = ฝ่ายตรงกับแท็บ · && = ต้องจริงทั้งคู่ · includes = มีคำที่ค้นอยู่ในเลขเอกสารไหม · toLowerCase = ทำเป็นตัวเล็กหมด จะได้ไม่สนตัวพิมพ์ใหญ่/เล็ก
       r.dept === dept && r.doc.toLowerCase().includes(search.toLowerCase()),
   );
 
   // ---- [4.6] กราฟ: แท่งที่สูงสุด = 100% ----
-  const maxAmount = Math.max(...chart.map((c) => c.amount));
+  const maxAmount = Math.max(...chart.map((c) => c.amount));  // ... แตกลิสต์ออกเป็นตัวเลขทีละตัว ให้ Math.max หาค่าที่มากที่สุด
 
   // ===== [5] หน้าจอ =====
   return (
@@ -389,10 +395,12 @@ export default function Report() {
 
         {/* ---------- [5.3] แท็บเลือกช่วงเวลา ---------- */}
         <div className="mb-6 inline-flex gap-1 rounded-xl border border-gray-200 bg-white p-1">
+          {/* map = สร้างปุ่มแท็บจาก periods ทีละอัน */}
           {periods.map((p) => (
             <button
               key={p.days}
-              onClick={() => setDays(p.days)}
+              onClick={() => setDays(p.days)}  // กดแท็บ → เปลี่ยนจำนวนวันในกล่อง days → ตัวเลขทั้งหน้าคิดใหม่
+              // แท็บที่เลือกอยู่ → พื้นสีเข้ม
               className={`rounded-lg px-4 py-2 text-sm font-semibold ${days === p.days ? "bg-[#0F172A] text-white" : "text-[#64748B] hover:bg-gray-100"}`}
             >
               {p.label}
@@ -411,7 +419,7 @@ export default function Report() {
             <div className="h-1.5 rounded-full bg-white/15">
               <div
                 className="h-1.5 rounded-full bg-[#34D399]"
-                style={{ width: `${100 - usedPercent}%` }}
+                style={{ width: `${100 - usedPercent}%` }}  // ความยาวหลอด = % งบที่เหลือ
               />
             </div>
           </div>
@@ -442,6 +450,7 @@ export default function Report() {
               ยอดเบิกจ่ายย้อนหลัง 6 เดือน
             </h2>
             <div className="flex h-56 items-end gap-6 border-b border-gray-200 px-4">
+              {/* map = วาดแท่งกราฟทีละเดือน · i = ลำดับเดือน */}
               {chart.map((c, i) => (
                 <div
                   key={c.month}
@@ -451,8 +460,8 @@ export default function Report() {
                     {money(c.amount)}
                   </span>
                   <div
-                    className={`w-full rounded-t-lg ${i === chart.length - 1 ? "bg-[#059669]" : "bg-[#CBD5E1]"}`}
-                    style={{ height: `${(c.amount / maxAmount) * 85}%` }}
+                    className={`w-full rounded-t-lg ${i === chart.length - 1 ? "bg-[#059669]" : "bg-[#CBD5E1]"}`}  // แท่งสุดท้าย (เดือนล่าสุด) = สีเขียว · อื่นๆ = สีเทา
+                    style={{ height: `${(c.amount / maxAmount) * 85}%` }}  // ความสูง = ยอดเดือนนี้ ÷ ยอดสูงสุด (แท่งสูงสุดสูง 85%)
                   />
                 </div>
               ))}
@@ -472,11 +481,13 @@ export default function Report() {
           {/* ---------- [5.6] รายการเบิกจ่ายสูงสุด ---------- */}
           <section className="w-80 shrink-0 rounded-2xl border border-gray-200 bg-white p-6">
             <h2 className="mb-2 text-lg font-bold">รายการเบิกจ่ายสูงสุด</h2>
+            {/* ไม่มีรายการ (length === 0) → โชว์ข้อความแทน */}
             {top.length === 0 && (
               <p className="py-6 text-center text-sm text-[#94A3B8]">
                 ไม่มีรายการในช่วงนี้
               </p>
             )}
+            {/* map = วาด 4 อันดับ · i + 1 = เลขอันดับ (i เริ่มนับ 0) */}
             {top.map((r, i) => (
               <div
                 key={r.doc}
@@ -502,18 +513,19 @@ export default function Report() {
               <input
                 className="w-full border-0 bg-transparent py-2 text-sm outline-none focus:ring-0"
                 placeholder="ค้นหาเลขที่เอกสาร"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                value={search}  // value = โชว์คำค้นในกล่อง search
+                onChange={(e) => setSearch(e.target.value)}  // พิมพ์ → เก็บคำค้น → ตาราง rows กรองใหม่เอง
               />
             </div>
           </div>
 
           {/* แท็บฝ่าย */}
           <div className="mb-4 inline-flex gap-1 rounded-xl border border-gray-200 p-1">
+            {/* map = สร้างปุ่มแท็บฝ่ายทีละฝ่าย */}
             {depts.map((d) => (
               <button
                 key={d}
-                onClick={() => setDept(d)}
+                onClick={() => setDept(d)}  // กดแท็บ → เปลี่ยนฝ่ายในกล่อง dept
                 className={`rounded-lg px-4 py-1.5 text-sm font-semibold ${dept === d ? "bg-[#0F172A] text-white" : "text-[#64748B] hover:bg-gray-100"}`}
               >
                 {d}
@@ -533,6 +545,7 @@ export default function Report() {
               </tr>
             </thead>
             <tbody>
+              {/* map = วาดแถวตารางจาก rows ที่กรองแล้ว · key = เลขเอกสาร (ไม่ซ้ำกัน) */}
               {rows.map((r) => (
                 <tr key={r.doc} className="border-b border-gray-100">
                   <td className="py-3 text-[#64748B]">{r.date}</td>
@@ -551,6 +564,7 @@ export default function Report() {
               ))}
             </tbody>
           </table>
+          {/* ค้นแล้วไม่เจอ → โชว์ "ไม่พบรายการ" */}
           {rows.length === 0 && (
             <p className="py-6 text-center text-sm text-[#94A3B8]">
               ไม่พบรายการ

@@ -62,65 +62,69 @@ const inputClass =
 
 // ใส่ลูกน้ำให้ตัวเลข เช่น 12500 → "12,500"
 function money(n: number) {
-  return n.toLocaleString("th-TH");
+  return n.toLocaleString("th-TH"); // toLocaleString = ใส่ลูกน้ำแบบไทย
 }
 
 // หาผู้อนุมัติตามยอดเงิน
 function getApprover(total: number) {
+  // เช็กจากยอดน้อยไปมาก เจอข้อแรกที่จริง → return ตอบแล้วออกเลย บรรทัดล่างไม่ทำ
   if (total <= 5000) return "ไม่ต้องผ่านหัวหน้า";
   if (total <= 10000) return "หัวหน้าแผนก";
-  return "หัวหน้าสายงาน";
+  return "หัวหน้าสายงาน"; // ไม่เข้าข้อไหนเลย (เกิน 10,000) ตกมาบรรทัดนี้
 }
 
 // ===== [4] หน้าหลัก =====
 export default function NewRequest() {
   // ---- [4.1] state = ตัวแปรที่เปลี่ยนแล้วหน้าจอเปลี่ยนตาม ----
+  // [ของ, setของ] = useState(ค่าเริ่มต้น) · ของ = กล่องเก็บค่า · setของ = มือที่ใช้เปลี่ยนค่าในกล่อง
   const [type, setType] = useState("advance"); // advance = สำรองจ่าย, invoice = ใบแจ้งหนี้
-  const [title, setTitle] = useState("");
-  const [budgetId, setBudgetId] = useState("");
-  const [useDate, setUseDate] = useState("");
-  const [reason, setReason] = useState("");
+  const [title, setTitle] = useState(""); // ชื่อคำขอ (เริ่มว่าง เพราะยังไม่ได้พิมพ์)
+  const [budgetId, setBudgetId] = useState(""); // id ของงบที่เลือก (ได้จาก <select> เป็นตัวหนังสือ)
+  const [useDate, setUseDate] = useState(""); // วันที่ใช้จ่าย
+  const [reason, setReason] = useState(""); // เหตุผลการเบิก
   const [items, setItems] = useState<Item[]>([{ name: "", amount: "" }]); // เริ่มที่ 1 แถว
   const [files, setFiles] = useState<string[]>([]); // ชื่อไฟล์ที่แนบ
-  const [errors, setErrors] = useState<string[]>([]);
-  const [message, setMessage] = useState("");
+  const [errors, setErrors] = useState<string[]>([]); // ข้อผิดพลาด ตอนกดส่งแต่กรอกไม่ครบ
+  const [message, setMessage] = useState(""); // ข้อความสำเร็จ เช่น "ส่งคำขอเรียบร้อย"
 
   // ---- [4.2] ค่าที่คำนวณจาก state ----
+  // ไม่ต้องใช้ useState เพราะคิดใหม่จาก items ได้เองทุกครั้ง · sum = ยอดสะสม · it = แถวที่กำลังบวก · Number เปลี่ยนตัวหนังสือเป็นตัวเลข · || 0 = ช่องว่างนับเป็น 0 · 0 ท้ายสุด = เริ่มนับจาก 0
   const total = items.reduce((sum, it) => sum + Number(it.amount || 0), 0); // รวมยอดทุกแถว
-  const budget = budgets.find((b) => b.id === Number(budgetId));
-  const fileLabel = type === "advance" ? "ใบเสร็จ" : "ใบแจ้งหนี้";
+  const budget = budgets.find((b) => b.id === Number(budgetId)); // find หางบที่ id ตรงกับที่เลือก · Number เปลี่ยน "1" เป็น 1
+  const fileLabel = type === "advance" ? "ใบเสร็จ" : "ใบแจ้งหนี้"; // ทางแยก ? : → advance ได้ "ใบเสร็จ" ไม่ใช่ได้ "ใบแจ้งหนี้"
 
   // ---- [4.3] รายการค่าใช้จ่าย ----
   function addItem() {
     setItems([...items, { name: "", amount: "" }]); // ก๊อปของเดิม + เพิ่มแถวว่าง
   }
   function removeItem(index: number) {
+    // _ = ไม่ใช้ข้อมูลแถว · i = ลำดับแถว (เริ่มนับ 0)
     setItems(items.filter((_, i) => i !== index)); // เก็บทุกแถว ยกเว้นแถวที่กดลบ
   }
   function changeName(index: number, value: string) {
     const copy = [...items]; // ก๊อปรายการทั้งหมด
     copy[index] = { name: value, amount: copy[index].amount }; // แถวนี้: เปลี่ยนชื่อ จำนวนเงินเหมือนเดิม
-    setItems(copy);
+    setItems(copy); // ส่งลิสต์ใหม่ใส่กล่อง → React วาดหน้าจอใหม่ (ต้องเป็นลิสต์ใหม่ ไม่งั้น React ไม่รู้ว่าเปลี่ยน)
   }
   function changeAmount(index: number, value: string) {
     const copy = [...items]; // ก๊อปรายการทั้งหมด
     copy[index] = { name: copy[index].name, amount: value }; // แถวนี้: ชื่อเหมือนเดิม เปลี่ยนจำนวนเงิน
-    setItems(copy);
+    setItems(copy); // ส่งลิสต์ใหม่ใส่กล่อง → หน้าจออัปเดต
   }
 
   // ---- [4.4] แนบไฟล์ ----
   function addFiles(e: React.ChangeEvent<HTMLInputElement>) {
-    const names = Array.from(e.target.files ?? []).map((f) => f.name);
-    setFiles([...files, ...names]);
+    const names = Array.from(e.target.files ?? []).map((f) => f.name); // ?? [] = ไม่มีไฟล์ใช้ลิสต์ว่าง · Array.from แปลงเป็นลิสต์ · map เอาแค่ชื่อไฟล์
+    setFiles([...files, ...names]); // ชื่อไฟล์เดิม + ชื่อไฟล์ใหม่ (ยังไม่มี backend เลยเก็บแค่ชื่อ)
   }
   function removeFile(index: number) {
-    setFiles(files.filter((_, i) => i !== index));
+    setFiles(files.filter((_, i) => i !== index)); // เก็บทุกไฟล์ ยกเว้นไฟล์ที่กดลบ
   }
 
   // ---- [4.5] บันทึกลง localStorage ----
   function saveRequest(status: string) {
-    const stored = localStorage.getItem("requests");
-    const requests = stored ? JSON.parse(stored) : [];
+    const stored = localStorage.getItem("requests"); // ดึงคำขอเก่าที่เคยบันทึกไว้ (ได้มาเป็นตัวหนังสือ)
+    const requests = stored ? JSON.parse(stored) : []; // มี → JSON.parse แปลงกลับเป็นลิสต์ · ไม่มี → ลิสต์ว่าง
     const newRequest = {
       id: requests.length + 1, // เลขที่คำขอ = จำนวนที่มีอยู่ + 1
       type,
@@ -134,30 +138,31 @@ export default function NewRequest() {
       approver: getApprover(total),
       status,
     };
+    // ต่อคำขอใหม่ไว้ท้าย แล้ว JSON.stringify แปลงเป็นตัวหนังสือเก็บกลับ (localStorage เก็บได้แค่ตัวหนังสือ)
     localStorage.setItem("requests", JSON.stringify([...requests, newRequest]));
   }
 
   // ---- [4.6] ตรวจก่อนส่ง ----
   function submit() {
-    const list: string[] = [];
-    if (!title) list.push("กรุณากรอกชื่อคำขอ");
-    if (!budget) list.push("กรุณาเลือกงบที่ใช้");
-    if (total <= 0) list.push("กรุณากรอกจำนวนเงินอย่างน้อย 1 รายการ");
-    if (files.length === 0) list.push("กรุณาแนบ" + fileLabel);
-    if (budget && total > budget.remaining) list.push("ยอดเงินเกินงบคงเหลือ");
+    const list: string[] = []; // ลิสต์เก็บข้อผิดพลาด เริ่มว่าง
+    if (!title) list.push("กรุณากรอกชื่อคำขอ"); // !title = ยังไม่ได้พิมพ์ชื่อ · push = ต่อข้อความท้ายลิสต์
+    if (!budget) list.push("กรุณาเลือกงบที่ใช้"); // ยังไม่ได้เลือกงบ
+    if (total <= 0) list.push("กรุณากรอกจำนวนเงินอย่างน้อย 1 รายการ"); // ยังไม่ได้กรอกเงิน
+    if (files.length === 0) list.push("กรุณาแนบ" + fileLabel); // ยังไม่ได้แนบไฟล์
+    if (budget && total > budget.remaining) list.push("ยอดเงินเกินงบคงเหลือ"); // เลือกงบแล้ว และยอดเกินงบที่เหลือ
 
-    setErrors(list);
+    setErrors(list); // เอาข้อผิดพลาดไปโชว์บนหน้าจอ
     if (list.length > 0) {
       setMessage("");
-      return;
+      return; // มีข้อผิด → หยุดตรงนี้ ไม่บันทึก
     }
-    saveRequest("รออนุมัติ");
-    setMessage("ส่งคำขอเรียบร้อย ระบบส่งต่อให้ " + getApprover(total));
+    saveRequest("รออนุมัติ"); // ผ่านหมด → บันทึกสถานะ "รออนุมัติ"
+    setMessage("ส่งคำขอเรียบร้อย ระบบส่งต่อให้ " + getApprover(total)); // บอกว่าส่งต่อให้ใคร (ใช้ getApprover)
   }
 
   // ---- [4.7] บันทึกร่าง ----
   function saveDraft() {
-    saveRequest("ร่าง");
+    saveRequest("ร่าง"); // ใช้ฟังก์ชันบันทึกตัวเดียวกัน แค่สถานะเป็น "ร่าง" (ไม่ต้องตรวจ)
     setErrors([]);
     setMessage("บันทึกร่างแล้ว");
   }
@@ -212,8 +217,8 @@ export default function NewRequest() {
             <Label text="ประเภทคำขอ" />
             <div className="mb-4 flex gap-2 rounded-xl bg-gray-100 p-1">
               <TypeButton
-                active={type === "invoice"}
-                onClick={() => setType("invoice")}
+                active={type === "invoice"} // ค่าในกล่องตรงกับปุ่มนี้ → ไฮไลต์
+                onClick={() => setType("invoice")} // กดแล้วเปลี่ยนค่าในกล่อง type · () => = ห่อไว้ รอทำตอนกด
                 icon={<ClockThree size={16} />}
                 text="ให้บัญชีจ่ายตามใบแจ้งหนี้"
               />
@@ -229,8 +234,8 @@ export default function NewRequest() {
             <input
               className={`${inputClass} mb-4`}
               placeholder="เช่น ค่าเดินทางสัมมนา เชียงใหม่"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              value={title} // value = โชว์ค่าในกล่อง title
+              onChange={(e) => setTitle(e.target.value)} // onChange = พิมพ์ทุกครั้ง → เก็บข้อความลงกล่อง · e.target.value = ข้อความในช่อง
             />
 
             {/* ---------- [5.5] เลือกงบ + วันที่ใช้จ่าย ---------- */}
@@ -240,15 +245,17 @@ export default function NewRequest() {
                 <select
                   className={inputClass}
                   value={budgetId}
-                  onChange={(e) => setBudgetId(e.target.value)}
+                  onChange={(e) => setBudgetId(e.target.value)} // เลือกงบ → เก็บ id ลงกล่อง
                 >
                   <option value="">-- เลือกงบ --</option>
+                  {/* map = ปั๊มตัวเลือกจากลิสต์งบทีละอัน · key = ป้ายชื่อให้ React แยกแต่ละอัน */}
                   {budgets.map((b) => (
                     <option key={b.id} value={b.id}>
                       {b.name}
                     </option>
                   ))}
                 </select>
+                {/* && = มีงบ (เลือกแล้ว) ค่อยโชว์ยอดคงเหลือ · ไม่มีงบ ไม่โชว์ */}
                 {budget && (
                   <p className="mt-1 text-xs text-[#64748B]">
                     คงเหลือในรายการนี้{" "}
@@ -277,7 +284,10 @@ export default function NewRequest() {
             />
 
             {/* ---------- [5.7] รายการค่าใช้จ่าย ---------- */}
-            <div className="mb-3 flex items-center justify-between border-t border-gray-100 pt-4">
+            <div
+              className="mb-3 flex items-center just
+            .y-between border-t border-gray-100 pt-4"
+            >
               <h2 className="text-base font-bold">รายการค่าใช้จ่าย</h2>
               <span className="rounded-full bg-gray-100 px-3 py-0.5 text-xs text-[#64748B]">
                 {items.length} รายการ
@@ -292,13 +302,14 @@ export default function NewRequest() {
             </div>
 
             {/* แถวรายการ */}
+            {/* map = วาดแถวตามจำนวนใน items · it = ข้อมูลแถวนั้น · i = แถวที่เท่าไหร่ */}
             {items.map((it, i) => (
               <div key={i} className="mb-2.5 flex gap-2">
                 <input
                   className={`${inputClass} flex-1 bg-white`}
                   placeholder="เช่น ค่าตั๋วเครื่องบิน"
                   value={it.name}
-                  onChange={(e) => changeName(i, e.target.value)}
+                  onChange={(e) => changeName(i, e.target.value)} // พิมพ์ชื่อ → แก้เฉพาะแถว i
                 />
                 <div className="flex w-40 items-center rounded-xl border border-gray-200 bg-white px-3 focus-within:border-[#059669]">
                   <span className="text-sm text-[#94A3B8]">฿</span>
@@ -307,12 +318,12 @@ export default function NewRequest() {
                     className="w-full border-0 bg-transparent px-1 py-2.5 text-right text-sm font-bold outline-none focus:ring-0"
                     placeholder="0"
                     value={it.amount}
-                    onChange={(e) => changeAmount(i, e.target.value)}
+                    onChange={(e) => changeAmount(i, e.target.value)} // พิมพ์เงิน → แก้เฉพาะแถว i
                   />
                 </div>
                 <button
-                  onClick={() => removeItem(i)}
-                  disabled={items.length === 1}
+                  onClick={() => removeItem(i)} // กดถังขยะ → ส่งเลขแถวไปลบ
+                  disabled={items.length === 1} // เหลือแถวเดียว → กดไม่ได้ กันลบจนหมด
                   className="flex w-11 items-center justify-center rounded-xl border border-[#FECACA] bg-[#FEF2F2] text-[#DC2626] hover:bg-[#FECACA] disabled:opacity-30"
                 >
                   <Trash1 size={18} />
@@ -322,7 +333,7 @@ export default function NewRequest() {
 
             {/* ---------- [5.8] ปุ่มเพิ่มรายการ + ยอดรวม ---------- */}
             <button
-              onClick={addItem}
+              onClick={addItem} // ใส่ชื่อฟังก์ชันเฉยๆ ไม่มี () = รอให้กดก่อนค่อยทำ
               className="flex w-full items-center justify-center gap-1 rounded-xl border border-dashed border-[#059669] py-2.5 text-sm font-semibold text-[#047857] hover:bg-[#ECFDF5]"
             >
               <Plus size={16} /> เพิ่มรายการ
@@ -354,10 +365,11 @@ export default function NewRequest() {
                 multiple
                 accept=".pdf,.jpg,.jpeg,.png"
                 className="hidden"
-                onChange={addFiles}
+                onChange={addFiles} // เลือกไฟล์เสร็จ → เรียก addFiles
               />
             </label>
             <div className="mt-3 grid grid-cols-3 gap-3">
+              {/* map = วาดการ์ดไฟล์ทีละไฟล์ */}
               {files.map((name, i) => (
                 <div
                   key={i}
@@ -368,7 +380,7 @@ export default function NewRequest() {
                   </div>
                   <span className="flex-1 truncate">{name}</span>
                   <button
-                    onClick={() => removeFile(i)}
+                    onClick={() => removeFile(i)} // กดลบ → ส่งเลขไฟล์ไปลบ
                     className="text-gray-400 hover:text-red-600"
                   >
                     <Trash1 size={16} />
@@ -387,6 +399,7 @@ export default function NewRequest() {
               </p>
               <p className="my-1 text-4xl font-bold">฿{money(total)}</p>
               <p className="text-sm text-[#A7F3D0]">
+                {/* length = นับจำนวน (กี่แถว / กี่ไฟล์) */}
                 {items.length} รายการ · {fileLabel} {files.length} ไฟล์
               </p>
               <hr className="my-4 border-white/15" />
@@ -396,6 +409,7 @@ export default function NewRequest() {
                   งบคงเหลือหลังอนุมัติ
                 </span>
                 <b className="text-lg text-white">
+                  {/* ทางแยก ? : → มีงบ = คงเหลือ − ยอดรวม · ไม่มีงบ = ขีด - */}
                   {budget ? "฿" + money(budget.remaining - total) : "-"}
                 </b>
               </div>
@@ -442,6 +456,7 @@ export default function NewRequest() {
               </div>
 
               {/* ข้อความผิดพลาด / สำเร็จ */}
+              {/* มีข้อผิดพลาดอย่างน้อย 1 ข้อ → โชว์กล่องแดง */}
               {errors.length > 0 && (
                 <ul className="mb-3 list-disc rounded-xl bg-red-50 py-2 pl-8 pr-3 text-sm text-red-700">
                   {errors.map((e) => (
@@ -449,6 +464,7 @@ export default function NewRequest() {
                   ))}
                 </ul>
               )}
+              {/* มีข้อความสำเร็จ → โชว์กล่องเขียว */}
               {message && (
                 <p className="mb-3 rounded-xl bg-[#ECFDF5] p-3 text-sm text-[#047857]">
                   {message}
@@ -456,13 +472,13 @@ export default function NewRequest() {
               )}
 
               <button
-                onClick={submit}
+                onClick={submit} // กดส่ง → ตรวจก่อนส่ง [4.6]
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#059669] py-3 font-bold text-white hover:bg-[#047857]"
               >
                 <Send1 size={18} /> ส่งคำขอ
               </button>
               <button
-                onClick={saveDraft}
+                onClick={saveDraft} // กดร่าง → บันทึกร่าง [4.7]
                 className="mt-2 w-full rounded-xl bg-gray-100 py-3 font-semibold text-gray-600 hover:bg-gray-200"
               >
                 บันทึกร่าง
@@ -477,6 +493,7 @@ export default function NewRequest() {
 
 // ===== [6] ชิ้นส่วนเล็ก ๆ ที่ใช้ซ้ำ (component) =====
 
+// component = ชิ้นส่วนหน้าจอที่ใช้ซ้ำได้ · ของใน { } คือ props = ค่าที่ส่งเข้ามาจากข้างนอก
 // [6.1] MenuItem = ปุ่มเมนูซ้าย 1 อัน
 function MenuItem({
   icon,
@@ -491,9 +508,10 @@ function MenuItem({
 }) {
   return (
     <div
-      className={`mb-1 flex items-center gap-3 rounded-xl px-3 py-3 text-sm ${active ? "bg-[#059669] font-semibold text-white" : "hover:bg-white/5"}`}
+      className={`mb-1 flex items-center gap-3 rounded-xl px-3 py-3 text-sm ${active ? "bg-[#059669] font-semibold text-white" : "hover:bg-white/5"}`} // active = เมนูหน้านี้ → สีเขียว
     >
       {icon} <span className="flex-1">{text}</span>
+      {/* มีเลข badge ค่อยโชว์วงกลมตัวเลข */}
       {badge && (
         <span className="rounded-full bg-[#059669] px-2 text-xs font-bold text-white">
           {badge}
@@ -523,7 +541,7 @@ function TypeButton({
   return (
     <button
       onClick={onClick}
-      className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-sm font-semibold ${active ? "border-2 border-[#059669] bg-white text-[#047857]" : "text-[#64748B]"}`}
+      className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-sm font-semibold ${active ? "border-2 border-[#059669] bg-white text-[#047857]" : "text-[#64748B]"}`} // active → ขอบเขียว พื้นขาว · ไม่ active → ตัวเทา
     >
       {icon} {text}
     </button>
@@ -552,6 +570,7 @@ function Step({
         >
           {avatar}
         </div>
+        {/* !last = ไม่ใช่ขั้นสุดท้าย → วาดเส้นเชื่อมลงไป */}
         {!last && <div className="my-1 w-0.5 flex-1 bg-gray-300" />}
       </div>
       <div className="pb-4">
