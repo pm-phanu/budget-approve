@@ -37,14 +37,12 @@ const items = [
   { title: "ประวัตการเบิก", url: "#", icon: ClockThree },
 ];
 
-const items2 = [
-  { title: "ออกจากระบบ", url: "#", icon: Exit}
-]
+const items2 = [{ title: "ออกจากระบบ", url: "#", icon: Exit }];
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html>
-      <body >
+      <body>
         <div className="flex h-screen w-full rounded-md border border-base-200 overflow-hidden bg-background-100">
           <SidebarProvider className="h-full">
             <Sidebar className="h-full">
@@ -128,11 +126,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               </header>
 
               <main className="flex-1 overflow-auto p-6 bg-background-50">
-                <div className="h-full rounded-xl border border-dashed border-base-200 p-4">
-                  <p className="text-sm text-text-400">
-                    {children}
-                  </p>
-                </div>
+                <div>{children}</div>
               </main>
             </div>
           </SidebarProvider>
