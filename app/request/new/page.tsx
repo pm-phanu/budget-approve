@@ -137,40 +137,23 @@ export default function NewRequest() {
       status,
     };
     localStorage.setItem("requests", JSON.stringify([...requests, newRequest]));
-    return newRequest;
-  }
-
-  function pushRequestNotification(
-    newRequest: ReturnType<typeof saveRequest>,
-    isDraft: boolean,
-  ) {
-    const requestLabel = newRequest.title.trim() || `คำขอ #${newRequest.id}`;
+    const isDraft = status === "ร่าง";
+    const itemLines = items
+      .filter((it) => it.name.trim() || Number(it.amount || 0) > 0)
+      .map((it) => `• ${it.name.trim() || "รายการ"}: ฿${money(Number(it.amount || 0))}`);
     addNotification({
-      category: isDraft ? "request_draft" : "request_submitted",
-      title: isDraft
-        ? `บันทึกร่าง: ${requestLabel}`
-        : `ส่งคำขอ: ${requestLabel}`,
-      message: isDraft
-        ? `บันทึกร่างคำขอเบิกจำนวน ${money(newRequest.total)} บาทเรียบร้อยแล้ว`
-        : `ส่งคำขอจำนวน ${money(newRequest.total)} บาท ให้ ${newRequest.approver} เรียบร้อยแล้ว`,
-      meta: {
-        requestId: newRequest.id,
-        requestTitle: newRequest.title || undefined,
-        requestType: newRequest.type,
-        budgetName: budget?.name,
-        total: newRequest.total,
-        approver: newRequest.approver,
-        status: newRequest.status,
-        useDate: newRequest.useDate || undefined,
-        reason: newRequest.reason || undefined,
-        items: newRequest.items
-          .filter((it) => it.name.trim() !== "" || Number(it.amount || 0) > 0)
-          .map((it) => ({
-            name: it.name.trim() || "ไม่ระบุรายการ",
-            amount: it.amount || "0",
-          })),
-        files: newRequest.files,
-      },
+      kind: isDraft ? "draft" : "submitted",
+      title: `${isDraft ? "บันทึกร่าง" : "ส่งคำขอ"}: ${title.trim() || `คำขอ #${newRequest.id}`}`,
+      message: `ยอดรวม ${money(total)} บาท · ${status}`,
+      details: [
+        `ประเภท: ${type === "invoice" ? "จ่ายตามใบแจ้งหนี้" : "สำรองจ่าย (ขอเบิกคืน)"}`,
+        budget ? `งบที่ใช้: ${budget.name}` : "",
+        useDate ? `วันที่ใช้จ่าย: ${useDate}` : "",
+        `ผู้อนุมัติ: ${newRequest.approver}`,
+        reason ? `เหตุผล: ${reason}` : "",
+        ...itemLines,
+        files.length ? `ไฟล์แนบ: ${files.join(", ")}` : "",
+      ].filter(Boolean),
     });
   }
 
@@ -188,15 +171,13 @@ export default function NewRequest() {
       setMessage("");
       return;
     }
-    const saved = saveRequest("รออนุมัติ");
-    pushRequestNotification(saved, false);
+    saveRequest("รออนุมัติ");
     setMessage("ส่งคำขอเรียบร้อย ระบบส่งต่อให้ " + getApprover(total));
   }
 
   // ---- [4.7] บันทึกร่าง ----
   function saveDraft() {
-    const saved = saveRequest("ร่าง");
-    pushRequestNotification(saved, true);
+    saveRequest("ร่าง");
     setErrors([]);
     setMessage("บันทึกร่างแล้ว");
   }

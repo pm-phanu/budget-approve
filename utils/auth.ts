@@ -81,7 +81,7 @@ export function useAuth() {
     localStorage.setItem("users", JSON.stringify(updateUsers));
     addNotification({
       userEmail: formData.email,
-      category: "auth",
+      kind: "auth",
       title: "สมัครสมาชิกสำเร็จ",
       message: `สร้างบัญชีสำหรับ ${formData.username || formData.email} เรียบร้อยแล้ว`,
     });
@@ -111,7 +111,7 @@ export function useAuth() {
       );
       addNotification({
         userEmail: matchUser.email,
-        category: "auth",
+        kind: "auth",
         title: "เข้าสู่ระบบสำเร็จ",
         message: `ยินดีต้อนรับ ${matchUser.username || matchUser.email} เข้าสู่ระบบแจ้งเบิกงบประมาณ`,
       });
