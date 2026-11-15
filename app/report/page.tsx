@@ -12,7 +12,7 @@
 //       [4.5] ตารางรายฝ่าย    [4.6] กราฟ 6 เดือน
 //       [4.7] สรุปงบตามโครงการ / หมวด
 //   [5] หน้าจอ
-//       [5.1] หัวข้อ + ค้นหา   [5.2] แท็บช่วงเวลา   [5.3] การ์ด 4 ใบ
+//       [5.1] หัวข้อ          [5.2] แท็บช่วงเวลา   [5.3] การ์ด 4 ใบ
 //       [5.4] กราฟ 6 เดือน    [5.5] เบิกสูงสุด      [5.6] งบตามโครงการ / หมวด
 //       [5.7] ตารางรายฝ่าย
 //   [6] ชิ้นส่วนที่ใช้ซ้ำ
@@ -24,7 +24,6 @@ import {
   FileText,
   Wallet2,
   Search1,
-  Bell1,
   ClockThree,
   TrendUp2,
   FileFormatPdf,
@@ -333,12 +332,10 @@ export default function Report() {
   const [budget, setBudget] = useState<Project[]>(projects); // งบที่รวมคำขอจริงแล้ว
 
   // อ่านคำขอจริงครั้งเดียวตอนเปิดหน้า ([] = ทำครั้งเดียว)
-  // ※ ไม่เอาร่าง กับที่ถูกตีกลับ เพราะยังไม่ได้ใช้เงินจริง
+  // ※ นับเฉพาะ "จ่ายแล้ว" (บัญชีตรวจ + การเงินจ่ายเสร็จ) เพราะเป็นเงินที่ออกไปจริง
   useEffect(() => {
     const today = new Date();
-    const real = loadRequests().filter(
-      (r) => r.status !== "ร่าง" && r.status !== "ตีกลับ",
-    );
+    const real = loadRequests().filter((r) => r.status === "จ่ายแล้ว");
     /* eslint-disable react-hooks/set-state-in-effect -- localStorage อ่านได้หลังเปิดหน้าเท่านั้น */
     setSaved(real.map((r) => toReportRow(r, today)));
     setBudget(addRequestsToBudget(real));
@@ -400,28 +397,13 @@ export default function Report() {
   //  [5] หน้าจอ
   // ════════════════════════════════════════
   return (
-    <div className="min-h-screen bg-[#F5F7FA] p-10 text-[#0F172A]">
-      {/* ---------- [5.1] หัวข้อ + ค้นหา ---------- */}
-      <div className="mb-6 flex items-start justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">รายงานงบประมาณ</h1>
-          <p className="mt-1 text-sm text-[#64748B]">
-            สรุปการเบิกจ่ายสำหรับผู้บริหารและผู้ตรวจสอบบัญชี
-          </p>
-        </div>
-        <div className="flex gap-3">
-          <div className="flex w-64 items-center gap-2 rounded-xl border border-gray-200 bg-white px-3">
-            <Search1 size={18} className="text-[#94A3B8]" />
-            <input
-              className="w-full border-0 bg-transparent py-2 text-sm outline-none focus:ring-0"
-              placeholder="ค้นหา..."
-            />
-          </div>
-          <button className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 bg-white">
-            <Bell1 size={18} />
-            <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500" />
-          </button>
-        </div>
+    <div className="text-[#0F172A]">
+      {/* ---------- [5.1] หัวข้อ (ค้นหา + กระดิ่งใช้ของ layout) ---------- */}
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold">รายงานงบประมาณ</h1>
+        <p className="mt-1 text-sm text-[#64748B]">
+          สรุปการเบิกจ่ายสำหรับผู้บริหารและผู้ตรวจสอบบัญชี
+        </p>
       </div>
 
       {/* ---------- [5.2] แท็บช่วงเวลา ---------- */}

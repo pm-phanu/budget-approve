@@ -29,10 +29,11 @@ import {
 import { forwardRef, SVGProps } from "react";
 import { mergeProps } from "react-aria";
 import { Button } from "@/components/tailgrids/core/button";
+import { useRouter } from "next/navigation";
 
 const items = [
   { title: "แดชบอร์ด", url: "#", icon: DashboardSquare1 },
-  { title: "สร้างคำขอ", url: "#", icon: Plus },
+  { title: "สร้างคำขอ", url: "/request/new", icon: Plus },
   { title: "คำขอของฉัน", url: "#", icon: FileText },
   { title: "ประวัตการเบิก", url: "#", icon: ClockThree },
 ];
@@ -40,6 +41,7 @@ const items = [
 const items2 = [{ title: "ออกจากระบบ", url: "#", icon: Exit }];
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
+  const router = useRouter(); // ใช้เปลี่ยนหน้า (ปุ่มสร้างคำขอ)
   return (
     <html>
       <body>
@@ -151,7 +153,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
                     </Button>
                   </div>
                   <div className="shadow-2xl">
-                    <Button variant={"success"}>
+                    <Button
+                      variant={"success"}
+                      onPress={() => router.push("/request/new")}
+                    >
                       <Plus />
                       สร้างคำขอ
                     </Button>

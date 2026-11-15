@@ -8,7 +8,7 @@
 //   [3] กฎการอนุมัติตามวงเงิน             (data/approval.ts)
 //   [4] ฟังก์ชันช่วย
 //   [5] หน้าหลัก
-//       [5.1] state            [5.2] ค่าที่คำนวณ
+//       [5.1] state + เปิดร่าง (?id=)   [5.2] ค่าที่คำนวณ (ยอดรวม / จำนวนไฟล์)
 //       [5.3] รายการค่าใช้จ่าย    [5.4] แนบหลักฐานรายแถว
 //       [5.5] ตรวจก่อนส่ง        [5.6] บันทึก localStorage
 //       [5.7] ส่ง / บันทึกร่าง / ล้างฟอร์ม
@@ -127,6 +127,29 @@ export default function NewRequest() {
     if (savedRules) setRules(JSON.parse(savedRules));
     if (savedUser) setUser(JSON.parse(savedUser));
     setBudget(addRequestsToBudget(loadRequests()));
+
+    // ---------- [5.1] เปิดร่างมาแก้ต่อ: /request/new?id=REQ-xxx ----------
+    const params = new URLSearchParams(window.location.search); // อ่านป้ายท้าย URL
+    const openId = params.get("id"); // "REQ-xxx" หรือ null ถ้าไม่มีป้าย
+    const draft = loadRequests().find(
+      (r) => r.id === openId && r.status === "ร่าง",
+    );
+    if (draft) {
+      setType(draft.type);
+      setTitle(draft.title);
+      setProjectId(draft.project ? draft.project.id : "");
+      setUseDate(draft.useDate);
+      setReason(draft.reason);
+      setItems(
+        draft.items.map((it) => ({
+          categoryId: it.categoryId,
+          name: it.name,
+          amount: String(it.amount), // ตอนเก็บเป็นตัวเลข → ฟอร์มใช้ข้อความ
+          files: it.files,
+        })),
+      );
+      setDraftId(draft.id); // บันทึก/ส่ง → ทับใบเดิม ไม่สร้างใหม่
+    }
     /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
@@ -369,7 +392,7 @@ export default function NewRequest() {
   //  [6] หน้าจอ
   // ════════════════════════════════════════
   return (
-    <div className="min-h-screen bg-[#F5F7FA] p-10 text-[#0F172A]">
+    <div className="text-[#0F172A]">
       <p className="text-sm text-[#64748B]">
         ‹ แดชบอร์ด /{" "}
         <span className="font-semibold text-[#047857]">สร้างคำขอ</span>
@@ -582,6 +605,7 @@ export default function NewRequest() {
         {/* ===== คอลัมน์ขวา: สรุป ===== */}
         <section className="w-96 shrink-0 space-y-6">
           {/* ---------- [6.6] การ์ดสรุป ---------- */}
+          {/* ตัวเลข total / fileCount / projectRemaining คิดไว้ที่ [5.2] */}
           <div className="rounded-2xl bg-gradient-to-br from-[#0F172A] via-[#0F172A] to-[#047857] p-6 text-white">
             <p className="flex items-center gap-2 text-sm text-gray-300">
               <Wallet2 size={18} className="text-[#34D399]" /> ยอดรวมที่ขอเบิก
