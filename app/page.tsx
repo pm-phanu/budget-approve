@@ -36,7 +36,7 @@ export default function Home() {
               />
             </div>
             <div>
-              <Button appearance={"outline"}>
+              <Button appearance={"outline"} className={'border border-[#E2E8F0]'}>
                 <Bell1 />
               </Button>
             </div>
