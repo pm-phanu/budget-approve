@@ -16,19 +16,19 @@ import {
   SidebarTrigger,
 } from "@/components/tailgrids/core/sidebar";
 import {
+  Search1,
+  Bell1,
   AngleDoubleLeft,
-  ChevronLeft,
   ClockThree,
   DashboardSquare1,
   Exit,
   FileText,
   Gear1,
   Plus,
-  Search1,
-  User2,
 } from "@tailgrids/icons";
 import { forwardRef, SVGProps } from "react";
 import { mergeProps } from "react-aria";
+import { Button } from "@/components/tailgrids/core/button";
 
 const items = [
   { title: "แดชบอร์ด", url: "#", icon: DashboardSquare1 },
@@ -45,18 +45,21 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body>
         <div className="flex h-screen w-full">
           <SidebarProvider className="h-full">
-            <Sidebar className="h-full bg-[#0F172A] text-[#CBD5E1]">
+            <Sidebar className="h-full bg-[#0F172A] text-[#CBD5E1] py-5">
               <SidebarHeader className="p-4 flex-row items-center">
                 <span className="flex aspect-square size-8 items-center justify-center rounded-lg bg-[#059669] text-white">
-                  {/* <User2 className="size-4 text-white" /> */}
-                  ฿
+                  {/* <User2 className="size-4 text-white" /> */}฿
                 </span>
-                <span className="text-2xl text-white font-bold">budget flow</span>
+                <span className="text-2xl text-white font-bold">
+                  budget flow
+                </span>
               </SidebarHeader>
 
-              <SidebarContent className="px-4">
+              <SidebarContent className="flex flex-col gap-8 px-4">
                 <SidebarGroup>
-                  <SidebarGroupLabel className="text-[16px] font-bold">เมนูหลัก</SidebarGroupLabel>
+                  <SidebarGroupLabel className="text-[16px] font-bold">
+                    เมนูหลัก
+                  </SidebarGroupLabel>
 
                   <SidebarGroupContent>
                     <SidebarMenu>
@@ -81,7 +84,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
                 </SidebarGroup>
 
                 <SidebarGroup>
-                  <SidebarGroupLabel className="text-[16px] font-bold">บัญชี</SidebarGroupLabel>
+                  <SidebarGroupLabel className="text-[16px] font-bold">
+                    บัญชี
+                  </SidebarGroupLabel>
 
                   <SidebarGroupContent>
                     <SidebarMenu>
@@ -119,11 +124,39 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             </Sidebar>
 
             <div className="flex flex-1 flex-col">
-              <header className="flex h-14 items-center gap-4 bg-[#F1F5F9] text-[#111] p-9">
-                <SidebarTrigger>
-                  <AngleDoubleLeft className="group-data-[sidebar=closed]/sidebar-wrapper:rotate-180 duration-300" />
-                </SidebarTrigger>
-                <p className="text-lg font-semibold">Home</p>
+              <header className="flex justify-between h-14 items-center gap-4 bg-[#F1F5F9] text-[#111] p-9 pt-15">
+                <div className="flex items-center gap-2">
+                  <SidebarTrigger>
+                    <AngleDoubleLeft className="group-data-[sidebar=closed]/sidebar-wrapper:rotate-180 duration-300" />
+                  </SidebarTrigger>
+                  <p className="text-lg font-semibold">Home</p>
+                </div>
+
+                <div className="menuLinks flex items-center gap-4">
+                  <div className="flex justify-center items-center bg-white border border-[#E2E8F0] rounded-lg px-4 shadow-2xl">
+                    <Search1 />
+                    <input
+                      type="text"
+                      placeholder="ค้นหาคำขอ..."
+                      className="border-0 focus:ring-0 w-full"
+                    />
+                  </div>
+                  <div className="shadow-2xl">
+                    {/* เขียนฟังก์ชั่นการแจ้งเตือนที่นี้ */}
+                    <Button
+                      appearance={"outline"}
+                      className={"border border-[#E2E8F0]"}
+                    >
+                      <Bell1 />
+                    </Button>
+                  </div>
+                  <div className="shadow-2xl">
+                    <Button variant={"success"}>
+                      <Plus />
+                      สร้างคำขอ
+                    </Button>
+                  </div>
+                </div>
               </header>
 
               <main className="flex-1 overflow-auto p-9 bg-[#F1F5F9]">

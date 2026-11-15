@@ -26,27 +26,6 @@ export default function Home() {
               สวัสดี <span>[username]</span>
             </h1>
           </div>
-          <div className="menuLinks flex items-center gap-4">
-            <div className="flex justify-center items-center bg-white border border-[#E2E8F0] rounded-lg px-4 shadow-2xl">
-              <Search1 />
-              <input
-                type="text"
-                placeholder="ค้นหาคำขอ..."
-                className="border-0 focus:ring-0 w-full"
-              />
-            </div>
-            <div className="shadow-2xl">
-              <Button appearance={"outline"} className={'border border-[#E2E8F0]'}>
-                <Bell1 />
-              </Button>
-            </div>
-            <div className="shadow-2xl">
-              <Button variant={"success"}>
-                <Plus />
-                สร้างคำขอ
-              </Button>
-            </div>
-          </div>
         </header>
 
         <main className="flex flex-col gap-9">
