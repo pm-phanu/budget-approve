@@ -1,150 +1,195 @@
 "use client";
 
-import { Link } from "@/components/tailgrids/core/link";
+import "./globals.css";
 import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarTrigger,
+} from "@/components/tailgrids/core/sidebar";
+import {
+  Search1,
+  Bell1,
+  AngleDoubleLeft,
+  ClockThree,
   DashboardSquare1,
+  Exit,
   FileText,
   Gear1,
-  MenuHamburger1,
   Plus,
-  Xmark,
 } from "@tailgrids/icons";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faHistory } from "@fortawesome/free-solid-svg-icons/faHistory";
-import { faArrowRightFromBracket } from "@fortawesome/free-solid-svg-icons";
-import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { forwardRef, SVGProps } from "react";
+import { mergeProps } from "react-aria";
+import { Button } from "@/components/tailgrids/core/button";
 
-import "./globals.css";
+const items = [
+  { title: "แดชบอร์ด", url: "#", icon: DashboardSquare1 },
+  { title: "สร้างคำขอ", url: "#", icon: Plus },
+  { title: "คำขอของฉัน", url: "#", icon: FileText },
+  { title: "ประวัตการเบิก", url: "#", icon: ClockThree },
+];
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const pathname = usePathname();
-  const router = useRouter();
+const items2 = [{ title: "ออกจากระบบ", url: "#", icon: Exit }];
 
-  const [isOpen, setIsOpen] = useState(false);
-  const isAuthPage = pathname === "/login" || pathname === "/register";
-
+export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="th">
-      <body className="flex min-h-screen bg-gray-100 text-gray-800">
-        {!isAuthPage && (
-          <aside className="flex flex-col bg-[#0F172A] text-white h-screen fixed overflow-hidden transition-all duration-300">
-            <div className="flex min-h-12 gap-1 mb-10">
-              <div className="border-[#059669] border-2 rounded-md"></div>
-              <div className="flex items-center gap-6">
-                <h1 className="font-bold text-2xl whitespace-nowrap">
-                  BudgetFlow
-                </h1>
-                <button type="button">
-                  <MenuHamburger1 />
-                </button>
-              </div>
-            </div>
+    <html>
+      <body>
+        <div className="flex h-screen w-full">
+          <SidebarProvider className="h-full">
+            <Sidebar className="h-full bg-[#0F172A] text-[#CBD5E1] py-5">
+              <SidebarHeader className="p-4 flex-row items-center">
+                <span className="flex aspect-square size-8 items-center justify-center rounded-lg bg-[#059669] text-white">
+                  {/* <User2 className="size-4 text-white" /> */}฿
+                </span>
+                <span className="text-2xl text-white font-bold">
+                  budget flow
+                </span>
+              </SidebarHeader>
 
-            <nav className="mb-10">
-              <div className="text-[#64748B] font-semibold mb-4">เมนูหลัก</div>
+              <SidebarContent className="flex flex-col gap-8 px-4">
+                <SidebarGroup>
+                  <SidebarGroupLabel className="text-[16px] font-bold">
+                    เมนูหลัก
+                  </SidebarGroupLabel>
 
-              <div className="flex flex-col gap-4">
-                <ul>
-                  <Link
-                    href="/"
-                    title="แดชบอร์ด"
-                    className="bg-[#059669] rounded-xl w-full text-white p-3.5 text-[16px] font-semibold flex items-center gap-3 "
-                  >
-                    <DashboardSquare1 />
-                    <span>แดชบอร์ด</span>
-                  </Link>
-                </ul>
-                <ul>
-                  <Link
-                    href="/"
-                    title="สร้างคำขอ"
-                    className="w-full text-white py-3 text-[16px] font-semibold flex items-center gap-3"
-                  >
-                    <Plus />
-                    <span>สร้างคำขอ</span>
-                  </Link>
-                </ul>
-                <ul>
-                  <Link
-                    href="/"
-                    title="คำขอของฉัน"
-                    className="w-full text-white py-3 text-[16px] font-semibold flex items-center gap-3"
-                  >
-                    <FileText />
-                    <span>คำขอของฉัน</span>
-                  </Link>
-                </ul>
-                <ul>
-                  <Link
-                    href="/"
-                    title="ประวัติการเบิก"
-                    className="w-full text-white py-3 text-[16px] font-semibold flex items-center gap-3"
-                  >
-                    <FontAwesomeIcon icon={faHistory} />
-                    <span>ประวัติการเบิก</span>
-                  </Link>
-                </ul>
-              </div>
-            </nav>
+                  <SidebarGroupContent>
+                    <SidebarMenu>
+                      {items.map((item) => (
+                        <SidebarMenuItem key={item.title}>
+                          <SidebarMenuButton
+                            tooltip={item.title}
+                            render={({ ref, ...props }) => (
+                              <SidebarMenuItemLink
+                                title={item.title}
+                                url={item.url}
+                                icon={item.icon}
+                                ref={ref as React.Ref<HTMLAnchorElement>}
+                                {...props}
+                              />
+                            )}
+                          />
+                        </SidebarMenuItem>
+                      ))}
+                    </SidebarMenu>
+                  </SidebarGroupContent>
+                </SidebarGroup>
 
-            <nav className="mb-10">
-              <div className="text-[#64748B] font-semibold mb-4">บัญชี</div>
-              <div className="flex flex-col gap-4">
-                <ul>
-                  <Link
-                    href="/"
-                    title="ตั้งค่า"
-                    className="w-full text-white py-3 text-[16px] font-semibold flex items-center gap-3"
-                  >
-                    <Gear1 />
-                    <span>ตั้งค่า</span>
-                  </Link>
-                </ul>
-                <ul>
-                  <button
-                    type="button"
-                    title="ออกจากระบบ"
-                    className="w-full cursor-pointer text-left text-white py-3 text-[16px] font-semibold flex items-center gap-3"
-                  >
-                    <FontAwesomeIcon icon={faArrowRightFromBracket} />
-                    <span>ออกจากระบบ</span>
-                  </button>
-                </ul>
-              </div>
-            </nav>
+                <SidebarGroup>
+                  <SidebarGroupLabel className="text-[16px] font-bold">
+                    บัญชี
+                  </SidebarGroupLabel>
 
-            <div className="mt-auto">
-              <div>
-                <Link
-                  href="/"
-                  className="bg-white/7 text-white w-full rounded-xl border border-white/17 block"
-                >
-                  <div className="flex items-center gap-2">
-                    <div>
-                      <img
-                        className="rounded-full w-10 h-10 object-cover border border-white"
-                        src="https://plus.unsplash.com/premium_photo-1671656349322-41de944d259b?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D"
-                        alt="profile"
-                      />
-                    </div>
-                    <div className="text-left whitespace-nowrap">
-                      <h1 className="text-[14px] font-bold">ชื่อผู้ใช้</h1>
-                      <p className="text-[12px]">พนักงาน : การตลาด</p>
-                    </div>
+                  <SidebarGroupContent>
+                    <SidebarMenu>
+                      {items2.map((item) => (
+                        <SidebarMenuItem key={item.title}>
+                          <SidebarMenuButton
+                            tooltip={item.title}
+                            render={({ ref, ...props }) => (
+                              <SidebarMenuItemLink
+                                title={item.title}
+                                url={item.url}
+                                icon={item.icon}
+                                ref={ref as React.Ref<HTMLAnchorElement>}
+                                {...props}
+                              />
+                            )}
+                          />
+                        </SidebarMenuItem>
+                      ))}
+                    </SidebarMenu>
+                  </SidebarGroupContent>
+                </SidebarGroup>
+              </SidebarContent>
+
+              <SidebarFooter>
+                <SidebarMenu>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton tooltip="Settings">
+                      <Gear1 />
+                      <span>Settings</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </SidebarMenu>
+              </SidebarFooter>
+            </Sidebar>
+
+            <div className="flex flex-1 flex-col">
+              <header className="flex justify-between h-14 items-center gap-4 bg-[#F1F5F9] text-[#111] p-9 pt-15">
+                <div className="flex items-center gap-2">
+                  <SidebarTrigger>
+                    <AngleDoubleLeft className="group-data-[sidebar=closed]/sidebar-wrapper:rotate-180 duration-300" />
+                  </SidebarTrigger>
+                  <p className="text-lg font-semibold">Home</p>
+                </div>
+
+                <div className="menuLinks flex items-center gap-4">
+                  <div className="flex justify-center items-center bg-white border border-[#E2E8F0] rounded-lg px-4 shadow-2xl">
+                    <Search1 />
+                    <input
+                      type="text"
+                      placeholder="ค้นหาคำขอ..."
+                      className="border-0 focus:ring-0 w-full"
+                    />
                   </div>
-                </Link>
-              </div>
-            </div>
-          </aside>
-        )}
+                  <div className="shadow-2xl">
+                    {/* เขียนฟังก์ชั่นการแจ้งเตือนที่นี้ */}
+                    <Button
+                      appearance={"outline"}
+                      className={"border border-[#E2E8F0]"}
+                    >
+                      <Bell1 />
+                    </Button>
+                  </div>
+                  <div className="shadow-2xl">
+                    <Button variant={"success"}>
+                      <Plus />
+                      สร้างคำขอ
+                    </Button>
+                  </div>
+                </div>
+              </header>
 
-        <main className={isAuthPage ? "w-full" : ""}>{children}</main>
+              <main className="flex-1 overflow-auto p-9 bg-[#F1F5F9]">
+                <div>{children}</div>
+              </main>
+            </div>
+          </SidebarProvider>
+        </div>
       </body>
     </html>
   );
 }
+
+const SidebarMenuItemLink = forwardRef<
+  HTMLAnchorElement,
+  {
+    title: string;
+    url: string;
+    icon: React.FunctionComponent<SVGProps<SVGSVGElement>>;
+    [key: string]: any;
+  }
+>(({ title, url, icon: Icon, ...props }, ref) => {
+  return (
+    <a
+      {...mergeProps(props, {
+        href: url,
+        className: "flex items-center gap-2",
+      })}
+      ref={ref}
+    >
+      <Icon />
+      <span>{title}</span>
+    </a>
+  );
+});
+SidebarMenuItemLink.displayName = "SidebarMenuItemLink";
