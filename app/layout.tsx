@@ -16,6 +16,7 @@ import {
   SidebarTrigger,
 } from "@/components/tailgrids/core/sidebar";
 import {
+  AngleDoubleLeft,
   ChevronLeft,
   ClockThree,
   DashboardSquare1,
@@ -26,7 +27,6 @@ import {
   Search1,
   User2,
 } from "@tailgrids/icons";
-import { title } from "process";
 import { forwardRef, SVGProps } from "react";
 import { mergeProps } from "react-aria";
 
@@ -43,19 +43,20 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html>
       <body>
-        <div className="flex h-screen w-full rounded-md border border-base-200 overflow-hidden bg-background-100">
+        <div className="flex h-screen w-full">
           <SidebarProvider className="h-full">
-            <Sidebar className="h-full">
+            <Sidebar className="h-full bg-[#0F172A] text-[#CBD5E1]">
               <SidebarHeader className="p-4 flex-row items-center">
-                <span className="flex aspect-square size-8 items-center justify-center rounded-lg bg-linear-to-r from-cyan-500 to-blue-500 text-text-0">
-                  <User2 className="size-4 text-white" />
+                <span className="flex aspect-square size-8 items-center justify-center rounded-lg bg-[#059669] text-white">
+                  {/* <User2 className="size-4 text-white" /> */}
+                  ฿
                 </span>
-                <span>budget flow</span>
+                <span className="text-2xl text-white font-bold">budget flow</span>
               </SidebarHeader>
 
               <SidebarContent className="px-4">
                 <SidebarGroup>
-                  <SidebarGroupLabel>เมนูหลัก</SidebarGroupLabel>
+                  <SidebarGroupLabel className="text-[16px] font-bold">เมนูหลัก</SidebarGroupLabel>
 
                   <SidebarGroupContent>
                     <SidebarMenu>
@@ -80,7 +81,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
                 </SidebarGroup>
 
                 <SidebarGroup>
-                  <SidebarGroupLabel>บัญชี</SidebarGroupLabel>
+                  <SidebarGroupLabel className="text-[16px] font-bold">บัญชี</SidebarGroupLabel>
 
                   <SidebarGroupContent>
                     <SidebarMenu>
@@ -118,14 +119,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             </Sidebar>
 
             <div className="flex flex-1 flex-col">
-              <header className="flex h-14 items-center gap-4 border-b border-base-200 bg-background-100 px-6">
+              <header className="flex h-14 items-center gap-4 bg-[#F1F5F9] text-[#111] p-9">
                 <SidebarTrigger>
-                  <ChevronLeft className="group-data-[sidebar=closed]/sidebar-wrapper:rotate-180 duration-300" />
+                  <AngleDoubleLeft className="group-data-[sidebar=closed]/sidebar-wrapper:rotate-180 duration-300" />
                 </SidebarTrigger>
                 <p className="text-lg font-semibold">Home</p>
               </header>
 
-              <main className="flex-1 overflow-auto p-6 bg-background-50">
+              <main className="flex-1 overflow-auto p-9 bg-[#F1F5F9]">
                 <div>{children}</div>
               </main>
             </div>

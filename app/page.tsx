@@ -20,14 +20,14 @@ export default function Home() {
   return (
     <div>
       <div>
-        <header className="flex items-center justify-between mx-auto mb-9">
+        <header className="text-[#111] flex items-center justify-between mx-auto mb-9">
           <div>
             <h1 className="text-[32px] font-bold">
               สวัสดี <span>[username]</span>
             </h1>
           </div>
           <div className="menuLinks flex items-center gap-4">
-            <div className="flex justify-center items-center bg-white border border-[#E2E8F0] rounded-lg px-4">
+            <div className="flex justify-center items-center bg-white border border-[#E2E8F0] rounded-lg px-4 shadow-2xl">
               <Search1 />
               <input
                 type="text"
@@ -35,12 +35,12 @@ export default function Home() {
                 className="border-0 focus:ring-0 w-full"
               />
             </div>
-            <div>
+            <div className="shadow-2xl">
               <Button appearance={"outline"} className={'border border-[#E2E8F0]'}>
                 <Bell1 />
               </Button>
             </div>
-            <div>
+            <div className="shadow-2xl">
               <Button variant={"success"}>
                 <Plus />
                 สร้างคำขอ
@@ -51,7 +51,7 @@ export default function Home() {
 
         <main className="flex flex-col gap-9">
           <div className="grid grid-cols-4 gap-5">
-            <div className="card col-span-2 rounded-xl bg-[linear-gradient(160deg,#0F172A_0%,#0F172A_55%,#0C3136_70%,#047857_100%)]">
+            <div className="card shadow-2xl col-span-2 rounded-xl bg-[linear-gradient(160deg,#0F172A_0%,#0F172A_55%,#0C3136_70%,#047857_100%)]">
               <div className="p-6 text-white">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -82,7 +82,7 @@ export default function Home() {
                 </div>
               </div>
             </div>
-            <div className="card">
+            <div className="card shadow-2xl">
               <div className="h-full p-6 flex flex-col justify-between bg-[#FFFFFF] border border-[#E2E8F0] rounded-xl">
                 <div className="text-alert-warning-title flex flex-col gap-3 text-2xl font-semibold">
                   <p className="bg-[#FEF3C7] w-fit rounded-xl p-2">
@@ -98,7 +98,7 @@ export default function Home() {
                 </div>
               </div>
             </div>
-            <div className="card">
+            <div className="card shadow-2xl">
               <div className="h-full p-6 flex flex-col justify-between bg-[#FFFFFF] border border-[#E2E8F0] rounded-xl">
                 <div className=" text-alert-success-title flex flex-col gap-3 text-2xl font-semibold">
                   <p className="bg-[#D1FAE5] w-fit rounded-xl p-2">
@@ -116,7 +116,7 @@ export default function Home() {
           </div>
 
           <div>
-            <div className="border border-[#E2E8F0] rounded-xl p-6">
+            <div className="bg-white border border-[#E2E8F0] rounded-xl p-6 shadow-2xl">
               <div className="text-2xl font-bold text-black flex items-center justify-between mb-4">
                 <h1>คำขอของฉัน</h1>
                 <Link

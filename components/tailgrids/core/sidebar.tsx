@@ -224,7 +224,7 @@ const SidebarTrigger = React.forwardRef<
       ref={ref}
       data-sidebar="trigger"
       className={cn(
-        "px-2 py-1 border border-base-200 text-sm font-medium inline-flex items-center justify-center rounded-md transition-colors hover:bg-background-soft-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary-500 disabled:pointer-events-none disabled:opacity-50",
+        "px-2 py-1 text-sm font-medium inline-flex items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary-500 disabled:pointer-events-none disabled:opacity-50",
         className
       )}
       onClick={event => {
@@ -362,11 +362,11 @@ const SidebarMenuItem = React.forwardRef<
 SidebarMenuItem.displayName = "SidebarMenuItem";
 
 const sidebarMenuButtonVariants = cva(
-  "peer/menu-button p-2 text-left text-sm flex w-full items-center gap-2 overflow-hidden rounded-md outline-none ring-primary-500 hover:bg-background-soft-50 focus-visible:bg-background-soft-50 hover:text-title-100 focus-visible:ring-2 active:bg-background-soft-50 active:text-text-100 disabled:pointer-events-none disabled:opacity-50 group-has-[[data-sidebar=menu-action]]/menu-item:pr-8 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[active=true]:bg-background-soft-200 data-[active=true]:font-medium data-[active=true]:text-title-50 group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:p-0 group-data-[collapsible=icon]:justify-center [&>svg]:size-6 [&>svg]:shrink-0",
+  "peer/menu-button p-2 text-left text-sm flex w-full items-center gap-2 overflow-hidden rounded-md outline-none ring-primary-500 hover:bg-[#059669] focus-visible:bg-background-soft-50 hover:text-white focus-visible:ring-2 active:bg-[#058F64] active:text-white disabled:pointer-events-none disabled:opacity-50 group-has-[[data-sidebar=menu-action]]/menu-item:pr-8 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[active=true]:bg-background-soft-200 data-[active=true]:font-medium data-[active=true]:text-title-50 group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:p-0 group-data-[collapsible=icon]:justify-center [&>svg]:size-6 [&>svg]:shrink-0",
   {
     variants: {
       variant: {
-        default: "hover:bg-background-soft-50 hover:text-text-100",
+        default: "hover:[#059669] hover:text-white",
         outline:
           "bg-transparent shadow-[0_0_0_1px_hsl(var(--sidebar-border))] hover:bg-background-soft-50 hover:text-text-100 hover:shadow-[0_0_0_1px_hsl(var(--sidebar-accent))]"
       },
