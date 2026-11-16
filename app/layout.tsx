@@ -38,7 +38,7 @@ const items = [
   { title: "ประวัตการเบิก", url: "#", icon: ClockThree },
 ];
 
-const items2 = [{ title: "ออกจากระบบ", url: "#", icon: Exit }];
+const items2 = [{ title: "ออกจากระบบ", url: "/login", icon: Exit }];
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
