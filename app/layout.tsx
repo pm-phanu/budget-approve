@@ -29,10 +29,11 @@ import {
 import { forwardRef, SVGProps } from "react";
 import { mergeProps } from "react-aria";
 import { Button } from "@/components/tailgrids/core/button";
+import { Link } from "@/components/tailgrids/core/link";
 
 const items = [
-  { title: "แดชบอร์ด", url: "#", icon: DashboardSquare1 },
-  { title: "สร้างคำขอ", url: "#", icon: Plus },
+  { title: "แดชบอร์ด", url: "/", icon: DashboardSquare1 },
+  { title: "สร้างคำขอ", url: "/request/new", icon: Plus },
   { title: "คำขอของฉัน", url: "#", icon: FileText },
   { title: "ประวัตการเบิก", url: "#", icon: ClockThree },
 ];
@@ -129,7 +130,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
                   <SidebarTrigger>
                     <AngleDoubleLeft className="group-data-[sidebar=closed]/sidebar-wrapper:rotate-180 duration-300" />
                   </SidebarTrigger>
-                  <p className="text-lg font-semibold">Home</p>
+                  <Link href='/' className="text-lg font-semibold">แดชบอร์ด</Link>
                 </div>
 
                 <div className="menuLinks flex items-center gap-4">
