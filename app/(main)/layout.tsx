@@ -93,7 +93,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Sidebar className="h-full bg-[#0F172A] text-[#CBD5E1] py-5">
           <SidebarHeader className="p-4 flex-row items-center">
             <span className="flex aspect-square size-8 items-center justify-center rounded-lg bg-[#059669] text-white">
-              {/* <User2 className="size-4 text-white" /> */}฿
+              ฿
             </span>
             <span className="text-2xl text-white font-bold">budget flow</span>
           </SidebarHeader>
