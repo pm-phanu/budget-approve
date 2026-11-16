@@ -286,31 +286,13 @@ function ReviewContent() {
             <div className="mt-3 flex flex-wrap items-center gap-3">
               <h1 className="text-3xl font-bold text-slate-900">{r.title}</h1>
               <span
-                className={`rounded-full px-3 py-1 text-xs font-medium ${statusBadge.cls}`}
+                className={`rounded-full px-3 py-1 text-xs font-bold ${statusBadge.cls}`}
               >
                 {statusBadge.text}
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <label className="flex w-72 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-400 focus-within:ring-2 focus-within:ring-emerald-500/30">
-              <Search1 />
-              <input
-                type="text"
-                placeholder="ค้นหาคำขอ..."
-                className="w-full bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400"
-              />
-            </label>
-            <button
-              type="button"
-              aria-label="การแจ้งเตือน"
-              className="relative flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-            >
-              <Bell1 />
-              <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-red-500" />
-            </button>
-          </div>
         </header>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">

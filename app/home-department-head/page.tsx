@@ -77,10 +77,13 @@ function reviewedTime(r: ExpenseRequest) {
 ------------------------------------------------------------------- */
 export default function DH() {
   const [requests, setRequests] = useState<ExpenseRequest[]>([]);
+  // ปีปัจจุบัน: ตั้งค่าใน useEffect เท่านั้น (เลี่ยง new Date() ตอน prerender)
+  const [currentYear, setCurrentYear] = useState<number | null>(null);
 
   // โหลดใน useEffect เท่านั้น (ฝั่งเซิร์ฟเวอร์ไม่มี localStorage)
   useEffect(() => {
     setRequests(loadRequests());
+    setCurrentYear(new Date().getFullYear());
 
     // อัปเดตอัตโนมัติถ้าแท็บอื่นแก้ข้อมูล
     const onStorage = (e: StorageEvent) => {
@@ -101,6 +104,18 @@ export default function DH() {
     .filter((r) => r.status === "อนุมัติแล้ว")
     .sort((a, b) => reviewedTime(b) - reviewedTime(a) || b.id - a.id)
     .slice(0, RECENT_LIMIT);
+
+  // อนุมัติแล้วปีนี้: รวมยอดของคำขอที่อนุมัติแล้วทั้งหมดในปีปัจจุบัน
+  const approvedTotal = requests
+    .filter(
+      (r) =>
+        r.status === "อนุมัติแล้ว" &&
+        // ข้อมูลเก่าที่ไม่มีวันที่อนุมัติ ให้นับรวมไปด้วย
+        (!r.reviewedAt ||
+          currentYear === null ||
+          new Date(r.reviewedAt).getFullYear() === currentYear),
+    )
+    .reduce((sum, r) => sum + Number(r.total || 0), 0);
 
   return (
     <div className="bg-[#F1F5F9] min-h-screen">
@@ -194,7 +209,7 @@ export default function DH() {
             </div>
           </div>
 
-          {/* card3 */}
+          {/* card3: อนุมัติแล้วปีนี้ (รวมยอดจากข้อมูลจริง) */}
           <div className="bg-white relative flex justify-between p-6 mt-5 flex-col rounded-2xl w-80 border-gray-100 shadow-sm">
             <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
               <Check />
@@ -204,7 +219,7 @@ export default function DH() {
                 อนุมัติแล้วปีนี้
               </div>
               <div className="text-3xl font-bold mt-1 text-gray-800">
-                ฿45,200
+                ฿{approvedTotal.toLocaleString("en-US")}
               </div>
             </div>
           </div>
