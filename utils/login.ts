@@ -45,3 +45,8 @@ export const checkGuest = (router: Router): boolean => {
   }
   return true // ยังไม่ login อยู่หน้านี้ได้
 }
+
+export const getHomePath = (role: Credential["role"]) => {
+  if (role === "HEAD") return "/home-department-head";
+  return "/";
+};

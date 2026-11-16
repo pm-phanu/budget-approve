@@ -30,14 +30,25 @@ import { mergeProps } from "react-aria";
 import { Button } from "@/components/tailgrids/core/button";
 import { Link } from "@/components/tailgrids/core/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Credential } from "@/data/credential";
-import { checkLogin, doLogout } from "@/utils/login";
+import { Credential, User } from "@/data/credential";
+import { checkLogin, doLogout, getHomePath } from "@/utils/login";
 
-const items = [
-  { title: "แดชบอร์ด", url: "/", icon: DashboardSquare1 },
+type Role = User['role']
+
+type MenuItem = {
+  title: string,
+  url: string,
+  icon: React.FunctionComponent<SVGProps<SVGSVGElement>>
+  roles?: Role[]
+}
+
+const items: MenuItem[] = [
+  { title: "แดชบอร์ด", url: "/", icon: DashboardSquare1, roles: ["EMPLOYEE"] },
+  { title: "แดชบอร์ด", url: "/home-department-head", icon: DashboardSquare1, roles: ["HEAD"] },
   { title: "สร้างคำขอ", url: "/request", icon: Plus },
   { title: "คำขอของฉัน", url: "#", icon: FileText },
-  { title: "ประวัตการเบิก", url: "#", icon: ClockThree },
+  { title: "ประวัติการเบิก", url: "#", icon: ClockThree },
+  { title: "อนุมัติคำขอ", url: "#", icon: FileText },
 ];
 
 
@@ -49,10 +60,30 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const [user, setUser] = useState<Credential | null>(null)
 
   useEffect(() => {
-    setUser(checkLogin(router, pathname))
+    const currentUser = checkLogin(router, pathname)
+
+    if(!currentUser) {
+      setUser(null)
+      return
+    } 
+
+    const menu = items.find((item) => item.url === pathname)
+
+    if(menu?.roles && !menu.roles.includes(currentUser.role)) {
+      setUser(null)
+      router.replace(getHomePath(currentUser.role))
+      return
+    }
+
+    setUser(currentUser)
+
   }, [router, pathname])
 
-  if(!user) return null
+  if(!user) return null 
+
+  const visibleItems = items.filter(
+    (item) => !item.roles || item.roles.includes(user.role),
+  )
 
   const handleLogout = () => doLogout(router)
 
@@ -75,8 +106,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
               <SidebarGroupContent>
                 <SidebarMenu>
-                  {items.map((item) => (
-                    <SidebarMenuItem key={item.title}>
+                  {visibleItems.map((item) => (
+                    <SidebarMenuItem key={item.title + item.url}>
                       <SidebarMenuButton
                         tooltip={item.title}
                         render={({ ref, ...props }) => (

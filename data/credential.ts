@@ -39,6 +39,7 @@ export const users: User[] = [
     username: "head_dcm",
     fullName: "หัวหน้าแผนก DCM",
     role: "HEAD",
+    password: "pass",
     departmentInfo: {
       lineOfWork: "สายงานธุรกิจและปฏิบัติการ",
       department: "ฝ่ายวาณิชธนกิจ / จัดจำหน่ายตราสารหนี้ (DCM)",
@@ -112,7 +113,7 @@ const isUser = (value: unknown): value is User => {
     "EMPLOYEE",
     "HEAD",
     "DIRECTOR",
-    "MD",
+    "MANAGING_DIRECTOR",
     "ACCOUNTANT_ADMIN",
     "FINANCE",
   ];
