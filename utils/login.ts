@@ -35,3 +35,13 @@ export const doLogout = (router: Router) => {
   localStorage.removeItem(CURRENT_USER_KEY);
   router.replace("/login");
 };
+
+export const checkGuest = (router: Router): boolean => {
+  const user = getCurrentUser()
+
+  if(user) {
+    router.replace('/')
+    return false // login อยู่แล้ว ไม่ใช่ guest
+  }
+  return true // ยังไม่ login อยู่หน้านี้ได้
+}

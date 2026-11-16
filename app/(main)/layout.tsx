@@ -25,10 +25,13 @@ import {
   Gear1,
   Plus,
 } from "@tailgrids/icons";
-import { forwardRef, SVGProps } from "react";
+import { forwardRef, SVGProps, useEffect, useState } from "react";
 import { mergeProps } from "react-aria";
 import { Button } from "@/components/tailgrids/core/button";
 import { Link } from "@/components/tailgrids/core/link";
+import { usePathname, useRouter } from "next/navigation";
+import { Credential } from "@/data/credential";
+import { checkLogin, doLogout } from "@/utils/login";
 
 const items = [
   { title: "แดชบอร์ด", url: "/", icon: DashboardSquare1 },
@@ -37,9 +40,22 @@ const items = [
   { title: "ประวัตการเบิก", url: "#", icon: ClockThree },
 ];
 
-const items2 = [{ title: "ออกจากระบบ", url: "/login", icon: Exit }];
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+
+  const router = useRouter()
+  const pathname = usePathname()
+
+  const [user, setUser] = useState<Credential | null>(null)
+
+  useEffect(() => {
+    setUser(checkLogin(router, pathname))
+  }, [router, pathname])
+
+  if(!user) return null
+
+  const handleLogout = () => doLogout(router)
+
   return (
     <div className="flex h-screen w-full">
       <SidebarProvider className="h-full">
@@ -86,22 +102,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
               <SidebarGroupContent>
                 <SidebarMenu>
-                  {items2.map((item) => (
-                    <SidebarMenuItem key={item.title}>
-                      <SidebarMenuButton
-                        tooltip={item.title}
-                        render={({ ref, ...props }) => (
-                          <SidebarMenuItemLink
-                            title={item.title}
-                            url={item.url}
-                            icon={item.icon}
-                            ref={ref as React.Ref<HTMLAnchorElement>}
-                            {...props}
-                          />
-                        )}
-                      />
-                    </SidebarMenuItem>
-                  ))}
+                  <SidebarMenuButton tooltip="ออกจากระบบ" onPress={handleLogout}>
+                    <Exit />
+                    <span>ออกจากระบบ</span>
+                  </SidebarMenuButton>
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
