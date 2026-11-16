@@ -184,7 +184,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 </Button>
               </div>
               <div className="shadow-2xl">
-                <Button variant={"success"}>
+                <Button variant={"success"} onPress={() => router.push("/request")}>
                   <Plus />
                   สร้างคำขอ
                 </Button>
