@@ -48,7 +48,7 @@ const items: MenuItem[] = [
   { title: "สร้างคำขอ", url: "/request", icon: Plus },
   { title: "คำขอของฉัน", url: "#", icon: FileText },
   { title: "ประวัติการเบิก", url: "#", icon: ClockThree },
-  { title: "อนุมัติคำขอ", url: "#", icon: FileText },
+  { title: "อนุมัติคำขอ", url: "/Approved-department-head", icon: FileText, roles: ["HEAD"] },
 ];
 
 
