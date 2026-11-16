@@ -24,6 +24,7 @@ import {
   FileText,
   Gear1,
   Plus,
+  UserMultiple4,
 } from "@tailgrids/icons";
 import { forwardRef, SVGProps, useEffect, useState } from "react";
 import { mergeProps } from "react-aria";
@@ -49,6 +50,8 @@ const items: MenuItem[] = [
   { title: "คำขอของฉัน", url: "#", icon: FileText },
   { title: "ประวัติการเบิก", url: "#", icon: ClockThree },
   { title: "อนุมัติคำขอ", url: "/Approved-department-head", icon: FileText, roles: ["HEAD"] },
+  { title: "จัดการผู้ใช้และสิทธิ์", url: "/account-admin", icon: UserMultiple4, roles: ["ACCOUNTANT_ADMIN"] },
+
 ];
 
 
