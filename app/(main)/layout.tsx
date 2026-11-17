@@ -51,7 +51,7 @@ const items: MenuItem[] = [
   { title: "ประวัติการเบิก", url: "#", icon: ClockThree },
   { title: "อนุมัติคำขอ", url: "/Approved-department-head", icon: FileText, roles: ["HEAD"] },
   { title: "จัดการผู้ใช้และสิทธิ์", url: "/account-admin", icon: UserMultiple4, roles: ["ACCOUNTANT_ADMIN"] },
-
+  { title: "ตั้งค่าเกณฑ์วงเงิน", url: "/account-admin/setting", icon: UserMultiple4, roles: ["ACCOUNTANT_ADMIN"] },
 ];
 
 

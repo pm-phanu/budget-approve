@@ -11,13 +11,22 @@ import {
 import { getUsers, type Credential } from "@/data/credential";
 import { useEffect, useState } from "react";
 
-const [users, setUsers] = useState<Credential[]>([]);
-
-useEffect(() => {
-  setUsers(getUsers().map(({ password, ...rest }) => rest));
-}, []);
-
 export default function Account() {
+  const [users, setUsers] = useState<Credential[]>([]);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    setUsers(getUsers().map(({ password, ...rest }) => rest));
+  }, []);
+
+  useEffect(() => {
+    try {
+      setUsers(getUsers().map(({ password, ...rest }) => rest));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "โหลดข้อมูลไม่สำเร็จ");
+    }
+  }, []);
+
   return (
     <div className="w-full">
       <TableRoot>
@@ -35,9 +44,17 @@ export default function Account() {
         </TableHeader>
 
         <TableBody>
-          {users.length === 0 ? (
+          {error ? (
             <TableRow>
-              <TableCell colSpan={8}>ยังไม่มีข้อมูล</TableCell>
+              <TableCell colSpan={8} className="text-center">
+                {error}
+              </TableCell>
+            </TableRow>
+          ) : users.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={8} className="text-center">
+                ยังไม่มีข้อมูล
+              </TableCell>
             </TableRow>
           ) : (
             users.map((u) => (
