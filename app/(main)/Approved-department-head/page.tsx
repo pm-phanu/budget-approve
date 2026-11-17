@@ -12,6 +12,10 @@ import { REQUESTS_KEY, loadRequests } from "@/data/request";
 ------------------------------------------------------------------- */
 const HOME_PATH = "/home-department-head";
 
+// เหตุผลที่ตีกลับ (ปุ่มเลือกในป๊อบอัพ) ค่าที่เลือกจะถูกเก็บใน reject.status
+const REJECT_REASONS = ["เอกสารไม่ครบ", "ยอดเงินไม่ถูกต้อง", "อื่นๆ"];
+const REJECT_COMMENT_MAX = 300;
+
 /* ------------------------------------------------------------------
    ชนิดข้อมูล (ตรงกับที่หน้า request/new บันทึกไว้)
    ใช้ string แทน union ของสถานะ เพื่อไม่ผูกกับค่าใน data/request.ts
@@ -35,6 +39,13 @@ interface ReqHistory {
   action: string;
   by: string;
   at: string;
+}
+// ข้อมูลการตีกลับ (key ใหม่ชื่อ reject)
+interface RejectInfo {
+  status: string; // ตีกลับเรื่องอะไร เช่น "เอกสารไม่ครบ"
+  comment: string; // ความเห็นที่พิมพ์ไว้
+  by: string; // ใครตีกลับ
+  at: string; // ตีกลับเมื่อไหร่ (ISO)
 }
 interface Req {
   id: string;
@@ -62,6 +73,7 @@ interface Req {
   history: ReqHistory[];
   reviewedAt?: string; // ให้หน้า Home ใช้เรียง "อนุมัติล่าสุด"
   reviewComment?: string;
+  reject?: RejectInfo; // มีเมื่อคำขอถูกตีกลับ
 }
 
 function loadAll(): Req[] {
@@ -143,6 +155,12 @@ const FileIcon = (p: IconProps) => (
     <path d="M11.5 2.5v4h4" />
   </svg>
 );
+const InfoIcon = (p: IconProps) => (
+  <svg {...svgBase(p)}>
+    <circle cx="10" cy="10" r="7.5" />
+    <path d="M10 9v4.5M10 6.5v.01" />
+  </svg>
+);
 
 /* ------------------------------------------------------------------
    ชิ้นส่วนเล็ก
@@ -206,6 +224,12 @@ function ReviewContent() {
   const [comment, setComment] = useState("");
   const [error, setError] = useState("");
 
+  // ป๊อบอัพตีกลับ
+  const [showReject, setShowReject] = useState(false);
+  const [rejectReason, setRejectReason] = useState(""); // เหตุผลที่เลือก
+  const [rejectComment, setRejectComment] = useState(""); // ความเห็นที่พิมพ์
+  const [rejectError, setRejectError] = useState("");
+
   useEffect(() => {
     const found = loadAll().find((x) => x.id === id) ?? null;
     /* eslint-disable react-hooks/set-state-in-effect -- อ่านได้หลังเปิดหน้าเท่านั้น */
@@ -225,6 +249,16 @@ function ReviewContent() {
     setLoaded(true);
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [id]);
+
+  // กด Esc เพื่อปิดป๊อบอัพ (ต้องอยู่ก่อน return ด้านล่าง)
+  useEffect(() => {
+    if (!showReject) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setShowReject(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [showReject]);
 
   if (!loaded) return null;
 
@@ -253,14 +287,10 @@ function ReviewContent() {
     it.files.map((f) => ({ file: f, from: it.name })),
   );
 
-  // ---- การกระทำ ----
-  const act = (kind: "approve" | "reject") => {
-    if (kind === "approve" && !checked) {
+  // ---- อนุมัติ ----
+  const approve = () => {
+    if (!checked) {
       setError("กรุณาติ๊กยืนยันว่าตรวจเอกสารและยอดเงินครบแล้ว");
-      return;
-    }
-    if (kind === "reject" && !comment.trim()) {
-      setError("กรุณาใส่ความเห็นเพื่อบอกเหตุผลที่ตีกลับ");
       return;
     }
 
@@ -275,20 +305,15 @@ function ReviewContent() {
     const cur = steps[req.currentStep];
     if (!cur) return;
 
+    cur.status = "อนุมัติ";
     cur.by = by;
     cur.at = now;
     cur.note = comment;
 
-    if (kind === "approve") {
-      cur.status = "อนุมัติ";
-      if (req.currentStep >= steps.length - 1) {
-        req.status = "อนุมัติแล้ว"; // ขั้นสุดท้าย = คำขอเสร็จสมบูรณ์
-      } else {
-        req.currentStep += 1; // ไปขั้นถัดไป สถานะคงเป็น "รออนุมัติ"
-      }
+    if (req.currentStep >= steps.length - 1) {
+      req.status = "อนุมัติแล้ว"; // ขั้นสุดท้าย = คำขอเสร็จสมบูรณ์
     } else {
-      cur.status = "ตีกลับ";
-      req.status = "ตีกลับ";
+      req.currentStep += 1; // ไปขั้นถัดไป สถานะคงเป็น "รออนุมัติ"
     }
 
     req.approvalSteps = steps;
@@ -297,11 +322,61 @@ function ReviewContent() {
     req.reviewComment = comment;
     req.history = [
       ...req.history,
-      {
-        action: (kind === "approve" ? "อนุมัติ: " : "ตีกลับ: ") + cur.label,
-        by,
-        at: now,
-      },
+      { action: "อนุมัติ: " + cur.label, by, at: now },
+    ];
+
+    all[idx] = req;
+    localStorage.setItem(REQUESTS_KEY, JSON.stringify(all));
+    router.push(HOME_PATH);
+  };
+
+  // ---- ป๊อบอัพตีกลับ: เปิด / ปิด / ยืนยัน ----
+  const openReject = () => {
+    setRejectReason("");
+    setRejectComment("");
+    setRejectError("");
+    setShowReject(true);
+  };
+  const closeReject = () => setShowReject(false);
+
+  const confirmReject = () => {
+    if (!rejectReason) {
+      setRejectError("กรุณาเลือกเหตุผลที่ตีกลับ");
+      return;
+    }
+    // เลือก "อื่นๆ" ต้องพิมพ์รายละเอียดด้วย
+    if (rejectReason === "อื่นๆ" && !rejectComment.trim()) {
+      setRejectError("กรุณาระบุรายละเอียดเหตุผล");
+      return;
+    }
+
+    const all = loadAll();
+    const idx = all.findIndex((x) => x.id === r.id);
+    if (idx < 0) return;
+
+    const now = new Date().toISOString();
+    const by = currentUserName();
+    const text = rejectComment.trim();
+    const req: Req = { ...all[idx] };
+    const steps = req.approvalSteps.map((s) => ({ ...s }));
+    const cur = steps[req.currentStep];
+    if (!cur) return;
+
+    cur.status = "ตีกลับ";
+    cur.by = by;
+    cur.at = now;
+    cur.note = text;
+
+    req.status = "ตีกลับ";
+    req.approvalSteps = steps;
+    req.updatedAt = now;
+    req.reviewedAt = now;
+    req.reviewComment = text;
+    // key ใหม่: เก็บว่าตีกลับเรื่องอะไร + ความเห็นที่พิมพ์
+    req.reject = { status: rejectReason, comment: text, by, at: now };
+    req.history = [
+      ...req.history,
+      { action: `ตีกลับ: ${cur.label} (${rejectReason})`, by, at: now },
     ];
 
     all[idx] = req;
@@ -319,6 +394,15 @@ function ReviewContent() {
     },
     ...r.approvalSteps.map((s, i) => {
       const st = stepState(s, i, r.currentStep, r.status);
+      // ขั้นที่ตีกลับ: แสดง "เหตุผล — ความเห็น" จาก reject
+      let note: string | undefined;
+      if (st === "rejected" && r.reject) {
+        note = r.reject.comment
+          ? `${r.reject.status} — “${r.reject.comment}”`
+          : r.reject.status;
+      } else if ((st === "done" || st === "rejected") && s.note) {
+        note = `“${s.note}”`;
+      }
       return {
         status: st,
         title: s.label,
@@ -328,10 +412,7 @@ function ReviewContent() {
             : st === "current"
               ? "รอคุณดำเนินการ"
               : "รอขั้นถัดไป",
-        note:
-          (st === "done" || st === "rejected") && s.note
-            ? `“${s.note}”`
-            : undefined,
+        note,
       };
     }),
   ];
@@ -552,7 +633,13 @@ function ReviewContent() {
                         </p>
                         <p className="text-[11px] text-slate-400">{s.meta}</p>
                         {s.note && (
-                          <p className="mt-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                          <p
+                            className={`mt-2 rounded-lg border px-3 py-2 text-xs ${
+                              s.status === "rejected"
+                                ? "border-red-100 bg-red-50 text-red-600"
+                                : "border-slate-200 bg-slate-50 text-slate-600"
+                            }`}
+                          >
                             {s.note}
                           </p>
                         )}
@@ -605,7 +692,7 @@ function ReviewContent() {
                     htmlFor="comment"
                     className="mb-1.5 block text-xs text-slate-500"
                   >
-                    ความเห็น (ไม่บังคับ เว้นแต่ตีกลับ)
+                    ความเห็น (ไม่บังคับ)
                   </label>
                   <textarea
                     id="comment"
@@ -628,14 +715,14 @@ function ReviewContent() {
 
                 <button
                   type="button"
-                  onClick={() => act("approve")}
+                  onClick={approve}
                   className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3.5 text-base font-bold text-white transition hover:bg-emerald-700"
                 >
                   <Check /> อนุมัติคำขอ
                 </button>
                 <button
                   type="button"
-                  onClick={() => act("reject")}
+                  onClick={openReject}
                   className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 py-3.5 text-base font-semibold text-slate-700 transition hover:bg-slate-100"
                 >
                   <ArrowRight className="rotate-180" /> ตีกลับให้แก้ไข
@@ -664,6 +751,127 @@ function ReviewContent() {
           </div>
         </div>
       </div>
+
+      {/* ===== ป๊อบอัพตีกลับคำขอ ===== */}
+      {showReject && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={closeReject}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="ตีกลับคำขอ"
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* หัวข้อ */}
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-100 text-red-500">
+                <ArrowRight className="rotate-180" />
+              </span>
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">
+                  ตีกลับคำขอ
+                </h2>
+                <p className="text-xs text-slate-500">
+                  ผู้ขอจะได้รับแจ้งเตือน และแก้ไขแล้วส่งใหม่ได้
+                </p>
+              </div>
+            </div>
+
+            {/* สรุปคำขอ */}
+            <div className="mt-4 flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-xs font-semibold text-white">
+                {requesterName.slice(0, 2)}
+              </span>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-slate-900">
+                  {r.title}
+                </p>
+                <p className="truncate text-xs text-slate-500">
+                  {requesterName} · ส่งเมื่อ {thaiDateTime(r.createdAt)}
+                </p>
+              </div>
+            </div>
+
+            {/* เหตุผลที่ตีกลับ */}
+            <p className="mb-2 mt-5 text-sm font-semibold text-slate-800">
+              เหตุผลที่ตีกลับ <span className="text-red-500">*</span>
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {REJECT_REASONS.map((reason) => {
+                const active = rejectReason === reason;
+                return (
+                  <button
+                    key={reason}
+                    type="button"
+                    onClick={() => {
+                      setRejectReason(reason);
+                      setRejectError("");
+                    }}
+                    className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
+                      active
+                        ? "border-red-200 bg-red-100 text-red-600"
+                        : "border-slate-200 bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    }`}
+                  >
+                    {reason}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* ความเห็น */}
+            <div className="relative mt-3">
+              <textarea
+                rows={4}
+                maxLength={REJECT_COMMENT_MAX}
+                value={rejectComment}
+                onChange={(e) => {
+                  setRejectComment(e.target.value);
+                  setRejectError("");
+                }}
+                placeholder="อธิบายสิ่งที่ผู้ขอต้องแก้ไข..."
+                className="w-full resize-none rounded-xl border border-slate-200 px-3 py-2.5 pb-7 text-sm outline-none placeholder:text-slate-400 focus:border-red-400 focus:ring-2 focus:ring-red-400/20"
+              />
+              <span className="absolute bottom-2.5 right-3 text-xs text-slate-400">
+                {rejectComment.length}/{REJECT_COMMENT_MAX}
+              </span>
+            </div>
+
+            {/* ข้อความแจ้ง / error */}
+            {rejectError ? (
+              <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
+                {rejectError}
+              </p>
+            ) : (
+              <p className="mt-3 flex items-center gap-2 rounded-lg border border-dashed border-slate-200 px-3 py-2 text-xs text-slate-500">
+                <InfoIcon className="h-4 w-4 shrink-0" />
+                ต้องระบุเหตุผลก่อนจึงตีกลับได้
+              </p>
+            )}
+
+            {/* ปุ่ม */}
+            <div className="mt-5 flex gap-3">
+              <button
+                type="button"
+                onClick={closeReject}
+                className="flex-1 rounded-xl border border-slate-200 bg-white py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                onClick={confirmReject}
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-red-500 py-3 text-sm font-bold text-white hover:bg-red-600"
+              >
+                <ArrowRight className="h-4 w-4 rotate-180" /> ตีกลับคำขอ
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
