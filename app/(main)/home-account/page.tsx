@@ -20,17 +20,19 @@ import {
 ------------------------------------------------------------------- */
 const REVIEW_PATH = "/Approved-department-head"; // ← หน้าตรวจสอบคำขอ ปรับให้ตรงชื่อโฟลเดอร์
 const PENDING_LIMIT = 5; // จำนวนแถวสูงสุดใน "รอคุณตรวจสอบ"
-const RECENT_LIMIT = 3; // จำนวนแถวสูงสุดใน "อนุมัติล่าสุด"
+const RECENT_LIMIT = 5; // จำนวนแถวสูงสุดใน "อนุมัติล่าสุด"
 const OVERDUE_DAYS = 3; // รอเกินกี่วันถือว่าล่าช้า
-const ROW_H = 72; // ความสูงแถว (px) ใช้คำนวณพื้นที่ว่างเท่า 3 แถว
 
 // role ของขั้นฝ่ายบัญชีในเส้นทางอนุมัติ (ตรงกับ data/approval.ts)
 // หน้านี้ตัดสินจาก "ขั้นของคำขอ" ไม่ใช่จากชื่อ/role ของคนที่ล็อกอิน
 const ACCOUNTANT_ROLE = "ACCOUNTANT_ADMIN";
 
-// แถวรายการ: ชื่อ | ป้ายรอ | ยอดเงิน | ปุ่ม/สถานะ (เต็มความกว้าง คอลัมน์แรกยืดตามที่ว่าง)
+// ความกว้างคอลัมน์ของแถวรายการ (เท่ากับหน้า Home ของหัวหน้า)
+// ใช้ร่วมกันทั้ง "รอคุณตรวจสอบ" และ "อนุมัติล่าสุด" ถ้าจะปรับ แก้ที่นี่ที่เดียว
+// (ชื่อ | ป้ายรอ | ยอดเงิน | ปุ่ม/สถานะ)
 const ROW_GRID =
-  "grid grid-cols-[minmax(0,1fr)_110px_130px_120px] items-center gap-4 px-1";
+  "grid h-[93px] grid-cols-[260px_90px_110px_1fr] items-center gap-3";
+const ROW_H = 93; // ความสูงแถว (px) ต้องตรงกับ h-[93px] ด้านบน
 
 /* ------------------------------------------------------------------
    ชนิดข้อมูล
@@ -57,6 +59,16 @@ interface CurrentUser {
   fullName: string;
   role: string;
 }
+type Projects = ReturnType<typeof addRequestsToBudget>;
+
+// งบของ 1 ฝ่าย (รวมทุกโครงการ/หมวดในฝ่ายนั้น)
+interface DeptBudget {
+  dept: string;
+  limit: number;
+  used: number;
+  pct: number;
+  top: { name: string; used: number }[]; // หมวดที่ใช้มากสุด
+}
 
 /* ------------------------------------------------------------------
    อ่านข้อมูล
@@ -81,17 +93,9 @@ function loadUser(): CurrentUser | null {
   }
 }
 
-// งบรวมทั้งปี (รวมทุกโครงการ/หมวด และหักคำขอที่ส่งแล้ว)
-function loadBudgetTotals() {
-  let limit = 0;
-  let used = 0;
-  for (const p of addRequestsToBudget(loadSaved())) {
-    for (const c of p.categories) {
-      limit += c.limit;
-      used += c.used;
-    }
-  }
-  return { limit, used };
+// งบทุกโครงการ (หักคำขอที่ส่งแล้ว)
+function loadProjects(): Projects {
+  return addRequestsToBudget(loadSaved());
 }
 
 /* ------------------------------------------------------------------
@@ -174,6 +178,46 @@ function statusBadge(r: ExpenseRequest) {
   };
 }
 
+// รวมงบรายโครงการให้เป็นรายฝ่าย (เรียงจากใช้เปอร์เซ็นต์มากไปน้อย)
+function groupByDept(projects: Projects): DeptBudget[] {
+  const map = new Map<
+    string,
+    { limit: number; used: number; cats: Map<string, number> }
+  >();
+
+  for (const p of projects) {
+    const key = p.dept || "ไม่ระบุฝ่าย";
+    const row = map.get(key) ?? { limit: 0, used: 0, cats: new Map() };
+    for (const c of p.categories) {
+      row.limit += c.limit;
+      row.used += c.used;
+      row.cats.set(c.name, (row.cats.get(c.name) ?? 0) + c.used);
+    }
+    map.set(key, row);
+  }
+
+  return Array.from(map.entries())
+    .map(([dept, v]) => ({
+      dept,
+      limit: v.limit,
+      used: v.used,
+      pct: v.limit > 0 ? Math.round((v.used / v.limit) * 100) : 0,
+      top: Array.from(v.cats.entries())
+        .map(([name, used]) => ({ name, used }))
+        .filter((c) => c.used > 0)
+        .sort((a, b) => b.used - a.used)
+        .slice(0, 2),
+    }))
+    .sort((a, b) => b.pct - a.pct);
+}
+
+// สีแถบงบ: ใช้เกือบหมดเป็นแดง ค่อนข้างมากเป็นเหลือง ปกติเป็นเขียว
+function barColor(pct: number) {
+  if (pct >= 90) return { bar: "bg-rose-500", text: "text-rose-600" };
+  if (pct >= 70) return { bar: "bg-amber-500", text: "text-amber-600" };
+  return { bar: "bg-emerald-500", text: "text-emerald-600" };
+}
+
 // สีวงกลมตัวอักษร (วนไปตามลำดับแถว)
 const AVATARS = [
   "bg-emerald-100 text-green-700",
@@ -224,7 +268,7 @@ function Avatar({ name, index }: { name: string; index: number }) {
 export default function AccountantHome() {
   const [requests, setRequests] = useState<ExpenseRequest[]>([]);
   const [me, setMe] = useState<CurrentUser | null>(null);
-  const [budget, setBudget] = useState({ limit: 0, used: 0 });
+  const [projects, setProjects] = useState<Projects>([]);
   // วันที่/เวลาปัจจุบัน: ตั้งค่าใน useEffect เท่านั้น (เลี่ยง new Date() ตอน prerender)
   const [today, setToday] = useState("");
   const [now, setNow] = useState<number | null>(null);
@@ -233,7 +277,7 @@ export default function AccountantHome() {
     /* eslint-disable react-hooks/set-state-in-effect -- อ่านได้หลังเปิดหน้าเท่านั้น */
     setRequests(loadRequests());
     setMe(loadUser());
-    setBudget(loadBudgetTotals());
+    setProjects(loadProjects());
     setNow(Date.now());
     setToday(
       new Date().toLocaleDateString("th-TH", {
@@ -248,7 +292,7 @@ export default function AccountantHome() {
     const onStorage = (e: StorageEvent) => {
       if (e.key === REQUESTS_KEY) {
         setRequests(loadRequests());
-        setBudget(loadBudgetTotals());
+        setProjects(loadProjects());
       }
       if (e.key === "current_user") setMe(loadUser());
     };
@@ -305,13 +349,13 @@ export default function AccountantHome() {
   const monthTotal = d ? sumOf(year, month) : 0;
   const prevTotal = prev ? sumOf(prev.getFullYear(), prev.getMonth()) : 0;
 
-  // งบคงเหลือทั้งปี
-  const remaining = budget.limit - budget.used;
+  // งบคงเหลือทั้งปี (รวมทุกฝ่าย)
+  const depts = groupByDept(projects);
+  const totalLimit = depts.reduce((s, x) => s + x.limit, 0);
+  const totalUsed = depts.reduce((s, x) => s + x.used, 0);
+  const remaining = totalLimit - totalUsed;
   const remainPct =
-    budget.limit > 0 ? Math.round((remaining / budget.limit) * 100) : 0;
-
-  // พื้นที่ว่างเท่า 3 แถวเสมอ (ไม่ว่าจะมีคำขอกี่รายการ)
-  const emptyH = 3 * ROW_H;
+    totalLimit > 0 ? Math.round((remaining / totalLimit) * 100) : 0;
 
   return (
     <div className="min-h-screen bg-[#F1F5F9] p-6 text-slate-800">
@@ -320,28 +364,9 @@ export default function AccountantHome() {
         <header className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-slate-900">
-              สวัสดี {me ? me.fullName : "-"} 👋
+              สวัสดี {me ? me.fullName : "-"}
             </h1>
             <p className="mt-1 text-sm text-gray-500">{today}</p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <label className="flex w-72 items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-gray-400 focus-within:ring-2 focus-within:ring-emerald-500/30">
-              <Search1 />
-              <input
-                type="text"
-                placeholder="ค้นหาคำขอ..."
-                className="w-full bg-transparent text-sm text-slate-700 outline-none placeholder:text-gray-400"
-              />
-            </label>
-            <button
-              type="button"
-              aria-label="การแจ้งเตือน"
-              className="relative rounded-xl border border-gray-200 bg-white p-2.5 transition hover:bg-gray-50"
-            >
-              <Bell1 />
-              <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500" />
-            </button>
           </div>
         </header>
 
@@ -364,7 +389,7 @@ export default function AccountantHome() {
           />
           <StatCard
             icon={<Check className="h-4 w-4" />}
-            label="ตรวจแล้วเดือนนี้"
+            label="ตรวจแล้ว"
             value={`${doneThisMonth.length} คำขอ`}
             sub={`ผ่าน ${passed} ตีกลับ ${rejected}`}
           />
@@ -378,160 +403,236 @@ export default function AccountantHome() {
             icon={<Calendar className="h-4 w-4" />}
             label="งบคงเหลือทั้งปี"
             value={baht(remaining)}
-            sub={`${remainPct}% ของงบ ${baht(budget.limit)}`}
+            sub={`${remainPct}% ของงบ ${baht(totalLimit)}`}
           />
         </div>
 
-        {/* ===== รอคุณตรวจสอบ + อนุมัติล่าสุด (เต็มความกว้าง) ===== */}
-        <section className="mt-5 w-full rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-          {/* รอคุณตรวจสอบ */}
-          <div className="mb-1 flex items-center justify-between">
-            <div>
-              <span className="text-base font-bold">รอคุณตรวจสอบ</span>
-              <span className="ml-2 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs text-amber-600">
-                {pending.length}
+        {/* ===== ซ้าย: รอคุณตรวจสอบ + อนุมัติล่าสุด / ขวา: การใช้งบแยกตามฝ่าย ===== */}
+        {/* ขนาดเท่าหน้า Home ของหัวหน้า (การ์ดซ้าย w-180, การ์ดขวา 5/12) */}
+        <div className="flex gap-5">
+          {/* ---------- การ์ดซ้าย ---------- */}
+          <div className="relative mt-5 flex w-180 flex-col justify-between rounded-2xl border-gray-100 bg-white p-6 shadow-sm">
+            {/* รอคุณตรวจสอบ */}
+            <div className="mb-1 flex items-center justify-between">
+              <div>
+                <span className="text-md font-bold">รอคุณตรวจสอบ</span>
+                <span className="ml-2 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs text-amber-600">
+                  {pending.length}
+                </span>
+              </div>
+              <button className="flex items-center gap-1 text-xs font-bold text-green-700">
+                ดูทั้งหมด <ArrowRight size={15} />
+              </button>
+            </div>
+
+            {/* พื้นที่สูงเท่า 3 แถวเสมอ */}
+            <div style={{ minHeight: 3 * ROW_H }}>
+              {pending.length === 0 ? (
+                <div
+                  className="flex flex-col items-center justify-center gap-2 text-gray-400"
+                  style={{ height: 3 * ROW_H }}
+                >
+                  <CheckCircle1 />
+                  <span className="text-sm">ไม่มีคำขอรอตรวจ</span>
+                </div>
+              ) : (
+                pending.slice(0, PENDING_LIMIT).map((r, i) => {
+                  const name = r.requester?.fullName ?? "-";
+                  const arrived = arrivedAt(r);
+                  const before = r.approvalSteps[r.currentStep - 1];
+                  const late = waitDays(arrived) >= OVERDUE_DAYS;
+                  return (
+                    <div key={r.id} className={ROW_GRID}>
+                      {/* คอลัมน์ 1: ผู้ขอ + ชื่อคำขอ + ใครอนุมัติมาก่อน */}
+                      <div className="flex min-w-0 items-center">
+                        <Avatar name={name} index={i} />
+                        <div className="ml-3 flex min-w-0 flex-col">
+                          <div className="truncate font-bold">{r.title}</div>
+                          <div className="truncate text-xs text-gray-400">
+                            {name} ·{" "}
+                            {before
+                              ? `${before.label}อนุมัติ${timeAgo(arrived)}`
+                              : `ส่ง${timeAgo(r.createdAt)}`}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* คอลัมน์ 2: เวลารอ (เกินกำหนดเป็นสีแดง) */}
+                      <div className="flex justify-center">
+                        <span
+                          className={`whitespace-nowrap rounded-full border px-2.5 py-1 text-xs ${
+                            late
+                              ? "border-rose-200 bg-rose-50 font-semibold text-rose-600"
+                              : "border-amber-200 bg-amber-50 text-amber-600"
+                          }`}
+                        >
+                          {waitLabel(arrived)}
+                        </span>
+                      </div>
+
+                      {/* คอลัมน์ 3: ยอดเงิน (ชิดขวา) */}
+                      <div className="text-right">
+                        <span className="font-bold tabular-nums">
+                          {baht(r.total)}
+                        </span>
+                      </div>
+
+                      {/* คอลัมน์ 4: ปุ่มตรวจสอบ */}
+                      <div className="flex justify-end">
+                        <Link
+                          href={`${REVIEW_PATH}?id=${encodeURIComponent(r.id)}`}
+                          className="flex items-center gap-1 text-xs font-bold text-green-700 hover:underline"
+                        >
+                          ตรวจสอบ <ArrowRight size={15} />
+                        </Link>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* แจ้งเตือน */}
+            <div className="mt-4 flex items-center gap-2 rounded-xl border border-gray-200/60 bg-gray-50 p-3.5 text-xs text-gray-500">
+              <div className="flex h-5 w-5 items-center justify-center rounded-xl">
+                <CheckCircle1 />
+              </div>
+              <span>
+                คำขอที่รอเกิน {OVERDUE_DAYS} วันระบบจะแจ้งเตือนคุณอีกครั้ง
               </span>
             </div>
-            <button className="flex items-center gap-1 text-xs font-bold text-green-700">
-              ดูทั้งหมด <ArrowRight size={15} />
-            </button>
-          </div>
 
-          <div style={{ minHeight: emptyH }}>
-            {pending.length === 0 ? (
-              <div
-                className="flex flex-col items-center justify-center gap-2 text-gray-400"
-                style={{ height: emptyH }}
-              >
-                <CheckCircle1 />
-                <span className="text-sm">ไม่มีคำขอรอตรวจ</span>
+            {/* อนุมัติล่าสุด (เฉพาะที่ฝ่ายบัญชีดำเนินการ) */}
+            <div className="mt-5">
+              <div className="mb-1 flex items-center justify-between">
+                <span className="text-md font-bold">อนุมัติล่าสุด</span>
+                <button className="flex items-center gap-1 text-xs font-bold text-green-700">
+                  ดูประวัติ <ArrowRight size={16} />
+                </button>
               </div>
-            ) : (
-              pending.slice(0, PENDING_LIMIT).map((r, i) => {
-                const name = r.requester?.fullName ?? "-";
-                const arrived = arrivedAt(r);
-                const before = r.approvalSteps[r.currentStep - 1];
-                const late = waitDays(arrived) >= OVERDUE_DAYS;
-                return (
-                  <div
-                    key={r.id}
-                    className={`${ROW_GRID} ${i > 0 ? "border-t border-gray-100" : ""}`}
-                    style={{ height: ROW_H }}
-                  >
-                    {/* ผู้ขอ + ชื่อคำขอ + ใครอนุมัติมาก่อน */}
-                    <div className="flex min-w-0 items-center gap-3">
-                      <Avatar name={name} index={i} />
-                      <div className="min-w-0">
-                        <div className="truncate font-bold">{r.title}</div>
-                        <div className="truncate text-xs text-gray-400">
-                          {name} ·{" "}
-                          {before
-                            ? `${before.label}อนุมัติ${timeAgo(arrived)}`
-                            : `ส่ง${timeAgo(r.createdAt)}`}
+            </div>
+
+            <div style={{ minHeight: RECENT_LIMIT * ROW_H }}>
+              {recent.length === 0 ? (
+                <div
+                  className="flex flex-col items-center justify-center gap-2 text-gray-400"
+                  style={{ height: RECENT_LIMIT * ROW_H }}
+                >
+                  <CheckCircle1 />
+                  <span className="text-sm">ยังไม่มีรายการที่ดำเนินการ</span>
+                </div>
+              ) : (
+                recent.map(({ r, at, result }, i) => {
+                  const name = r.requester?.fullName ?? "-";
+                  const badge = statusBadge(r);
+                  return (
+                    <div key={r.id} className={ROW_GRID}>
+                      <div className="flex min-w-0 items-center">
+                        <Avatar name={name} index={i + 1} />
+                        <div className="ml-3 flex min-w-0 flex-col">
+                          <div className="truncate font-bold">{r.title}</div>
+                          <div className="truncate text-xs text-gray-400">
+                            {name} ·{" "}
+                            {result === "ตีกลับ" ? "ตีกลับ" : "อนุมัติ"}
+                            {timeAgo(at)}
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    {/* รอกี่วัน (เกินกำหนดเป็นสีแดง) */}
-                    <div className="flex justify-center">
-                      <span
-                        className={`whitespace-nowrap rounded-full border px-2.5 py-1 text-xs ${
-                          late
-                            ? "border-rose-200 bg-rose-50 font-semibold text-rose-600"
-                            : "border-amber-200 bg-amber-50 text-amber-600"
-                        }`}
-                      >
-                        {waitLabel(arrived)}
-                      </span>
-                    </div>
+                      {/* คอลัมน์ 2 เว้นว่างให้ตรงกับด้านบน */}
+                      <div />
 
-                    {/* ยอดเงิน */}
-                    <div className="text-right font-bold tabular-nums">
-                      {baht(r.total)}
-                    </div>
+                      <div className="text-right">
+                        <span className="font-bold tabular-nums">
+                          {baht(r.total)}
+                        </span>
+                      </div>
 
-                    {/* ปุ่มตรวจสอบ */}
-                    <div className="flex justify-end">
-                      <Link
-                        href={`${REVIEW_PATH}?id=${encodeURIComponent(r.id)}`}
-                        className="flex items-center gap-1 text-xs font-bold text-green-700 hover:underline"
-                      >
-                        ตรวจสอบ <ArrowRight size={15} />
-                      </Link>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-
-          {/* แจ้งเตือน */}
-          <div className="mt-4 flex items-center gap-2 rounded-xl border border-gray-200/60 bg-gray-50 p-3.5 text-xs text-gray-500">
-            <CheckCircle1 className="h-5 w-5 shrink-0" />
-            <span>
-              คำขอที่รอเกิน {OVERDUE_DAYS} วันระบบจะแจ้งเตือนคุณอีกครั้ง
-            </span>
-          </div>
-
-          {/* อนุมัติล่าสุด (เฉพาะที่ฝ่ายบัญชีดำเนินการ) */}
-          <div className="mb-1 mt-6 flex items-center justify-between">
-            <span className="text-base font-bold">อนุมัติล่าสุด</span>
-            <button className="flex items-center gap-1 text-xs font-bold text-green-700">
-              ดูประวัติ <ArrowRight size={15} />
-            </button>
-          </div>
-
-          <div style={{ minHeight: RECENT_LIMIT * ROW_H }}>
-            {recent.length === 0 ? (
-              <div
-                className="flex flex-col items-center justify-center gap-2 text-gray-400"
-                style={{ height: RECENT_LIMIT * ROW_H }}
-              >
-                <CheckCircle1 />
-                <span className="text-sm">ยังไม่มีรายการที่ดำเนินการ</span>
-              </div>
-            ) : (
-              recent.map(({ r, at, result }, i) => {
-                const name = r.requester?.fullName ?? "-";
-                const badge = statusBadge(r);
-                return (
-                  <div
-                    key={r.id}
-                    className={`${ROW_GRID} ${i > 0 ? "border-t border-gray-100" : ""}`}
-                    style={{ height: ROW_H }}
-                  >
-                    <div className="flex min-w-0 items-center gap-3">
-                      <Avatar name={name} index={i + 1} />
-                      <div className="min-w-0">
-                        <div className="truncate font-bold">{r.title}</div>
-                        <div className="truncate text-xs text-gray-400">
-                          {name} ·{" "}
-                          {result === "ตีกลับ" ? "ตีกลับ" : "อนุมัติ"}
-                          {timeAgo(at)}
-                        </div>
+                      <div className="flex justify-end">
+                        <span
+                          className={`whitespace-nowrap rounded-full border px-2.5 py-1 text-xs ${badge.cls}`}
+                        >
+                          {badge.text}
+                        </span>
                       </div>
                     </div>
-
-                    {/* คอลัมน์ 2 เว้นว่างให้ตรงกับด้านบน */}
-                    <div />
-
-                    <div className="text-right font-bold tabular-nums">
-                      {baht(r.total)}
-                    </div>
-
-                    <div className="flex justify-end">
-                      <span
-                        className={`whitespace-nowrap rounded-full border px-2.5 py-1 text-xs ${badge.cls}`}
-                      >
-                        {badge.text}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })
-            )}
+                  );
+                })
+              )}
+            </div>
           </div>
-        </section>
+
+          {/* ---------- การ์ดขวา: การใช้งบแยกตามฝ่าย ---------- */}
+          <div className="mt-5 w-full self-start rounded-2xl border border-gray-100 bg-white p-6 shadow-sm lg:w-5/12">
+            <div className="mb-2 flex items-center justify-between">
+              <h2 className="text-base font-bold text-gray-800">
+                การใช้งบแยกตามฝ่าย
+              </h2>
+              <span className="text-xs text-gray-400">
+                {year > 0 ? `ปี ${year + 543}` : ""}
+              </span>
+            </div>
+
+            {depts.length === 0 ? (
+              <div className="flex h-40 flex-col items-center justify-center gap-2 text-gray-400">
+                <CheckCircle1 />
+                <span className="text-sm">ยังไม่มีข้อมูลงบประมาณ</span>
+              </div>
+            ) : (
+              <ul>
+                {depts.map((x, i) => {
+                  const c = barColor(x.pct);
+                  return (
+                    <li
+                      key={x.dept}
+                      className={`py-4 ${i > 0 ? "border-t border-gray-100" : ""}`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-bold text-gray-900">
+                          {x.dept}
+                        </span>
+                        <span className={`text-xs font-bold ${c.text}`}>
+                          {x.pct}%
+                        </span>
+                      </div>
+
+                      {/* แถบความคืบหน้า (เกิน 100% ก็แสดงเต็มหลอด) */}
+                      <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-gray-100">
+                        <div
+                          className={`h-full rounded-full transition-all duration-500 ${c.bar}`}
+                          style={{ width: `${Math.min(100, x.pct)}%` }}
+                        />
+                      </div>
+
+                      <div className="mt-2 text-xs">
+                        <span className="font-bold text-gray-800">
+                          {baht(x.used)}
+                        </span>
+                        <span className="text-gray-400">
+                          {" "}
+                          / {baht(x.limit)}
+                        </span>
+                      </div>
+
+                      {x.top.length > 0 && (
+                        <div className="mt-0.5 text-xs text-gray-400">
+                          ใช้มากสุด:{" "}
+                          {x.top
+                            .map((t) => `${t.name} ${baht(t.used)}`)
+                            .join("  ")}
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+
+            <p className="mt-1 border-t border-gray-100 pt-3 text-xs text-gray-400">
+              กดที่ฝ่ายเพื่อดูรายละเอียดในหน้างบประมาณ
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );
