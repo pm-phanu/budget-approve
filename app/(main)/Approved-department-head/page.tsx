@@ -3,50 +3,70 @@
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight, Bell1, Check, CheckCircle1, Search1 } from "@tailgrids/icons";
+import { ArrowRight, Check, CheckCircle1 } from "@tailgrids/icons";
+import { addRequestsToBudget } from "@/data/budget";
+import { REQUESTS_KEY, loadRequests } from "@/data/request";
 
 /* ------------------------------------------------------------------
    ตั้งค่า
 ------------------------------------------------------------------- */
-const STORAGE_KEY = "requests";
 const HOME_PATH = "/home-department-head";
-const APPROVE_LIMIT = 50000; // วงเงินที่ผู้ใช้คนนี้อนุมัติได้
-
-// ข้อมูลงบ (คัดลอกจากหน้าสร้างคำขอ ควรย้ายไปไฟล์กลาง เช่น lib/budgets.ts)
-const budgets = [
-  { id: 1, name: "การตลาด › สัมมนาประจำปี › ค่าเดินทาง", remaining: 42000 },
-  { id: 2, name: "การตลาด › สัมมนาประจำปี › ค่าที่พัก", remaining: 22000 },
-  { id: 3, name: "การตลาด › เปิดตัวสินค้า › ค่าออกแบบ", remaining: 15000 },
-];
 
 /* ------------------------------------------------------------------
-   ชนิดข้อมูล (ตรงกับที่หน้าสร้างคำขอบันทึกไว้)
+   ชนิดข้อมูล (ตรงกับที่หน้า request/new บันทึกไว้)
+   ใช้ string แทน union ของสถานะ เพื่อไม่ผูกกับค่าใน data/request.ts
 ------------------------------------------------------------------- */
-interface Item {
+interface ReqItem {
+  categoryId: string;
+  categoryName: string;
   name: string;
-  amount: string;
+  amount: number;
+  files: string[];
 }
-interface ExpenseRequest {
-  id: number;
+interface ReqStep {
+  role: string;
+  label: string;
+  status: string; // "รอ" | "อนุมัติ" | "ตีกลับ"
+  by: string | null;
+  at: string | null;
+  note: string;
+}
+interface ReqHistory {
+  action: string;
+  by: string;
+  at: string;
+}
+interface Req {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+  status: string; // "ร่าง" | "รออนุมัติ" | "อนุมัติแล้ว" | "ตีกลับ"
   type: "advance" | "invoice";
+  typeLabel: string;
   title: string;
-  budgetId: string;
   useDate: string;
   reason: string;
-  items: Item[];
-  files: string[];
+  project: { id: string; name: string; dept: string } | null;
+  items: ReqItem[];
   total: number;
-  approver: string;
-  status: string; // "รออนุมัติ" | "ร่าง" | "อนุมัติแล้ว" | "ตีกลับ"
-  requesterName?: string;
-  createdAt?: string;
+  fileCount: number;
+  requester: {
+    fullName: string;
+    department: string;
+    lineOfWork: string;
+  } | null;
+  payTo: string;
+  bankAccount: string | null;
+  approvalSteps: ReqStep[];
+  currentStep: number;
+  history: ReqHistory[];
+  reviewedAt?: string; // ให้หน้า Home ใช้เรียง "อนุมัติล่าสุด"
   reviewComment?: string;
-  reviewedAt?: string;
 }
 
-function loadAll(): ExpenseRequest[] {
+function loadAll(): Req[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(REQUESTS_KEY);
     const data = raw ? JSON.parse(raw) : [];
     return Array.isArray(data) ? data : [];
   } catch {
@@ -54,9 +74,13 @@ function loadAll(): ExpenseRequest[] {
   }
 }
 
-function updateRequest(id: number, patch: Partial<ExpenseRequest>) {
-  const all = loadAll().map((r) => (r.id === id ? { ...r, ...patch } : r));
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
+function currentUserName(): string {
+  try {
+    const raw = localStorage.getItem("current_user");
+    return raw ? (JSON.parse(raw).fullName ?? "-") : "-";
+  } catch {
+    return "-";
+  }
 }
 
 /* ------------------------------------------------------------------
@@ -64,7 +88,7 @@ function updateRequest(id: number, patch: Partial<ExpenseRequest>) {
 ------------------------------------------------------------------- */
 const baht = (n: number) => "฿" + n.toLocaleString("en-US");
 
-function thaiDate(iso?: string) {
+function thaiDate(iso?: string | null) {
   if (!iso) return "-";
   const d = new Date(iso);
   if (isNaN(d.getTime())) return "-";
@@ -75,7 +99,7 @@ function thaiDate(iso?: string) {
   });
 }
 
-function thaiDateTime(iso?: string) {
+function thaiDateTime(iso?: string | null) {
   if (!iso) return "";
   const d = new Date(iso);
   if (isNaN(d.getTime())) return "";
@@ -85,12 +109,6 @@ function thaiDateTime(iso?: string) {
     d.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" }) +
     " น."
   );
-}
-
-function refNo(r: ExpenseRequest) {
-  const year =
-    (r.createdAt ? new Date(r.createdAt) : new Date()).getFullYear() + 543;
-  return `BF-${year}-${String(r.id).padStart(4, "0")}`;
 }
 
 /* ------------------------------------------------------------------
@@ -162,22 +180,50 @@ const Dot = ({ status }: { status: StepStatus }) => {
   );
 };
 
+// สถานะของแต่ละขั้นในเส้นทางอนุมัติ
+function stepState(
+  s: ReqStep,
+  index: number,
+  current: number,
+  reqStatus: string,
+): StepStatus {
+  if (s.status.includes("ตีกลับ")) return "rejected";
+  if (s.status !== "รอ") return "done";
+  return index === current && reqStatus === "รออนุมัติ" ? "current" : "pending";
+}
+
 /* ------------------------------------------------------------------
    หน้าหลัก
 ------------------------------------------------------------------- */
 function ReviewContent() {
   const router = useRouter();
-  const id = Number(useSearchParams().get("id"));
+  const id = useSearchParams().get("id") ?? "";
 
-  const [request, setRequest] = useState<ExpenseRequest | null>(null);
+  const [request, setRequest] = useState<Req | null>(null);
+  const [projectRemaining, setProjectRemaining] = useState<number | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [checked, setChecked] = useState(false);
   const [comment, setComment] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
-    setRequest(loadAll().find((r) => r.id === id) ?? null);
+    const found = loadAll().find((x) => x.id === id) ?? null;
+    /* eslint-disable react-hooks/set-state-in-effect -- อ่านได้หลังเปิดหน้าเท่านั้น */
+    setRequest(found);
+
+    // งบคงเหลือของโครงการ (นับรวมคำขอที่ส่งแล้ว ตามที่ addRequestsToBudget คิด)
+    if (found?.project) {
+      const p = addRequestsToBudget(loadRequests()).find(
+        (x) => x.id === found.project!.id,
+      );
+      if (p) {
+        let left = 0;
+        for (const c of p.categories) left += c.limit - c.used;
+        setProjectRemaining(left);
+      }
+    }
     setLoaded(true);
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [id]);
 
   if (!loaded) return null;
@@ -197,102 +243,129 @@ function ReviewContent() {
   }
 
   const r = request;
-  const name = r.requesterName ?? "เนส";
-  const budget = budgets.find((b) => b.id === Number(r.budgetId));
-  const isPending = r.status === "รออนุมัติ";
-  const overLimit = r.total > APPROVE_LIMIT;
+  const requesterName = r.requester?.fullName ?? "-";
+  const curStep = r.approvalSteps[r.currentStep];
+  // แสดงกล่องอนุมัติเมื่อคำขอยังรออนุมัติ และขั้นปัจจุบันยังเป็น "รอ"
+  const canAct = r.status === "รออนุมัติ" && !!curStep && curStep.status === "รอ";
+
+  // ไฟล์ทั้งหมด (แนบรายแถว → รวมเป็นลิสต์เดียว พร้อมบอกว่ามาจากรายการไหน)
+  const allFiles = r.items.flatMap((it) =>
+    it.files.map((f) => ({ file: f, from: it.name })),
+  );
 
   // ---- การกระทำ ----
-  const approve = () => {
-    if (!checked) {
+  const act = (kind: "approve" | "reject") => {
+    if (kind === "approve" && !checked) {
       setError("กรุณาติ๊กยืนยันว่าตรวจเอกสารและยอดเงินครบแล้ว");
       return;
     }
-    updateRequest(r.id, {
-      status: "อนุมัติแล้ว",
-      reviewComment: comment,
-      reviewedAt: new Date().toISOString(),
-    });
-    router.push(HOME_PATH);
-  };
-
-  const reject = () => {
-    if (!comment.trim()) {
+    if (kind === "reject" && !comment.trim()) {
       setError("กรุณาใส่ความเห็นเพื่อบอกเหตุผลที่ตีกลับ");
       return;
     }
-    updateRequest(r.id, {
-      status: "ตีกลับ",
-      reviewComment: comment,
-      reviewedAt: new Date().toISOString(),
-    });
+
+    const all = loadAll();
+    const idx = all.findIndex((x) => x.id === r.id);
+    if (idx < 0) return;
+
+    const now = new Date().toISOString();
+    const by = currentUserName();
+    const req: Req = { ...all[idx] };
+    const steps = req.approvalSteps.map((s) => ({ ...s }));
+    const cur = steps[req.currentStep];
+    if (!cur) return;
+
+    cur.by = by;
+    cur.at = now;
+    cur.note = comment;
+
+    if (kind === "approve") {
+      cur.status = "อนุมัติ";
+      if (req.currentStep >= steps.length - 1) {
+        req.status = "อนุมัติแล้ว"; // ขั้นสุดท้าย = คำขอเสร็จสมบูรณ์
+      } else {
+        req.currentStep += 1; // ไปขั้นถัดไป สถานะคงเป็น "รออนุมัติ"
+      }
+    } else {
+      cur.status = "ตีกลับ";
+      req.status = "ตีกลับ";
+    }
+
+    req.approvalSteps = steps;
+    req.updatedAt = now;
+    req.reviewedAt = now; // ให้หน้า Home ใช้เรียงลำดับ
+    req.reviewComment = comment;
+    req.history = [
+      ...req.history,
+      {
+        action: (kind === "approve" ? "อนุมัติ: " : "ตีกลับ: ") + cur.label,
+        by,
+        at: now,
+      },
+    ];
+
+    all[idx] = req;
+    localStorage.setItem(REQUESTS_KEY, JSON.stringify(all));
     router.push(HOME_PATH);
   };
 
-  // ---- timeline สร้างจากสถานะจริง ----
-  const approved = r.status === "อนุมัติแล้ว";
-  const rejected = r.status === "ตีกลับ";
-  const steps: {
-    status: StepStatus;
-    title: string;
-    meta: string;
-    note?: string;
-  }[] = [
+  // ---- timeline: ส่งคำขอ + ทุกขั้นในเส้นทางอนุมัติ ----
+  const timeline = [
     {
-      status: "done",
+      status: "done" as StepStatus,
       title: "ส่งคำขอ",
-      meta: `คุณ${name} ${thaiDateTime(r.createdAt)}`,
+      meta: `${requesterName} ${thaiDateTime(r.createdAt)}`,
+      note: undefined as string | undefined,
     },
-    {
-      status: approved ? "done" : rejected ? "rejected" : "current",
-      title: approved
-        ? `${r.approver}อนุมัติแล้ว`
-        : rejected
-          ? `${r.approver}ตีกลับ`
-          : `${r.approver}อนุมัติ`,
-      meta:
-        approved || rejected ? thaiDateTime(r.reviewedAt) : "รอคุณดำเนินการ",
-      note: rejected && r.reviewComment ? `“${r.reviewComment}”` : undefined,
-    },
-    {
-      status: approved ? "current" : "pending",
-      title: "ฝ่ายบัญชีตรวจและจ่ายเงิน",
-      meta: approved ? "รอฝ่ายบัญชีดำเนินการ" : "รอขั้นถัดไป",
-    },
+    ...r.approvalSteps.map((s, i) => {
+      const st = stepState(s, i, r.currentStep, r.status);
+      return {
+        status: st,
+        title: s.label,
+        meta:
+          st === "done" || st === "rejected"
+            ? `${s.by ?? ""} ${thaiDateTime(s.at)}`
+            : st === "current"
+              ? "รอคุณดำเนินการ"
+              : "รอขั้นถัดไป",
+        note:
+          (st === "done" || st === "rejected") && s.note
+            ? `“${s.note}”`
+            : undefined,
+      };
+    }),
   ];
 
-  const statusBadge = approved
-    ? { text: "อนุมัติแล้ว", cls: "bg-emerald-100 text-emerald-700" }
-    : rejected
-      ? { text: "ตีกลับแล้ว", cls: "bg-red-100 text-red-600" }
-      : { text: "รอคุณอนุมัติ", cls: "bg-amber-100 text-amber-700" };
+  const badge =
+    r.status === "อนุมัติแล้ว"
+      ? { text: "อนุมัติแล้ว", cls: "bg-emerald-100 text-emerald-700" }
+      : r.status === "ตีกลับ"
+        ? { text: "ตีกลับแล้ว", cls: "bg-red-100 text-red-600" }
+        : r.status === "ร่าง"
+          ? { text: "ร่าง", cls: "bg-slate-200 text-slate-600" }
+          : { text: "รอคุณอนุมัติ", cls: "bg-amber-100 text-amber-700" };
 
   return (
     <div className="min-h-screen bg-slate-100 p-6 font-sans text-slate-800">
       <div className="mx-auto max-w-[1200px]">
         {/* Header */}
-        <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <nav className="flex items-center gap-1 text-sm text-slate-500">
-              <ArrowRight className="h-4 w-4 rotate-180" />
-              <Link href={HOME_PATH} className="hover:underline">
-                รอตรวจจ่ายเงิน
-              </Link>
-              <span>/</span>
-              <span className="font-semibold text-emerald-700">
-                {refNo(r)}
-              </span>
-            </nav>
-            <div className="mt-3 flex flex-wrap items-center gap-3">
-              <h1 className="text-3xl font-bold text-slate-900">{r.title}</h1>
-              <span
-                className={`rounded-full px-3 py-1 text-xs font-bold ${statusBadge.cls}`}
-              >
-                {statusBadge.text}
-              </span>
-            </div>
+        <header className="mb-6">
+          <nav className="flex items-center gap-1 text-sm text-slate-500">
+            <ArrowRight className="h-4 w-4 rotate-180" />
+            <Link href={HOME_PATH} className="hover:underline">
+              รอตรวจจ่ายเงิน
+            </Link>
+            <span>/</span>
+            <span className="font-semibold text-emerald-700">{r.id}</span>
+          </nav>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <h1 className="text-3xl font-bold text-slate-900">{r.title}</h1>
+            <span
+              className={`rounded-full px-3 py-1 text-xs font-bold ${badge.cls}`}
+            >
+              {badge.text}
+            </span>
           </div>
-
         </header>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
@@ -310,28 +383,30 @@ function ReviewContent() {
                     <p className="mb-2 text-xs text-slate-500">ผู้ขอเบิก</p>
                     <div className="flex items-center gap-3">
                       <span className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-600 text-sm font-semibold text-white">
-                        {name.slice(0, 2)}
+                        {requesterName.slice(0, 2)}
                       </span>
                       <div>
                         <p className="font-semibold text-slate-900">
-                          คุณ{name}
+                          {requesterName}
                         </p>
                         <p className="text-xs text-slate-400">
-                          พนักงาน · การตลาด
+                          {r.requester
+                            ? `${r.requester.department} · ${r.requester.lineOfWork}`
+                            : "-"}
                         </p>
                       </div>
                     </div>
                   </div>
                   <div>
-                    <p className="mb-1 text-xs text-slate-500">งบที่ใช้</p>
+                    <p className="mb-1 text-xs text-slate-500">โครงการ</p>
                     <p className="text-sm font-semibold text-slate-900">
-                      {budget?.name ?? "-"}
+                      {r.project ? `${r.project.dept} › ${r.project.name}` : "-"}
                     </p>
-                    {budget && (
+                    {projectRemaining !== null && (
                       <p className="text-xs text-slate-400">
-                        คงเหลือหลังจ่าย{" "}
+                        งบโครงการคงเหลือ{" "}
                         <span className="font-semibold text-emerald-600">
-                          {baht(budget.remaining - r.total)}
+                          {baht(projectRemaining)}
                         </span>
                       </p>
                     )}
@@ -348,9 +423,7 @@ function ReviewContent() {
                     </p>
                     <p className="text-xs text-slate-400">
                       <span className="font-semibold text-slate-600">
-                        {r.type === "advance"
-                          ? "สำรองจ่าย"
-                          : "จ่ายตามใบแจ้งหนี้"}
+                        {r.typeLabel}
                       </span>{" "}
                       · วันที่ใช้จ่าย {thaiDate(r.useDate)}
                     </p>
@@ -358,8 +431,11 @@ function ReviewContent() {
                   <div>
                     <p className="mb-1 text-xs text-slate-500">การโอนเงิน</p>
                     <p className="text-sm font-semibold text-slate-900">
-                      โอนทันทีเมื่อฝ่ายบัญชีอนุมัติ
+                      {r.payTo}
                     </p>
+                    {r.bankAccount && (
+                      <p className="text-xs text-slate-400">{r.bankAccount}</p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -385,11 +461,16 @@ function ReviewContent() {
                 {r.items.map((it, i) => (
                   <li
                     key={i}
-                    className="flex items-center justify-between py-4 text-sm"
+                    className="flex items-center justify-between gap-4 py-4 text-sm"
                   >
-                    <span className="text-slate-800">{it.name || "-"}</span>
-                    <span className="font-semibold tabular-nums text-slate-800">
-                      {baht(Number(it.amount || 0))}
+                    <div className="min-w-0">
+                      <p className="text-slate-800">{it.name || "-"}</p>
+                      <p className="text-xs text-slate-400">
+                        {it.categoryName || "-"} · แนบ {it.files.length} ไฟล์
+                      </p>
+                    </div>
+                    <span className="shrink-0 font-semibold tabular-nums text-slate-800">
+                      {baht(it.amount)}
                     </span>
                   </li>
                 ))}
@@ -405,13 +486,16 @@ function ReviewContent() {
               </div>
 
               <h3 className="mb-3 mt-8 text-base font-bold text-slate-900">
-                เอกสารแนบ
+                เอกสารแนบ{" "}
+                <span className="text-sm font-normal text-slate-400">
+                  ({allFiles.length} ไฟล์)
+                </span>
               </h3>
-              {r.files.length === 0 ? (
+              {allFiles.length === 0 ? (
                 <p className="text-sm text-slate-400">ไม่มีเอกสารแนบ</p>
               ) : (
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                  {r.files.map((f, i) => (
+                  {allFiles.map((f, i) => (
                     <div
                       key={i}
                       className="flex items-center gap-3 rounded-xl border border-slate-200 p-3"
@@ -419,9 +503,14 @@ function ReviewContent() {
                       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-red-100 text-red-500">
                         <FileIcon />
                       </span>
-                      <p className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-900">
-                        {f}
-                      </p>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-slate-900">
+                          {f.file}
+                        </p>
+                        <p className="truncate text-xs text-slate-400">
+                          {f.from}
+                        </p>
+                      </div>
                       <button
                         type="button"
                         aria-label="ดูเอกสาร"
@@ -444,7 +533,7 @@ function ReviewContent() {
                 สถานะคำขอ
               </h2>
               <ol>
-                {steps.map((s, i) => {
+                {timeline.map((s, i) => {
                   const color =
                     s.status === "rejected"
                       ? "text-red-600"
@@ -452,8 +541,8 @@ function ReviewContent() {
                         ? "text-emerald-700"
                         : "text-slate-900";
                   return (
-                    <li key={s.title} className="relative flex gap-3 pb-5">
-                      {i < steps.length - 1 && (
+                    <li key={i} className="relative flex gap-3 pb-5">
+                      {i < timeline.length - 1 && (
                         <span className="absolute left-[9.5px] top-5 h-full w-px bg-slate-200" />
                       )}
                       <Dot status={s.status} />
@@ -463,7 +552,7 @@ function ReviewContent() {
                         </p>
                         <p className="text-[11px] text-slate-400">{s.meta}</p>
                         {s.note && (
-                          <p className="mt-2 rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-xs text-red-600">
+                          <p className="mt-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
                             {s.note}
                           </p>
                         )}
@@ -474,26 +563,18 @@ function ReviewContent() {
               </ol>
             </Card>
 
-            {/* การอนุมัติของคุณ (แสดงเมื่อยังรออนุมัติเท่านั้น) */}
-            {isPending && (
+            {/* การอนุมัติของคุณ */}
+            {canAct && (
               <Card>
                 <h2 className="mb-4 text-lg font-bold text-slate-900">
                   การอนุมัติของคุณ
                 </h2>
 
-                <div
-                  className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm ${
-                    overLimit
-                      ? "border-red-200 bg-red-50 text-red-600"
-                      : "border-emerald-200 bg-emerald-50 text-emerald-700"
-                  }`}
-                >
+                <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-700">
                   <CheckCircle1 className="h-5 w-5 shrink-0" />
                   <span>
-                    {overLimit
-                      ? "ยอดเกินวงเงินที่คุณอนุมัติได้ "
-                      : "คุณมีสิทธิ์อนุมัติ วงเงินไม่เกิน "}
-                    <b className="font-bold">{baht(APPROVE_LIMIT)}</b>
+                    ขั้นที่รอดำเนินการ:{" "}
+                    <b className="font-bold">{curStep.label}</b>
                   </span>
                 </div>
 
@@ -534,7 +615,7 @@ function ReviewContent() {
                       setComment(e.target.value);
                       setError("");
                     }}
-                    placeholder="เพิ่มความเห็นถึงผู้ขอหรือฝ่ายบัญชี..."
+                    placeholder="เพิ่มความเห็นถึงผู้ขอหรือขั้นถัดไป..."
                     className="w-full resize-none rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
                   />
                 </div>
@@ -547,19 +628,37 @@ function ReviewContent() {
 
                 <button
                   type="button"
-                  onClick={approve}
-                  disabled={overLimit}
-                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3.5 text-base font-bold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  onClick={() => act("approve")}
+                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3.5 text-base font-bold text-white transition hover:bg-emerald-700"
                 >
                   <Check /> อนุมัติคำขอ
                 </button>
                 <button
                   type="button"
-                  onClick={reject}
+                  onClick={() => act("reject")}
                   className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 py-3.5 text-base font-semibold text-slate-700 transition hover:bg-slate-100"
                 >
                   <ArrowRight className="rotate-180" /> ตีกลับให้แก้ไข
                 </button>
+              </Card>
+            )}
+
+            {/* ประวัติการดำเนินการ */}
+            {r.history.length > 0 && (
+              <Card>
+                <h2 className="mb-4 text-lg font-bold text-slate-900">
+                  ประวัติ
+                </h2>
+                <ul className="space-y-3">
+                  {[...r.history].reverse().map((h, i) => (
+                    <li key={i} className="text-xs">
+                      <p className="font-semibold text-slate-800">{h.action}</p>
+                      <p className="text-slate-400">
+                        {h.by} · {thaiDateTime(h.at)}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
               </Card>
             )}
           </div>
