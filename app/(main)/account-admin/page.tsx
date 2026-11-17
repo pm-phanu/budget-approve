@@ -16,10 +16,6 @@ export default function Account() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    setUsers(getUsers().map(({ password, ...rest }) => rest));
-  }, []);
-
-  useEffect(() => {
     try {
       setUsers(getUsers().map(({ password, ...rest }) => rest));
     } catch (e) {
