@@ -731,14 +731,14 @@ const inputClass = "w-full " + fieldClass;
 const STEP_STYLE: Record<StepRole, { bg: string; icon: string }> = {
   HEAD: { bg: "bg-[#D1FAE5]", icon: "text-[#047857]" },
   DIRECTOR: { bg: "bg-[#FEF3C7]", icon: "text-[#B45309]" },
-  MD: { bg: "bg-[#FCE7F3]", icon: "text-[#BE185D]" },
+  MANAGING_DIRECTOR: { bg: "bg-[#FCE7F3]", icon: "text-[#BE185D]" },
   ACCOUNTANT_ADMIN: { bg: "bg-[#E0E7FF]", icon: "text-[#3730A3]" },
   FINANCE: { bg: "bg-[#DBEAFE]", icon: "text-[#1D4ED8]" },
 };
 const STEP_SUB: Record<StepRole, string> = {
   HEAD: "อนุมัติ",
   DIRECTOR: "อนุมัติ",
-  MD: "อนุมัติ",
+  MANAGING_DIRECTOR: "อนุมัติ",
   ACCOUNTANT_ADMIN: "ตรวจสอบหลักฐาน",
   FINANCE: "ทำจ่าย",
 };
