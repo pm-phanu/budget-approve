@@ -48,8 +48,8 @@ type MenuItem = {
 const items: MenuItem[] = [
   { title: "แดชบอร์ด", url: "/", icon: DashboardSquare1, roles: ["EMPLOYEE"], group: "main" },
   { title: "แดชบอร์ด", url: "/home-department-head", icon: DashboardSquare1, roles: ["HEAD"], group: "main" },
-  { title: "แดชบอร์ด", url: "/account-admin", icon: DashboardSquare1, roles: ["ACCOUNTANT_ADMIN"], group: "main" },
-  { title: "จัดการผู้ใช้และสิทธิ์", url: "/account-admin", icon: UserMultiple4, roles: ["ACCOUNTANT_ADMIN"], group: "main" },
+  { title: "แดชบอร์ด", url: "/home-account", icon: DashboardSquare1, roles: ["ACCOUNTANT_ADMIN"], group: "main" },
+  { title: "จัดการผู้ใช้และสิทธิ์", url: "/home-account/setting", icon: UserMultiple4, roles: ["ACCOUNTANT_ADMIN"], group: "main" },
   { title: "สร้างคำขอ", url: "/request", icon: Plus, roles: ["EMPLOYEE", "HEAD"], group: "main" },
   { title: "คำขอของฉัน", url: "#", icon: FileText, roles: ["EMPLOYEE", "HEAD"], group: "main" },
   { title: "ประวัติการเบิก", url: "#", icon: ClockThree, roles: ["EMPLOYEE", "HEAD"], group: "main" },

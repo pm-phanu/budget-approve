@@ -358,8 +358,8 @@ export default function AccountantHome() {
     totalLimit > 0 ? Math.round((remaining / totalLimit) * 100) : 0;
 
   return (
-    <div className="min-h-screen bg-[#F1F5F9] p-6 text-slate-800">
-      <div className="mx-auto max-w-7xl">
+    <div className="bg-[#F1F5F9] p-6 text-slate-800">
+      <div>
         {/* ===== หัวหน้า ===== */}
         <header className="flex flex-wrap items-start justify-between gap-4">
           <div>
