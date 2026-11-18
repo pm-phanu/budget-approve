@@ -399,15 +399,15 @@ export default function Report() {
   return (
     <div className="text-[#0F172A]">
       {/* ---------- [5.1] หัวข้อ (ค้นหา + กระดิ่งใช้ของ layout) ---------- */}
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold">รายงานงบประมาณ</h1>
+      {/* หัวข้อ + แท็บช่วงเวลาอยู่ก้อนเดียวกัน แล้วเว้น 36px ก่อนเนื้อหา (เหมือนหน้า employee) */}
+      <header className="mb-9">
+        <h1 className="text-[32px] font-bold text-[#111]">รายงานงบประมาณ</h1>
         <p className="mt-1 text-sm text-[#64748B]">
           สรุปการเบิกจ่ายสำหรับผู้บริหารและผู้ตรวจสอบบัญชี
         </p>
-      </div>
 
       {/* ---------- [5.2] แท็บช่วงเวลา ---------- */}
-      <div className="mb-6 inline-flex gap-1 rounded-xl border border-gray-200 bg-white p-1">
+      <div className="mt-4 inline-flex gap-1 rounded-xl border border-gray-200 bg-white p-1">
         {/* map = สร้างปุ่มแท็บจาก periods ทีละอัน */}
         {periods.map((p) => (
           <button
@@ -420,11 +420,14 @@ export default function Report() {
           </button>
         ))}
       </div>
+      </header>
 
+      {/* แต่ละส่วนห่างกัน 36px เหมือนหน้า employee */}
+      <div className="flex flex-col gap-9">
       {/* ---------- [5.3] การ์ด 4 ใบ ---------- */}
-      <div className="mb-6 grid grid-cols-4 gap-5">
+      <div className="grid grid-cols-4 gap-5">
         {/* การ์ดใบแรก สีเข้ม */}
-        <div className="rounded-2xl bg-gradient-to-br from-[#0F172A] via-[#0F172A] to-[#047857] p-5 text-white">
+        <div className="rounded-xl bg-gradient-to-br from-[#0F172A] via-[#0F172A] to-[#047857] p-6 text-white shadow-2xl">
           <p className="flex items-center gap-2 text-sm text-gray-300">
             <Wallet2 size={16} className="text-[#34D399]" /> งบแผนกคงเหลือ
           </p>
@@ -456,9 +459,10 @@ export default function Report() {
         />
       </div>
 
-      <div className="mb-6 flex gap-6">
+      {/* grid 4 คอลัมน์: กราฟ 3 คอลัมน์ / เบิกสูงสุด 1 คอลัมน์ */}
+      <div className="grid grid-cols-4 gap-5">
         {/* ---------- [5.4] กราฟ 6 เดือน ---------- */}
-        <section className="flex-1 rounded-2xl border border-gray-200 bg-white p-6">
+        <section className="col-span-3 rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl">
           <h2 className="mb-4 text-lg font-bold">ยอดเบิกจ่ายย้อนหลัง 6 เดือน</h2>
           <div className="flex h-56 items-end gap-6 border-b border-gray-200 px-4">
             {/* map = วาดแท่งกราฟทีละเดือน · i = ลำดับเดือน */}
@@ -490,7 +494,7 @@ export default function Report() {
         </section>
 
         {/* ---------- [5.5] เบิกสูงสุด ---------- */}
-        <section className="w-80 shrink-0 rounded-2xl border border-gray-200 bg-white p-6">
+        <section className="col-span-1 rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl">
           <h2 className="mb-2 text-lg font-bold">รายการเบิกจ่ายสูงสุด</h2>
           {/* ไม่มีรายการ (length === 0) → โชว์ข้อความแทน */}
           {top.length === 0 && (
@@ -516,7 +520,7 @@ export default function Report() {
       </div>
 
       {/* ---------- [5.6] งบตามโครงการ / หมวด ---------- */}
-      <section className="mb-6 rounded-2xl border border-gray-200 bg-white p-6">
+      <section className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-bold">
             งบตามโครงการ / หมวดค่าใช้จ่าย (งบทั้งปี)
@@ -559,7 +563,7 @@ export default function Report() {
       </section>
 
       {/* ---------- [5.7] ตารางรายฝ่าย ---------- */}
-      <section className="rounded-2xl border border-gray-200 bg-white p-6">
+      <section className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-bold">สรุปการใช้งบรายฝ่าย</h2>
           <div className="flex w-64 items-center gap-2 rounded-xl border border-gray-200 px-3">
@@ -622,6 +626,7 @@ export default function Report() {
           <p className="py-6 text-center text-sm text-[#94A3B8]">ไม่พบรายการ</p>
         )}
       </section>
+      </div>
     </div>
   );
 }
@@ -643,7 +648,7 @@ function Card({
   unit: string;
 }) {
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-5">
+    <div className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl">
       <p className="flex items-center gap-2 text-sm text-[#64748B]">
         {icon} {label}
       </p>

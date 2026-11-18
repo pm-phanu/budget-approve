@@ -394,11 +394,11 @@ export default function NewRequest() {
   return (
     <div className="text-[#0F172A]">
       {/* breadcrumb ย้ายไปอยู่บน header ของ layout แล้ว */}
-      <h1 className="mb-6 text-3xl font-bold">สร้างคำขอเบิก</h1>
+      <h1 className="mb-9 text-[32px] font-bold text-[#111]">สร้างคำขอเบิก</h1>
 
-      <div className="flex gap-6">
+      <div className="grid grid-cols-4 gap-5">
         {/* ===== คอลัมน์ซ้าย: ฟอร์ม ===== */}
-        <section className="flex-1 rounded-2xl border border-gray-200 bg-white p-6">
+        <section className="col-span-3 rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl">
           {/* ---------- [6.1] ข้อมูลคำขอ ---------- */}
           <h2 className="text-lg font-bold">ข้อมูลคำขอ</h2>
           <Label text="ประเภทคำขอ" />
@@ -600,10 +600,10 @@ export default function NewRequest() {
         </section>
 
         {/* ===== คอลัมน์ขวา: สรุป ===== */}
-        <section className="w-96 shrink-0 space-y-6">
+        <section className="col-span-1 flex flex-col gap-5">
           {/* ---------- [6.6] การ์ดสรุป ---------- */}
           {/* ตัวเลข total / fileCount / projectRemaining คิดไว้ที่ [5.2] */}
-          <div className="rounded-2xl bg-gradient-to-br from-[#0F172A] via-[#0F172A] to-[#047857] p-6 text-white">
+          <div className="rounded-xl bg-gradient-to-br from-[#0F172A] via-[#0F172A] to-[#047857] p-6 text-white shadow-2xl">
             <p className="flex items-center gap-2 text-sm text-gray-300">
               <Wallet2 size={18} className="text-[#34D399]" /> ยอดรวมที่ขอเบิก
             </p>
@@ -633,7 +633,7 @@ export default function NewRequest() {
           </div>
 
           {/* ---------- [6.7] เส้นทางอนุมัติ (เปลี่ยนตามยอดเงิน) ---------- */}
-          <div className="rounded-2xl border border-gray-200 bg-white p-6">
+          <div className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl">
             <h2 className="mb-4 text-lg font-bold">เส้นทางการอนุมัติ</h2>
             <Step
               avatar={
@@ -661,7 +661,7 @@ export default function NewRequest() {
           </div>
 
           {/* ---------- [6.8] บัญชีรับเงิน + ปุ่ม ---------- */}
-          <div className="rounded-2xl border border-gray-200 bg-white p-6">
+          <div className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl">
             {/* สำรองจ่าย = โอนคืนเข้าบัญชีผู้ขอ · ใบแจ้งหนี้ = โอนให้ผู้ขาย */}
             {isAdvance ? (
               <>
