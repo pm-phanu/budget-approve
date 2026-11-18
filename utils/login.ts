@@ -47,7 +47,11 @@ export const checkGuest = (router: Router): boolean => {
 }
 
 export const getHomePath = (role: Credential["role"]) => {
+  if (role === "EMPLOYEE") return "/"
   if (role === "HEAD") return "/home-department-head";
   if (role === "ACCOUNTANT_ADMIN") return "/account-admin";
+  if (role === "DIRECTOR") return "#"
+  if (role === "FINANCE") return "#"
+  if (role === "MANAGING_DIRECTOR") return "#"
   return "/";
 };

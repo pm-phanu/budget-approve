@@ -258,8 +258,8 @@ export default function DH() {
   const overBudget = budget.limit > 0 && budget.used > budget.limit;
 
   return (
-    <div className="bg-[#F1F5F9] min-h-screen">
-      <div className="max-w-7xl mx-auto">
+    <div>
+      <div>
         <header className="flex justify-between gap-4 relative">
           <div>
             <h1 className="text-2xl font-bold items-center justify-between mt-8">

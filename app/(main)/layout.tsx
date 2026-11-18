@@ -3,7 +3,6 @@
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
@@ -26,6 +25,7 @@ import {
   Plus,
   UserMultiple4,
   SlidersDoubleHorizontal,
+  FileTextMultiple,
 } from "@tailgrids/icons";
 import { forwardRef, SVGProps, useEffect, useState } from "react";
 import { mergeProps } from "react-aria";
@@ -42,18 +42,38 @@ type MenuItem = {
   url: string,
   icon: React.FunctionComponent<SVGProps<SVGSVGElement>>
   roles?: Role[]
+  group: "main" | "approval"
 }
 
 const items: MenuItem[] = [
-  { title: "แดชบอร์ด", url: "/", icon: DashboardSquare1, roles: ["EMPLOYEE"] },
-  { title: "แดชบอร์ด", url: "/home-department-head", icon: DashboardSquare1, roles: ["HEAD"] },
-  { title: "แดชบอร์ด", url: "/account-admin", icon: DashboardSquare1, roles: ["ACCOUNTANT_ADMIN"] },
-  { title: "สร้างคำขอ", url: "/request", icon: Plus },
-  { title: "คำขอของฉัน", url: "#", icon: FileText },
-  { title: "ประวัติการเบิก", url: "#", icon: ClockThree },
-  { title: "อนุมัติคำขอ", url: "/Approved-department-head", icon: FileText, roles: ["HEAD"] },
-  { title: "จัดการผู้ใช้และสิทธิ์", url: "/account-admin", icon: UserMultiple4, roles: ["ACCOUNTANT_ADMIN"] },
+  { title: "แดชบอร์ด", url: "/", icon: DashboardSquare1, roles: ["EMPLOYEE"], group: "main" },
+  { title: "แดชบอร์ด", url: "/home-department-head", icon: DashboardSquare1, roles: ["HEAD"], group: "main" },
+  { title: "แดชบอร์ด", url: "/account-admin", icon: DashboardSquare1, roles: ["ACCOUNTANT_ADMIN"], group: "main" },
+  { title: "จัดการผู้ใช้และสิทธิ์", url: "/account-admin", icon: UserMultiple4, roles: ["ACCOUNTANT_ADMIN"], group: "main" },
+  { title: "สร้างคำขอ", url: "/request", icon: Plus, roles: ["EMPLOYEE", "HEAD"], group: "main" },
+  { title: "คำขอของฉัน", url: "#", icon: FileText, roles: ["EMPLOYEE", "HEAD"], group: "main" },
+  { title: "ประวัติการเบิก", url: "#", icon: ClockThree, roles: ["EMPLOYEE", "HEAD"], group: "main" },
+  { title: "คำขอทั้งหมด", url: "/Approved-department-head", icon: FileTextMultiple, roles: ["HEAD"], group: "approval" },
 ];
+
+function renderMenuItems(list: MenuItem[]) {
+  return list.map((item) => (
+    <SidebarMenuItem key={item.title + item.url}>
+      <SidebarMenuButton
+        tooltip={item.title}
+        render={({ ref, ...props }) => (
+          <SidebarMenuItemLink
+            title={item.title}
+            url={item.url}
+            icon={item.icon}
+            ref={ref as React.Ref<HTMLAnchorElement>}
+            {...props}
+          />
+        )}
+      />
+    </SidebarMenuItem>
+  ))
+}
 
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -88,6 +108,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const visibleItems = items.filter(
     (item) => !item.roles || item.roles.includes(user.role),
   )
+  const mainItems = visibleItems.filter((item) => item.group === "main")
+  const approvalItems = visibleItems.filter((item) => item.group === "approval")
 
   const handleLogout = () => doLogout(router)
 
@@ -109,26 +131,21 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </SidebarGroupLabel>
 
               <SidebarGroupContent>
-                <SidebarMenu>
-                  {visibleItems.map((item) => (
-                    <SidebarMenuItem key={item.title + item.url}>
-                      <SidebarMenuButton
-                        tooltip={item.title}
-                        render={({ ref, ...props }) => (
-                          <SidebarMenuItemLink
-                            title={item.title}
-                            url={item.url}
-                            icon={item.icon}
-                            ref={ref as React.Ref<HTMLAnchorElement>}
-                            {...props}
-                          />
-                        )}
-                      />
-                    </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
+                <SidebarMenu>{renderMenuItems(mainItems)}</SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
+
+            {approvalItems.length > 0 && (
+              <SidebarGroup>
+                <SidebarGroupLabel className="text-[16px] font-bold">
+                  การอนุมัติ
+                </SidebarGroupLabel>
+
+                <SidebarGroupContent>
+                  <SidebarMenu>{renderMenuItems(approvalItems)}</SidebarMenu>
+                </SidebarGroupContent>
+              </SidebarGroup>
+            )}
 
             <SidebarGroup>
               <SidebarGroupLabel className="text-[16px] font-bold">
@@ -137,6 +154,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
               <SidebarGroupContent>
                 <SidebarMenu>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton tooltip="การตั้งค่า">
+                      <Gear1 />
+                      <span>การตั้งค่า</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
                   <SidebarMenuButton tooltip="ออกจากระบบ" onPress={handleLogout}>
                     <Exit />
                     <span>ออกจากระบบ</span>
@@ -145,17 +168,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </SidebarGroupContent>
             </SidebarGroup>
           </SidebarContent>
-
-          <SidebarFooter>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton tooltip="Settings">
-                  <Gear1 />
-                  <span>Settings</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarFooter>
         </Sidebar>
 
         <div className="flex flex-1 flex-col">
