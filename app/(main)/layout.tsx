@@ -47,7 +47,7 @@ type MenuItem = {
   roles?: Role[]
   // true = เฉพาะผู้อนุมัติ (ตำแหน่งในตัว + ที่ฝ่ายบัญชีเพิ่มเอง + บัญชี / การเงิน) ดู isApproverRole
   approverOnly?: boolean
-  group: "main" | "approval" | "manage" | "report"
+  group: "main" | "approval" | "manage" | "report" | "budget"
 }
 
 const mainItems: MenuItem[] = [
@@ -72,6 +72,10 @@ const reportItems: MenuItem[] = [
 
 ]
 
+const budgetItems: MenuItem[] = [
+  { title: "ตั้งงบประมาณ", url: "#", icon: Plus, roles: ["ACCOUNTANT_ADMIN"], group: "budget" },
+]
+
 // role นี้เห็น / เข้าเมนูนี้ได้ไหม (ใช้ทั้งใน sidebar และ route guard)
 function canAccess(item: MenuItem, role: string) {
   if (item.approverOnly) return isApproverRole(role)
@@ -79,7 +83,7 @@ function canAccess(item: MenuItem, role: string) {
 }
 
 // รวมทุกหมวดเป็นก้อนเดียว: route guard กับ breadcrumb ใช้ค้นหาเมนูจาก pathname
-const items: MenuItem[] = [...mainItems, ...approveItems, ...manageItems, ...reportItems]
+const items: MenuItem[] = [...mainItems, ...approveItems, ...manageItems, ...reportItems, ...budgetItems]
 
 function renderMenuItems(list: MenuItem[]) {
   return list.map((item) => (
@@ -152,6 +156,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const approvalItems = visibleItems.filter((item) => item.group === "approval")
   const manageUserItems = visibleItems.filter((item) => item.group === "manage")
   const report = visibleItems.filter((item) => item.group === "report")
+  const budgetEntry = visibleItems.filter((item) => item.group === "budget")
 
   // breadcrumb บน header: "แดชบอร์ด / ชื่อหน้าปัจจุบัน" (ชื่อหน้าดึงจาก items)
   const homePath = getHomePath(user.role)
@@ -218,6 +223,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
                 <SidebarGroupContent>
                   <SidebarMenu>{renderMenuItems(report)}</SidebarMenu>
+                </SidebarGroupContent>
+              </SidebarGroup>
+            )}
+
+            {budgetEntry.length > 0 && (
+              <SidebarGroup>
+                <SidebarGroupLabel className="text-[16px] font-bold">
+                  งบประมาณ
+                </SidebarGroupLabel>
+
+                <SidebarGroupContent>
+                  <SidebarMenu>{renderMenuItems(budgetEntry)}</SidebarMenu>
                 </SidebarGroupContent>
               </SidebarGroup>
             )}
