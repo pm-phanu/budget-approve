@@ -16,7 +16,7 @@ import {
    ตั้งค่า
 ------------------------------------------------------------------- */
 const HOME_PATH = "/home-department-head"; // ← หน้า Home ของหัวหน้า
-const APPROVED_PATH = "/Approved-department-head"; // ← หน้าตรวจสอบ ต้องตรงกับชื่อโฟลเดอร์
+const APPROVED_PATH = "/home-department-head/approve"; // ← หน้าตรวจสอบ (ย้ายจาก /Approved-department-head ใน dev แล้ว)
 const ROW_H = 72; // ความสูงแถว (px) ต้องตรงกับ min-h-[72px] ใน ROW_GRID
 const MIN_ROWS = 5; // เว้นพื้นที่อย่างน้อยกี่แถว (ว่าง/น้อยก็ไม่ยุบ)
 
