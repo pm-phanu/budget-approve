@@ -16,7 +16,7 @@ import {
 import {
   Search1,
   Bell1,
-  AngleDoubleLeft,
+  MenuHamburger1,
   ClockThree,
   DashboardSquare1,
   Exit,
@@ -28,11 +28,11 @@ import {
   FileTextMultiple,
   CheckCircle1,
 } from "@tailgrids/icons";
-import { forwardRef, SVGProps, useEffect, useState } from "react";
+import { forwardRef, Suspense, SVGProps, useEffect, useState } from "react";
 import { mergeProps } from "react-aria";
 import { Button } from "@/components/tailgrids/core/button";
 import { Link } from "@/components/tailgrids/core/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Credential, User } from "@/data/credential";
 import { checkLogin, doLogout, getHomePath } from "@/utils/login";
 
@@ -54,8 +54,8 @@ const items: MenuItem[] = [
   { title: "สร้างคำขอ", url: "/request", icon: Plus, group: "main" },
   { title: "คำขอของฉัน", url: "#", icon: FileText, group: "main" },
   { title: "ประวัติการเบิก", url: "#", icon: ClockThree, group: "main" },
-  { title: "คำขอทั้งหมด", url: "/Approved-department-head", icon: FileTextMultiple, roles: ["HEAD"], group: "approval" },
-  { title: "ประวัติการอนุมัติ", url: "/Approved-department-head", icon: CheckCircle1, roles: ["HEAD"], group: "approval" },
+  { title: "คำขอทั้งหมด", url: "#", icon: FileTextMultiple, roles: ["HEAD"], group: "approval" },
+  { title: "ประวัติการอนุมัติ", url: "#", icon: CheckCircle1, roles: ["HEAD"], group: "approval" },
 ];
 
 function renderMenuItems(list: MenuItem[]) {
@@ -112,6 +112,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   )
   const mainItems = visibleItems.filter((item) => item.group === "main")
   const approvalItems = visibleItems.filter((item) => item.group === "approval")
+
+  // breadcrumb บน header: "แดชบอร์ด / ชื่อหน้าปัจจุบัน" (ชื่อหน้าดึงจาก items)
+  const homePath = getHomePath(user.role)
+  const isApprovePage = pathname.endsWith("/approve")
+  const currentTitle =
+    pathname !== homePath
+      ? items.find((item) => item.url === pathname)?.title
+      : undefined
+  const isHome = !currentTitle && !isApprovePage
 
   const handleLogout = () => doLogout(router)
 
@@ -174,13 +183,37 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
         <div className="flex flex-1 flex-col">
           <header className="flex justify-between h-14 items-center gap-4 bg-[#F1F5F9] text-[#111] p-9 pt-15">
-            <div className="flex items-center gap-2">
-              <SidebarTrigger>
-                <AngleDoubleLeft className="group-data-[sidebar=closed]/sidebar-wrapper:rotate-180 duration-300" />
+            <div className="flex items-center gap-4">
+              <SidebarTrigger aria-label="เปิด/ปิดเมนู">
+                <MenuHamburger1 />
               </SidebarTrigger>
-              <Link href={getHomePath(user.role)} className="text-lg font-semibold">
-                แดชบอร์ด
-              </Link>
+
+              {/* เส้นคั่น: แยกปุ่มเมนูออกจาก breadcrumb ให้ชัด */}
+              <span className="h-6 w-px bg-[#CBD5E1]" aria-hidden="true" />
+
+              <nav aria-label="breadcrumb" className="flex items-center gap-2 text-lg">
+                <Link
+                  href={homePath}
+                  className={
+                    isHome
+                      ? "font-semibold text-[#111]"
+                      : "text-[#64748B] hover:text-[#047857] hover:underline"
+                  }
+                >
+                  แดชบอร์ด
+                </Link>
+                {currentTitle && (
+                  <>
+                    <span className="text-[#64748B]">/</span>
+                    <span className="font-semibold text-[#047857]">{currentTitle}</span>
+                  </>
+                )}
+                {isApprovePage && (
+                  <Suspense fallback={null}>
+                    <RequestIdCrumb />
+                  </Suspense>
+                )}
+              </nav>
             </div>
 
             <div className="menuLinks flex items-center gap-4">
@@ -217,6 +250,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </SidebarProvider>
     </div>
   );
+}
+
+// breadcrumb ส่วนท้ายของหน้า approve: แสดงรหัสคำขอจาก ?id=
+// useSearchParams ต้องอยู่ใน Suspense ไม่งั้น build ของ Next.js จะ error
+function RequestIdCrumb() {
+  const id = useSearchParams().get("id")
+  if (!id) return null
+  return (
+    <>
+      <span className="text-[#64748B]">/</span>
+      <span className="font-semibold text-[#047857]">{id}</span>
+    </>
+  )
 }
 
 const SidebarMenuItemLink = forwardRef<

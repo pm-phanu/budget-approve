@@ -15,15 +15,25 @@ import { Button } from "@/components/tailgrids/core/button";
 import { Input } from "@/components/tailgrids/core/input";
 import { Link } from "@/components/tailgrids/core/link";
 import { Badge } from "@/components/tailgrids/core/badge";
+import { useEffect, useState } from "react";
+import { getCurrentUser } from "@/utils/login";
+import type { Credential } from "@/data/credential";
 
 export default function Home() {
+  const [me, setMe] = useState<Credential | null>(null);
+
+  // localStorage อ่านได้เฉพาะฝั่ง browser จึงต้องโหลดใน useEffect
+  useEffect(() => {
+    setMe(getCurrentUser());
+  }, []);
+
   return (
     <div>
       <div>
         <header className="text-[#111] flex items-center justify-between mx-auto mb-9">
           <div>
             <h1 className="text-[32px] font-bold">
-              สวัสดี <span>[username]</span>
+              สวัสดี <span>{me ? me.fullName : "-"}</span>
             </h1>
           </div>
         </header>

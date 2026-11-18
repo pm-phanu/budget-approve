@@ -241,7 +241,7 @@ function StatCard({
   sub: React.ReactNode;
 }) {
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+    <div className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl">
       <div className="flex items-center gap-2 text-xs text-gray-500">
         <span className="text-gray-400">{icon}</span>
         {label}
@@ -358,20 +358,22 @@ export default function AccountantHome() {
     totalLimit > 0 ? Math.round((remaining / totalLimit) * 100) : 0;
 
   return (
-    <div className="bg-[#F1F5F9] p-6 text-slate-800">
+    <div className="text-slate-800">
       <div>
         {/* ===== หัวหน้า ===== */}
-        <header className="flex flex-wrap items-start justify-between gap-4">
+        <header className="mb-9 flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">
+            <h1 className="text-[32px] font-bold text-[#111]">
               สวัสดี {me ? me.fullName : "-"}
             </h1>
             <p className="mt-1 text-sm text-gray-500">{today}</p>
           </div>
         </header>
 
+        {/* แต่ละส่วนห่างกัน 36px เหมือนหน้า employee */}
+        <div className="flex flex-col gap-9">
         {/* ===== การ์ดสรุป 4 ใบ ===== */}
-        <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-4 gap-5">
           <StatCard
             icon={<ClockThree className="h-4 w-4" />}
             label="คำขอรอตรวจ"
@@ -408,10 +410,10 @@ export default function AccountantHome() {
         </div>
 
         {/* ===== ซ้าย: รอคุณตรวจสอบ + อนุมัติล่าสุด / ขวา: การใช้งบแยกตามฝ่าย ===== */}
-        {/* ขนาดเท่าหน้า Home ของหัวหน้า (การ์ดซ้าย w-180, การ์ดขวา 5/12) */}
-        <div className="flex gap-5">
+        {/* grid 4 คอลัมน์เหมือนหน้า employee: ซ้าย 2 คอลัมน์ / ขวา 2 คอลัมน์ */}
+        <div className="grid grid-cols-4 gap-5">
           {/* ---------- การ์ดซ้าย ---------- */}
-          <div className="relative mt-5 flex w-180 flex-col justify-between rounded-2xl border-gray-100 bg-white p-6 shadow-sm">
+          <div className="relative col-span-2 flex flex-col justify-between rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl">
             {/* รอคุณตรวจสอบ */}
             <div className="mb-1 flex items-center justify-between">
               <div>
@@ -563,7 +565,7 @@ export default function AccountantHome() {
           </div>
 
           {/* ---------- การ์ดขวา: การใช้งบแยกตามฝ่าย ---------- */}
-          <div className="mt-5 w-full self-start rounded-2xl border border-gray-100 bg-white p-6 shadow-sm lg:w-5/12">
+          <div className="col-span-2 self-start rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl">
             <div className="mb-2 flex items-center justify-between">
               <h2 className="text-base font-bold text-gray-800">
                 การใช้งบแยกตามฝ่าย
@@ -632,6 +634,7 @@ export default function AccountantHome() {
               กดที่ฝ่ายเพื่อดูรายละเอียดในหน้างบประมาณ
             </p>
           </div>
+        </div>
         </div>
       </div>
     </div>

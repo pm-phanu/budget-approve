@@ -173,7 +173,7 @@ const Card = ({
   className?: string;
 }) => (
   <section
-    className={`rounded-2xl border border-slate-200 bg-white p-6 shadow-sm ${className}`}
+    className={`rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl ${className}`}
   >
     {children}
   </section>
@@ -264,7 +264,7 @@ function ReviewContent() {
 
   if (!request) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-slate-100 text-slate-500">
+      <div className="flex flex-col items-center justify-center gap-3 py-24 text-slate-500">
         <p className="text-lg font-semibold">ไม่พบคำขอนี้</p>
         <Link
           href={HOME_PATH}
@@ -427,20 +427,13 @@ function ReviewContent() {
           : { text: "รอคุณอนุมัติ", cls: "bg-amber-100 text-amber-700" };
 
   return (
-    <div className="min-h-screen bg-slate-100 p-6 font-sans text-slate-800">
-      <div className="mx-auto max-w-[1200px]">
+    <div className="font-sans text-slate-800">
+      <div>
         {/* Header */}
-        <header className="mb-6">
-          <nav className="flex items-center gap-1 text-sm text-slate-500">
-            <ArrowRight className="h-4 w-4 rotate-180" />
-            <Link href={HOME_PATH} className="hover:underline">
-              รอตรวจจ่ายเงิน
-            </Link>
-            <span>/</span>
-            <span className="font-semibold text-emerald-700">{r.id}</span>
-          </nav>
-          <div className="mt-3 flex flex-wrap items-center gap-3">
-            <h1 className="text-3xl font-bold text-slate-900">{r.title}</h1>
+        <header className="mb-9">
+          {/* breadcrumb (แดชบอร์ด / รหัสคำขอ) ย้ายไปอยู่บน header ของ layout แล้ว */}
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-[32px] font-bold text-[#111]">{r.title}</h1>
             <span
               className={`rounded-full px-3 py-1 text-xs font-bold ${badge.cls}`}
             >
@@ -449,9 +442,9 @@ function ReviewContent() {
           </div>
         </header>
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
+        <div className="grid grid-cols-4 gap-5">
           {/* ===== ซ้าย ===== */}
-          <div className="space-y-6">
+          <div className="col-span-3 flex flex-col gap-5">
             {/* ข้อมูลคำขอ */}
             <Card>
               <h2 className="mb-5 text-lg font-bold text-slate-900">
@@ -607,7 +600,7 @@ function ReviewContent() {
           </div>
 
           {/* ===== ขวา ===== */}
-          <div className="space-y-6 self-start">
+          <div className="col-span-1 flex flex-col gap-5 self-start">
             {/* สถานะคำขอ */}
             <Card>
               <h2 className="mb-5 text-lg font-bold text-slate-900">

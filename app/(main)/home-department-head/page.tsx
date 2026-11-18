@@ -260,10 +260,10 @@ export default function DH() {
   return (
     <div>
       <div>
-        <header className="flex justify-between gap-4 relative">
+        <header className="mb-9 flex justify-between gap-4 relative">
           <div>
-            <h1 className="text-2xl font-bold items-center justify-between mt-8">
-              {me ? me.fullName : "-"}
+            <h1 className="text-[32px] font-bold text-[#111]">
+              สวัสดี {me ? me.fullName : "-"}
             </h1>
             <p className="text-sm text-gray-500 mt-3">
               {today} · คำขอรอคุณอนุมัติ{" "}
@@ -274,10 +274,12 @@ export default function DH() {
           </div>
         </header>
 
+        {/* แต่ละส่วนห่างกัน 36px เหมือนหน้า employee */}
+        <div className="flex flex-col gap-9">
         {/* card1 */}
-        <div className="flex gap-5">
+        <div className="grid grid-cols-4 gap-5">
           {/* งบประมาณคงเหลือ (ข้อมูลงบรายปีจริง + หลอด progress) */}
-          <div className="bg-[#0e4b3e] text-white relative flex justify-between p-6 mt-5 overflow-hidden flex-col rounded-2xl w-150">
+          <div className="bg-[#0e4b3e] text-white relative flex justify-between p-6 overflow-hidden flex-col col-span-2 rounded-xl shadow-2xl">
             <div>
               <div className="items-center flex justify-between mb-1">
                 <div>
@@ -313,7 +315,7 @@ export default function DH() {
           </div>
 
           {/* card2 */}
-          <div className="bg-white relative flex justify-between p-6 mt-5 flex-col rounded-2xl w-80 border-gray-100 shadow-sm">
+          <div className="bg-white relative flex justify-between p-6 flex-col rounded-xl border border-[#E2E8F0] shadow-2xl">
             <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center">
               <ClockThree />
             </div>
@@ -331,7 +333,7 @@ export default function DH() {
           </div>
 
           {/* card3: อนุมัติแล้วปีนี้ (รวมยอดที่คุณอนุมัติ) */}
-          <div className="bg-white relative flex justify-between p-6 mt-5 flex-col rounded-2xl w-80 border-gray-100 shadow-sm">
+          <div className="bg-white relative flex justify-between p-6 flex-col rounded-xl border border-[#E2E8F0] shadow-2xl">
             <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
               <Check />
             </div>
@@ -347,8 +349,8 @@ export default function DH() {
         </div>
 
         {/* รอคุณตรวจสอบ */}
-        <div className="flex gap-5">
-          <div className="bg-white relative flex justify-between p-6 mt-5 flex-col rounded-2xl w-180 border-gray-100 shadow-sm">
+        <div className="grid grid-cols-4 gap-5">
+          <div className="bg-white relative flex justify-between p-6 flex-col col-span-4 rounded-xl border border-[#E2E8F0] shadow-2xl">
             <div className="items-center flex justify-between mb-1">
               <div>
                 <span className="font-bold text-md">รอคุณตรวจสอบ</span>
@@ -493,6 +495,7 @@ export default function DH() {
               )}
             </div>
           </div>
+        </div>
         </div>
       </div>
     </div>

@@ -93,18 +93,24 @@ export default function Account() {
 
   return (
     <div>
-      <div className="bg-white p-6 rounded-xl border border-[#CBD5E1]">
+      <header className="text-[#111] flex items-center justify-between mb-9">
+        <h1 className="text-[32px] font-bold">จัดการผู้ใช้และสิทธิ์</h1>
+      </header>
+
+      {/* แต่ละส่วนห่างกัน 36px เหมือนหน้า employee */}
+      <div className="flex flex-col gap-9">
+      <div className="bg-white p-6 rounded-xl border border-[#E2E8F0] shadow-2xl">
         <div>
-          <h1 className="text-[#111] text-2xl font-bold mb-6 flex gap-2 items-center">
+          <h2 className="text-[#111] text-2xl font-bold mb-6 flex gap-2 items-center">
             <>
               <UserMultiple4 />
             </>
             จัดการผู้ใช้ และ สิทธิ์
-          </h1>
+          </h2>
         </div>
 
         <div className="w-full">
-          <TableRoot className="bg-white shadow-2xl">
+          <TableRoot className="bg-white">
             <TableHeader className="bg-[#059669] font-bold text-white">
               <TableRow>
                 <TableHead>รหัสพนักงาน</TableHead>
@@ -201,11 +207,11 @@ export default function Account() {
         </div>
       </div>
 
-      <div className="bg-white p-6 my-6 border border-[#CBD5E1] rounded-xl">
+      <div className="bg-white p-6 border border-[#E2E8F0] rounded-xl shadow-2xl">
         <div>
           <div className="mb-6">
             <header className="text-2xl text-[#111] font-bold">
-              <h1>ตั้งค่าวงเงิน และ สายการอนุมัติ</h1>
+              <h2>ตั้งค่าวงเงิน และ สายการอนุมัติ</h2>
             </header>
           </div>
 
@@ -274,6 +280,7 @@ export default function Account() {
             ))}
           </div>
         </div>
+      </div>
       </div>
     </div>
   );

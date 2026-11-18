@@ -393,10 +393,7 @@ export default function NewRequest() {
   // ════════════════════════════════════════
   return (
     <div className="text-[#0F172A]">
-      <p className="text-sm text-[#64748B]">
-        ‹ แดชบอร์ด /{" "}
-        <span className="font-semibold text-[#047857]">สร้างคำขอ</span>
-      </p>
+      {/* breadcrumb ย้ายไปอยู่บน header ของ layout แล้ว */}
       <h1 className="mb-6 text-3xl font-bold">สร้างคำขอเบิก</h1>
 
       <div className="flex gap-6">
