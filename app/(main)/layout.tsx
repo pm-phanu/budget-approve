@@ -24,6 +24,8 @@ import {
   FileText,
   Gear1,
   Plus,
+  UserMultiple4,
+  SlidersDoubleHorizontal,
 } from "@tailgrids/icons";
 import { forwardRef, SVGProps, useEffect, useState } from "react";
 import { mergeProps } from "react-aria";
@@ -45,10 +47,12 @@ type MenuItem = {
 const items: MenuItem[] = [
   { title: "แดชบอร์ด", url: "/", icon: DashboardSquare1, roles: ["EMPLOYEE"] },
   { title: "แดชบอร์ด", url: "/home-department-head", icon: DashboardSquare1, roles: ["HEAD"] },
+  { title: "แดชบอร์ด", url: "/account-admin", icon: DashboardSquare1, roles: ["ACCOUNTANT_ADMIN"] },
   { title: "สร้างคำขอ", url: "/request", icon: Plus },
   { title: "คำขอของฉัน", url: "#", icon: FileText },
   { title: "ประวัติการเบิก", url: "#", icon: ClockThree },
   { title: "อนุมัติคำขอ", url: "/Approved-department-head", icon: FileText, roles: ["HEAD"] },
+  { title: "จัดการผู้ใช้และสิทธิ์", url: "/account-admin", icon: UserMultiple4, roles: ["ACCOUNTANT_ADMIN"] },
 ];
 
 

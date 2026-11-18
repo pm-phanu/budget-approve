@@ -69,6 +69,7 @@ export const users: User[] = [
     id: "u_04",
     username: "accountant_admin",
     fullName: "เจ้าหน้าที่บัญชีและแอดมิน",
+    password: "pass",
     role: "ACCOUNTANT_ADMIN",
     departmentInfo: {
       lineOfWork: "สายงานบัญชีและการเงิน",
