@@ -27,6 +27,7 @@ import {
   SlidersDoubleHorizontal,
   FileTextMultiple,
   CheckCircle1,
+  TrendUp2,
 } from "@tailgrids/icons";
 import { forwardRef, Suspense, SVGProps, useEffect, useState } from "react";
 import { mergeProps } from "react-aria";
@@ -56,7 +57,7 @@ const items: MenuItem[] = [
   { title: "ประวัติการเบิก", url: "#", icon: ClockThree, group: "main" },
   { title: "คำขอทั้งหมด", url: "#", icon: FileTextMultiple, roles: ["HEAD", "ACCOUNTANT_ADMIN"], group: "approval" },
   { title: "ประวัติการอนุมัติ", url: "#", icon: CheckCircle1, roles: ["HEAD", "ACCOUNTANT_ADMIN"], group: "approval" },
-  { title: "รายงายงบประมาณ", url: "/home-account/report", icon: CheckCircle1, roles: ["ACCOUNTANT_ADMIN"], group: "report" },
+  { title: "รายงายงบประมาณ", url: "/home-account/report", icon: TrendUp2, roles: ["ACCOUNTANT_ADMIN"], group: "report" },
 ];
 
 function renderMenuItems(list: MenuItem[]) {
