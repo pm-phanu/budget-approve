@@ -9,12 +9,28 @@ import {
   TableRow,
 } from "@/components/tailgrids/core/table";
 import { getUsers, type Credential } from "@/data/credential";
-import { Minus, UserMultiple4 } from "@tailgrids/icons";
-import { useEffect, useState } from "react";
+import {
+  ArrowRight,
+  MenuKebab1,
+  Minus,
+  UserMultiple4,
+} from "@tailgrids/icons";
+import { Fragment, useEffect, useState } from "react";
 
 import { FieldLabel } from "@/components/tailgrids/core/field";
 import { Input } from "@/components/tailgrids/core/input";
 import { TextField } from "@/components/tailgrids/core/text-field";
+
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from "@/components/tailgrids/core/native-select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/tailgrids/core/dropdown";
 
 export default function Account() {
   const [users, setUsers] = useState<Credential[]>([]);
@@ -27,6 +43,60 @@ export default function Account() {
       setError(e instanceof Error ? e.message : "โหลดข้อมูลไม่สำเร็จ");
     }
   }, []);
+
+  // ตัวเลือกทั้งหมดดึงจาก users ที่โหลดมาจาก localStorage
+  const departments = [
+    ...new Set(
+      users.map((u) => u.departmentInfo?.department).filter(Boolean),
+    ),
+  ];
+  const roles = [...new Set(users.map((u) => u.role))];
+  const statuses = [...new Set(users.map((u) => u.status))];
+  const approverIds = new Set(
+    users.flatMap((u) => [u.hierarchy?.headId, u.hierarchy?.directorId]),
+  );
+  const approvers = users.filter((u) => approverIds.has(u.id));
+
+  const stepStyles = {
+    default: "bg-white border border-gray-200 text-gray-800",
+    approve: "bg-blue-100 text-blue-700",
+    done: "bg-green-100 text-green-700",
+  };
+
+  const tiers = [
+    {
+      min: "0",
+      max: "5,000",
+      steps: [
+        { label: "พนักงานทั่วไปเบิกได้เอง", type: "default" },
+        { label: "ส่งตรงฝ่ายบัญชีทำจ่ายทันที", type: "done" },
+      ],
+    },
+    {
+      min: "5,001",
+      max: "30,000",
+      steps: [
+        { label: "พนักงานทั่วไปเบิกได้", type: "default" },
+        { label: "หัวหน้าแผนกอนุมัติ", type: "approve" },
+        { label: "ส่งฝ่ายบัญชี", type: "done" },
+      ],
+    },
+    {
+      min: "30,001",
+      max: null,
+      steps: [
+        { label: "เฉพาะหัวหน้างานขึ้นไป", type: "default" },
+        { label: "อนุมัติ 1 ขั้นไล่ตามลำดับขั้น", type: "approve" },
+        { label: "ส่งฝ่ายบัญชี", type: "done" },
+      ],
+      note: "กรณีหัวหน้าสายงานสูงสุดเบิก สามารถส่งตรงฝ่ายบัญชีได้ทันที",
+    },
+  ] as const;
+
+  // ตัวเลือกใน dropdown = ขั้นตอนทั้งหมดที่มีใน tiers (ไม่ซ้ำ)
+  const stepOptions = [
+    ...new Set(tiers.flatMap((t) => t.steps.map((s) => s.label))),
+  ];
 
   return (
     <div>
@@ -45,13 +115,12 @@ export default function Account() {
             <TableHeader className="bg-[#059669] font-bold text-white">
               <TableRow>
                 <TableHead>รหัสพนักงาน</TableHead>
-                <TableHead>ชื่อ-นามสกุล / ติดต่อ</TableHead>
+                <TableHead>ชื่อ-นามสกุล</TableHead>
                 <TableHead>สังกัด</TableHead>
                 <TableHead>บทบาท</TableHead>
                 <TableHead>สายการอนุมัติ</TableHead>
                 <TableHead>งบร่วม</TableHead>
                 <TableHead>สถานะ</TableHead>
-                <TableHead>จัดการ</TableHead>
               </TableRow>
             </TableHeader>
 
@@ -73,12 +142,64 @@ export default function Account() {
                   <TableRow key={u.id}>
                     <TableCell>{u.id}</TableCell>
                     <TableCell>{u.fullName}</TableCell>
-                    <TableCell>{u.departmentInfo.department}</TableCell>
-                    <TableCell>{u.role}</TableCell>
-                    <TableCell>-</TableCell>
-                    <TableCell>-</TableCell>
-                    <TableCell>{u.status}</TableCell>
-                    <TableCell>-</TableCell>
+                    <TableCell>
+                      {u.departmentInfo?.department ? (
+                        <NativeSelect
+                          aria-label="สังกัด"
+                          placeholder="เลือกสังกัด"
+                          defaultValue={u.departmentInfo.department}
+                        >
+                          {departments.map((d) => (
+                            <NativeSelectOption key={d} value={d}>
+                              {d}
+                            </NativeSelectOption>
+                          ))}
+                        </NativeSelect>
+                      ) : (
+                        "-"
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <NativeSelect
+                        aria-label="บทบาท"
+                        placeholder="เลือกบทบาท"
+                        defaultValue={u.role}
+                      >
+                        {roles.map((r) => (
+                          <NativeSelectOption key={r} value={r}>
+                            {r}
+                          </NativeSelectOption>
+                        ))}
+                      </NativeSelect>
+                    </TableCell>
+                    <TableCell>
+                      <NativeSelect
+                        aria-label="สายการอนุมัติ"
+                        placeholder="เลือกผู้อนุมัติ"
+                        defaultValue={u.hierarchy?.headId ?? undefined}
+                      >
+                        {approvers.map((a) => (
+                          <NativeSelectOption key={a.id} value={a.id}>
+                            {a.fullName}
+                          </NativeSelectOption>
+                        ))}
+                      </NativeSelect>
+                    </TableCell>
+                    <TableCell>
+                      <NativeSelect aria-label="งบร่วม" placeholder="-" />
+                    </TableCell>
+                    <TableCell>
+                      <NativeSelect
+                        aria-label="สถานะ"
+                        defaultValue={u.status}
+                      >
+                        {statuses.map((s) => (
+                          <NativeSelectOption key={s} value={s}>
+                            {s}
+                          </NativeSelectOption>
+                        ))}
+                      </NativeSelect>
+                    </TableCell>
                   </TableRow>
                 ))
               )}
@@ -87,33 +208,78 @@ export default function Account() {
         </div>
       </div>
 
-      <div>
+      <div className="bg-white p-6 my-6 border border-[#CBD5E1] rounded-xl">
         <div>
-          <h1>ตั้งค่าวงเงิน</h1>
-        </div>
-        <div className="flex items-center gap-3">
-          {/* ช่องที่ 1: ยอดต่ำสุด */}
-          <TextField orientation="horizontal">
-            <FieldLabel>ยอด</FieldLabel>
-            <Input
-              placeholder="ยอดต่ำสุด"
-              inputMode="numeric"
-            />
-          </TextField>
+          <div className="mb-6">
+            <header className="text-2xl text-[#111] font-bold">
+              <h1>ตั้งค่าวงเงิน และ สายการอนุมัติ</h1>
+            </header>
+          </div>
 
-          <span>
-            <Minus />
-          </span>
+          <div className="flex flex-col gap-3">
+            {tiers.map((tier) => (
+              <div
+                key={tier.min}
+                className="flex items-center gap-6 rounded-lg bg-gray-50 p-4"
+              >
+                {/* ฝั่งซ้าย: ช่องกรอกยอด */}
+                <div className="flex w-1/2 items-center gap-3">
+                  <TextField orientation="horizontal">
+                    <FieldLabel>ยอด</FieldLabel>
+                    <Input
+                      placeholder={tier.min}
+                      inputMode="numeric"
+                      className="w-32 text-right"
+                    />
+                  </TextField>
 
-          {/* ช่องที่ 2: ยอดสูงสุด */}
-          <TextField orientation="horizontal">
-            <Input
-              placeholder="ยอดสูงสุด"
-              inputMode="numeric"
-            />
-          </TextField>
+                  {tier.max === null ? (
+                    <span>บาทขึ้นไป</span>
+                  ) : (
+                    <>
+                      <span>–</span>
+                      <TextField aria-label="ยอดสูงสุด">
+                        <Input
+                          placeholder={tier.max}
+                          inputMode="numeric"
+                          className="w-32 text-right"
+                        />
+                      </TextField>
+                      <span>บาท</span>
+                    </>
+                  )}
+                </div>
 
-          <span>บาท</span>
+                {/* ฝั่งขวา: ขั้นตอนอนุมัติ */}
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center gap-2">
+                    {tier.steps.map((step, i) => (
+                      <Fragment key={step.label}>
+                        {i > 0 && (
+                          <ArrowRight className="shrink-0 text-gray-400" />
+                        )}
+                        <NativeSelect
+                          aria-label={`ขั้นตอนที่ ${i + 1}`}
+                          placeholder="กรุณาเลือกสายการอนุมัติ"
+                          defaultValue={step.label}
+                          className={`text-sm ${stepStyles[step.type]}`}
+                        >
+                          {stepOptions.map((option) => (
+                            <NativeSelectOption key={option} value={option}>
+                              {option}
+                            </NativeSelectOption>
+                          ))}
+                        </NativeSelect>
+                      </Fragment>
+                    ))}
+                  </div>
+                  {"note" in tier && (
+                    <p className="text-xs text-gray-500">{tier.note}</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>
