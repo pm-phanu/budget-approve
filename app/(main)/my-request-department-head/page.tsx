@@ -8,8 +8,8 @@ import { ArrowRight, Bell1, Plus, Search1 } from "@tailgrids/icons";
 /* ------------------------------------------------------------------
    ตั้งค่า
 ------------------------------------------------------------------- */
-const NEW_REQUEST_PATH = "/request"; // หน้าสร้างคำขอ (ใช้กับปุ่มสร้างคำขอ / แก้ไขแล้วส่งใหม่)
-const DETAIL_PATH = "/home-department-head/approve"; // ← หน้าดูรายละเอียดคำขอ (ย้ายจาก /Approved-department-head ใน dev แล้ว)
+const NEW_REQUEST_PATH = "/request"; // หน้าสร้างคำขอ 
+const DETAIL_PATH = "/home-department-head/approve"; // ← หน้าดูรายละเอียดคำขอ 
 
 /* ------------------------------------------------------------------
    ชนิดข้อมูล
