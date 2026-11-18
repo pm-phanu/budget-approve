@@ -22,6 +22,10 @@ export type SavedItem = {
 // 1 ขั้นในเส้นทางอนุมัติ
 export type SavedStep = {
   role: StepRole; // ใครต้องทำขั้นนี้
+  // คนที่ต้องอนุมัติขั้นนี้ (ใส่ตอนสร้างคำขอ ดู planApprovalSteps ใน data/approval.ts)
+  // null = ใครก็ได้ใน role นี้ ยกเว้นผู้ขอเอง (ใช้กับขั้นบัญชี / การเงิน)
+  // ※ optional เพราะคำขอเก่าใน localStorage ยังไม่มีฟิลด์นี้
+  approverId?: string | null;
   label: string; // ชื่อภาษาไทย เช่น "หัวหน้าแผนก"
   status: "รอ" | "อนุมัติ" | "ตีกลับ";
   by: string | null; // ชื่อคนที่กด (ยังไม่กด = null)
@@ -48,6 +52,7 @@ export type SavedRequest = {
     id: string;
     fullName: string;
     role: string;
+    departmentId?: string | null; // แผนกของผู้ขอ ณ วันที่ยื่น (data/organization.ts)
     department: string;
     lineOfWork: string;
     headId: string | null; // หัวหน้าของผู้ขอ
