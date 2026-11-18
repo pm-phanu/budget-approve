@@ -10,7 +10,7 @@ import { REQUESTS_KEY, loadRequests } from "@/data/request";
 /* ------------------------------------------------------------------
    ตั้งค่า
 ------------------------------------------------------------------- */
-const HOME_PATH = "/home-department-head";
+const HOME_PATH = "/home-account";
 
 // เหตุผลที่ตีกลับ (ปุ่มเลือกในป๊อบอัพ) ค่าที่เลือกจะถูกเก็บใน reject.status
 const REJECT_REASONS = ["เอกสารไม่ครบ", "ยอดเงินไม่ถูกต้อง", "อื่นๆ"];

@@ -43,19 +43,20 @@ type MenuItem = {
   url: string,
   icon: React.FunctionComponent<SVGProps<SVGSVGElement>>
   roles?: Role[]
-  group: "main" | "approval"
+  group: "main" | "approval" | "manage" | "report"
 }
 
 const items: MenuItem[] = [
   { title: "แดชบอร์ด", url: "/", icon: DashboardSquare1, roles: ["EMPLOYEE"], group: "main" },
   { title: "แดชบอร์ด", url: "/home-department-head", icon: DashboardSquare1, roles: ["HEAD"], group: "main" },
   { title: "แดชบอร์ด", url: "/home-account", icon: DashboardSquare1, roles: ["ACCOUNTANT_ADMIN"], group: "main" },
-  { title: "จัดการผู้ใช้และสิทธิ์", url: "/home-account/setting", icon: UserMultiple4, roles: ["ACCOUNTANT_ADMIN"], group: "main" },
+  { title: "จัดการผู้ใช้และสิทธิ์", url: "/home-account/setting", icon: UserMultiple4, roles: ["ACCOUNTANT_ADMIN"], group: "manage" },
   { title: "สร้างคำขอ", url: "/request", icon: Plus, group: "main" },
   { title: "คำขอของฉัน", url: "#", icon: FileText, group: "main" },
   { title: "ประวัติการเบิก", url: "#", icon: ClockThree, group: "main" },
-  { title: "คำขอทั้งหมด", url: "#", icon: FileTextMultiple, roles: ["HEAD"], group: "approval" },
-  { title: "ประวัติการอนุมัติ", url: "#", icon: CheckCircle1, roles: ["HEAD"], group: "approval" },
+  { title: "คำขอทั้งหมด", url: "#", icon: FileTextMultiple, roles: ["HEAD", "ACCOUNTANT_ADMIN"], group: "approval" },
+  { title: "ประวัติการอนุมัติ", url: "#", icon: CheckCircle1, roles: ["HEAD", "ACCOUNTANT_ADMIN"], group: "approval" },
+  { title: "รายงายงบประมาณ", url: "/home-account/report", icon: CheckCircle1, roles: ["ACCOUNTANT_ADMIN"], group: "report" },
 ];
 
 function renderMenuItems(list: MenuItem[]) {
@@ -112,6 +113,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   )
   const mainItems = visibleItems.filter((item) => item.group === "main")
   const approvalItems = visibleItems.filter((item) => item.group === "approval")
+  const manageUserItems = visibleItems.filter((item) => item.group === "manage")
+  const report = visibleItems.filter((item) => item.group === "report")
 
   // breadcrumb บน header: "แดชบอร์ด / ชื่อหน้าปัจจุบัน" (ชื่อหน้าดึงจาก items)
   const homePath = getHomePath(user.role)
@@ -154,6 +157,30 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
                 <SidebarGroupContent>
                   <SidebarMenu>{renderMenuItems(approvalItems)}</SidebarMenu>
+                </SidebarGroupContent>
+              </SidebarGroup>
+            )}
+
+            {manageUserItems.length > 0 && (
+              <SidebarGroup>
+                <SidebarGroupLabel className="text-[16px] font-bold">
+                  จัดการผู้ใช้และสิทธิ์
+                </SidebarGroupLabel>
+
+                <SidebarGroupContent>
+                  <SidebarMenu>{renderMenuItems(manageUserItems)}</SidebarMenu>
+                </SidebarGroupContent>
+              </SidebarGroup>
+            )}
+
+            {report.length > 0 && (
+              <SidebarGroup>
+                <SidebarGroupLabel className="text-[16px] font-bold">
+                  รายงาน
+                </SidebarGroupLabel>
+
+                <SidebarGroupContent>
+                  <SidebarMenu>{renderMenuItems(report)}</SidebarMenu>
                 </SidebarGroupContent>
               </SidebarGroup>
             )}
