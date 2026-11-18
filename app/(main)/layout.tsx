@@ -26,6 +26,7 @@ import {
   UserMultiple4,
   SlidersDoubleHorizontal,
   FileTextMultiple,
+  CheckCircle1,
 } from "@tailgrids/icons";
 import { forwardRef, SVGProps, useEffect, useState } from "react";
 import { mergeProps } from "react-aria";
@@ -50,10 +51,11 @@ const items: MenuItem[] = [
   { title: "แดชบอร์ด", url: "/home-department-head", icon: DashboardSquare1, roles: ["HEAD"], group: "main" },
   { title: "แดชบอร์ด", url: "/home-account", icon: DashboardSquare1, roles: ["ACCOUNTANT_ADMIN"], group: "main" },
   { title: "จัดการผู้ใช้และสิทธิ์", url: "/home-account/setting", icon: UserMultiple4, roles: ["ACCOUNTANT_ADMIN"], group: "main" },
-  { title: "สร้างคำขอ", url: "/request", icon: Plus, roles: ["EMPLOYEE", "HEAD"], group: "main" },
-  { title: "คำขอของฉัน", url: "#", icon: FileText, roles: ["EMPLOYEE", "HEAD"], group: "main" },
-  { title: "ประวัติการเบิก", url: "#", icon: ClockThree, roles: ["EMPLOYEE", "HEAD"], group: "main" },
+  { title: "สร้างคำขอ", url: "/request", icon: Plus, group: "main" },
+  { title: "คำขอของฉัน", url: "#", icon: FileText, group: "main" },
+  { title: "ประวัติการเบิก", url: "#", icon: ClockThree, group: "main" },
   { title: "คำขอทั้งหมด", url: "/Approved-department-head", icon: FileTextMultiple, roles: ["HEAD"], group: "approval" },
+  { title: "ประวัติการอนุมัติ", url: "/Approved-department-head", icon: CheckCircle1, roles: ["HEAD"], group: "approval" },
 ];
 
 function renderMenuItems(list: MenuItem[]) {
@@ -176,7 +178,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <SidebarTrigger>
                 <AngleDoubleLeft className="group-data-[sidebar=closed]/sidebar-wrapper:rotate-180 duration-300" />
               </SidebarTrigger>
-              <Link href="/" className="text-lg font-semibold">
+              <Link href={getHomePath(user.role)} className="text-lg font-semibold">
                 แดชบอร์ด
               </Link>
             </div>

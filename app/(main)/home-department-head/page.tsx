@@ -50,7 +50,7 @@ interface CurrentUser {
   departmentInfo?: { department?: string }; // ใช้เลือกงบของฝ่ายตัวเอง
 }
 
-const APPROVED_PATH = "/Approved-department-head"; // ← path หน้าตรวจสอบ ต้องตรงกับชื่อโฟลเดอร์
+const APPROVED_PATH = "/home-department-head/approve"; // ← path หน้าตรวจสอบ ต้องตรงกับชื่อโฟลเดอร์
 const ROW_H = 93; // ความสูงแถว (px) ต้องตรงกับ h-[93px] ใน ROW_GRID
 const RECENT_LIMIT = 5; // แสดง "อนุมัติล่าสุด" สูงสุดกี่รายการ
 const RECENT_MIN_ROWS = 3; // เว้นพื้นที่อย่างน้อยกี่แถว (ว่าง/น้อยกว่า 3 ก็ไม่ยุบ)
