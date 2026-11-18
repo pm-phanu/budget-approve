@@ -52,10 +52,10 @@ const items: MenuItem[] = [
   { title: "แดชบอร์ด", url: "/home-department-head", icon: DashboardSquare1, roles: ["HEAD"], group: "main" },
   { title: "แดชบอร์ด", url: "/home-account", icon: DashboardSquare1, roles: ["ACCOUNTANT_ADMIN"], group: "main" },
   { title: "จัดการผู้ใช้และสิทธิ์", url: "/home-account/setting", icon: UserMultiple4, roles: ["ACCOUNTANT_ADMIN"], group: "manage" },
-  { title: "สร้างคำขอ", url: "/request", icon: Plus, group: "main" },
-  { title: "คำขอของฉัน", url: "#", icon: FileText, group: "main" },
+  { title: "สร้างคำขอ", url: "/home-department-head/request", icon: Plus, group: "main" },
+  { title: "คำขอของฉัน", url: "/all-request-department-head", icon: FileText, group: "main" },
   { title: "ประวัติการเบิก", url: "#", icon: ClockThree, group: "main" },
-  { title: "คำขอทั้งหมด", url: "#", icon: FileTextMultiple, roles: ["HEAD", "ACCOUNTANT_ADMIN"], group: "approval" },
+  { title: "คำขอทั้งหมด", url: "/home-department-head/my-request-department-head", icon: FileTextMultiple, roles: ["HEAD", "ACCOUNTANT_ADMIN"], group: "approval" },
   { title: "ประวัติการอนุมัติ", url: "#", icon: CheckCircle1, roles: ["HEAD", "ACCOUNTANT_ADMIN"], group: "approval" },
   { title: "รายงายงบประมาณ", url: "/home-account/report", icon: TrendUp2, roles: ["ACCOUNTANT_ADMIN"], group: "report" },
 ];
