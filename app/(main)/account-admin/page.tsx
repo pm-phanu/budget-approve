@@ -11,7 +11,6 @@ import {
 import { getUsers, type Credential } from "@/data/credential";
 import {
   ArrowRight,
-  MenuKebab1,
   Minus,
   UserMultiple4,
 } from "@tailgrids/icons";
@@ -25,12 +24,6 @@ import {
   NativeSelect,
   NativeSelectOption,
 } from "@/components/tailgrids/core/native-select";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/tailgrids/core/dropdown";
 
 export default function Account() {
   const [users, setUsers] = useState<Credential[]>([]);
@@ -100,9 +93,9 @@ export default function Account() {
 
   return (
     <div>
-      <div>
+      <div className="bg-white p-6 rounded-xl border border-[#CBD5E1]">
         <div>
-          <h1 className="text-[#111] text-2xl font-bold my-6 flex gap-2 items-center">
+          <h1 className="text-[#111] text-2xl font-bold mb-6 flex gap-2 items-center">
             <>
               <UserMultiple4 />
             </>
@@ -127,13 +120,13 @@ export default function Account() {
             <TableBody>
               {error ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center">
+                  <TableCell colSpan={7} className="text-center">
                     {error}
                   </TableCell>
                 </TableRow>
               ) : users.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center">
+                  <TableCell colSpan={7} className="text-center">
                     ยังไม่มีข้อมูล
                   </TableCell>
                 </TableRow>
