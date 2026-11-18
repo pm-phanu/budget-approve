@@ -37,6 +37,82 @@ export function getApprovalSteps(total: number, rules: ApprovalRule[] = DEFAULT_
 }
 
 // ════════════════════════════════════════════════════════════
+//  อ่าน / ตรวจ / บันทึกกฎ (localStorage "approvalRules")
+//  หน้าตั้งค่า Approval Matrix เป็นคนบันทึก · หน้าสร้างคำขอเป็นคนอ่าน
+// ════════════════════════════════════════════════════════════
+
+// ผู้อนุมัติที่ตั้งในกฎได้ (บัญชี / การเงิน ต่อท้ายให้เสมอ ไม่ต้องตั้ง)
+// ※ ต้องเรียงตามลำดับนี้ในแต่ละช่วง
+export const RULE_APPROVER_ORDER: StepRole[] = ["HEAD", "DIRECTOR", "MANAGING_DIRECTOR"];
+
+// ตรวจกฎ → ลิสต์ข้อความผิดพลาด (ว่าง = ถูกต้อง)
+export function validateApprovalRules(rules: ApprovalRule[]): string[] {
+  const errors: string[] = [];
+  if (!Array.isArray(rules) || rules.length === 0) return ["ต้องมีอย่างน้อย 1 ช่วง"];
+
+  rules.forEach((r, i) => {
+    const n = i + 1;
+    const isLast = i === rules.length - 1;
+
+    // เพดาน: ทุกช่วงต้องมีตัวเลข ยกเว้นช่วงสุดท้าย (= ขึ้นไป) ต้องเป็น null
+    if (isLast && r.max !== null) errors.push(`ช่วงสุดท้ายต้องเป็น "ขึ้นไป" (ไม่มีเพดาน)`);
+    if (!isLast) {
+      if (r.max === null || !Number.isInteger(r.max) || r.max <= 0) {
+        errors.push(`ช่วงที่ ${n}: เพดานต้องเป็นจำนวนเต็มมากกว่า 0`);
+      } else {
+        const prev = i > 0 ? rules[i - 1].max : 0;
+        if (prev !== null && r.max <= prev) {
+          errors.push(`ช่วงที่ ${n}: เพดานต้องมากกว่าช่วงก่อนหน้า (${prev.toLocaleString("en-US")})`);
+        }
+      }
+    }
+
+    // ผู้อนุมัติ: ใช้ได้เฉพาะ หัวหน้า / ผอ. / กรรมการผู้จัดการ ไม่ซ้ำ และเรียงตามลำดับ
+    const order = r.approvers.map((a) => RULE_APPROVER_ORDER.indexOf(a));
+    if (order.some((x) => x < 0)) {
+      errors.push(`ช่วงที่ ${n}: ผู้อนุมัติต้องเป็นหัวหน้า / ผอ. / กรรมการผู้จัดการ เท่านั้น`);
+    } else if (order.some((x, k) => k > 0 && x <= order[k - 1])) {
+      errors.push(`ช่วงที่ ${n}: ผู้อนุมัติซ้ำหรือเรียงผิด (ต้องเป็น หัวหน้า → ผอ. → กรรมการผู้จัดการ)`);
+    }
+  });
+
+  return errors;
+}
+
+export function loadApprovalRules(): ApprovalRule[] {
+  if (typeof window === "undefined") return DEFAULT_RULES;
+  try {
+    const stored = localStorage.getItem(APPROVAL_RULES_KEY);
+    if (!stored) return DEFAULT_RULES;
+    const parsed = JSON.parse(stored) as ApprovalRule[];
+    // ข้อมูลในเครื่องผิดรูปแบบ → ใช้ค่าเริ่มต้น (ไม่ให้หน้าสร้างคำขอพัง)
+    return validateApprovalRules(parsed).length === 0 ? parsed : DEFAULT_RULES;
+  } catch {
+    return DEFAULT_RULES;
+  }
+}
+
+// บันทึก · กฎผิด → throw พร้อมข้อความ (หน้าตั้งค่าเอาไปแสดงได้)
+export function saveApprovalRules(rules: ApprovalRule[]) {
+  const errors = validateApprovalRules(rules);
+  if (errors.length > 0) throw new Error(errors.join("\n"));
+  localStorage.setItem(APPROVAL_RULES_KEY, JSON.stringify(rules));
+}
+
+// กลับไปใช้ค่าเริ่มต้นตาม requirement
+export function resetApprovalRules() {
+  localStorage.removeItem(APPROVAL_RULES_KEY);
+}
+
+// กฎ → ช่วงพร้อมยอดต่ำสุด (ใช้แสดงในหน้าตั้งค่า เช่น 0 – 3,000 / 3,001 – 30,000 / 300,001 ขึ้นไป)
+export function getRuleRanges(rules: ApprovalRule[]) {
+  return rules.map((r, i) => {
+    const prevMax = i > 0 ? rules[i - 1].max : null;
+    return { min: prevMax === null ? 0 : prevMax + 1, max: r.max, approvers: r.approvers };
+  });
+}
+
+// ════════════════════════════════════════════════════════════
 //  ใครต้องอนุมัติแต่ละขั้น (ใส่ approverId ตั้งแต่ตอนสร้างคำขอ)
 //
 //  กฎ

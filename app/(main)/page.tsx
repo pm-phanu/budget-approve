@@ -19,7 +19,7 @@ import { Fragment, useEffect, useState } from "react";
 import { getCurrentUser } from "@/utils/login";
 import type { Credential } from "@/data/credential";
 import { loadRequests, type SavedRequest } from "@/data/request";
-import { addRequestsToBudget } from "@/data/budget";
+import { getDepartmentBudget } from "@/data/budget";
 
 /* ------------------------------------------------------------------
    ตั้งค่า
@@ -32,24 +32,6 @@ const MY_REQUEST_LIMIT = 5; // แสดงคำขอล่าสุดกี�
 ------------------------------------------------------------------- */
 const money = (n: number) => n.toLocaleString("en-US");
 
-// งบแผนก: โครงการของแผนกผู้ใช้ (ไม่มีโครงการของแผนกนี้ → ใช้งบทุกโครงการ)
-// ใช้หลักเดียวกับหน้า Home ของหัวหน้า
-function loadBudget(user: Credential | null, saved: SavedRequest[]) {
-  const projects = addRequestsToBudget(saved);
-  const dept = user?.departmentInfo?.department;
-  const own = dept ? projects.filter((p) => p.dept === dept) : [];
-  const list = own.length > 0 ? own : projects;
-
-  let limit = 0;
-  let used = 0;
-  for (const p of list) {
-    for (const c of p.categories) {
-      limit += c.limit;
-      used += c.used;
-    }
-  }
-  return { limit, used };
-}
 
 // ป้ายสถานะของคำขอ
 function statusBadge(r: SavedRequest): {
@@ -129,8 +111,12 @@ export default function Home() {
     .reduce((sum, r) => sum + r.total, 0);
 
   // การ์ด: งบแผนกคงเหลือ
-  const budget = loadBudget(me, requests);
-  const remaining = Math.max(0, budget.limit - budget.used);
+  // งบของแผนกผู้ใช้ (data/budget.ts) · คำนวณหลังรู้ว่าใคร login (me) เท่านั้น
+  // เพราะ getDepartmentBudget อ่าน localStorage ซึ่งไม่มีตอน render ฝั่งเซิร์ฟเวอร์
+  const budget = me
+    ? getDepartmentBudget(me.departmentId, requests, year ?? undefined)
+    : { limit: 0, used: 0, remaining: 0 };
+  const remaining = budget.remaining;
   const usedPct = budget.limit > 0 ? Math.round((budget.used / budget.limit) * 100) : 0;
 
   // คำขอล่าสุด 5 รายการ (ใหม่สุดอยู่บน)

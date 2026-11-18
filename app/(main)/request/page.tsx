@@ -21,11 +21,13 @@
 // ════════════════════════════════════════════════════════════
 
 import { useEffect, useState } from "react";
-import type { Credential } from "@/data/credential";
+import { getUsers, type Credential } from "@/data/credential";
+import { notifyRequestEvent } from "@/data/notification";
+import { getCurrentUser } from "@/utils/login";
 import { projects, addRequestsToBudget, type Project } from "@/data/budget";
 import {
-  APPROVAL_RULES_KEY,
   DEFAULT_RULES,
+  loadApprovalRules,
   ROLE_LABEL,
   getApprovalSteps,
   planApprovalSteps,
@@ -41,6 +43,7 @@ import {
 import {
   REQUESTS_KEY,
   loadRequests,
+  makeHistory,
   type SavedRequest,
   type RequestStatus,
 } from "@/data/request";
@@ -129,11 +132,11 @@ export default function NewRequest() {
   // อ่าน localStorage ครั้งเดียวตอนเปิดหน้า ([] ท้ายสุด = ทำครั้งเดียว)
   // ※ ต้องอ่านใน useEffect เพราะ localStorage มีแค่ในเบราว์เซอร์
   useEffect(() => {
-    const savedRules = localStorage.getItem(APPROVAL_RULES_KEY);
-    const savedUser = localStorage.getItem("current_user");
     /* eslint-disable react-hooks/set-state-in-effect -- อ่านได้หลังเปิดหน้าเท่านั้น */
-    if (savedRules) setRules(JSON.parse(savedRules));
-    if (savedUser) setUser(JSON.parse(savedUser));
+    // กฎวงเงิน: ข้อมูลในเครื่องผิดรูปแบบ → ใช้ค่าเริ่มต้น (ดู loadApprovalRules)
+    setRules(loadApprovalRules());
+    // ผู้ใช้: ใช้ข้อมูลล่าสุด (มี departmentId) ไม่ใช่ภาพ ณ ตอน login
+    setUser(getCurrentUser());
     setOrg(loadOrganization());
     setBudget(addRequestsToBudget(loadRequests()));
 
@@ -323,7 +326,6 @@ export default function NewRequest() {
         directorId: user.hierarchy ? user.hierarchy.directorId : null,
       };
     }
-    const byName = user ? user.fullName : "-";
 
     const request: SavedRequest = {
       id,
@@ -357,17 +359,16 @@ export default function NewRequest() {
       currentStep: 0, // ขั้นแรกในลิสต์
       history: [
         ...(old ? old.history : []), // ประวัติเดิมของร่าง
-        {
-          action: status === "ร่าง" ? "บันทึกร่าง" : "ส่งคำขอ",
-          by: byName,
-          at: now,
-        },
+        makeHistory(status === "ร่าง" ? "บันทึกร่าง" : "ส่งคำขอ", user, { at: now }),
       ],
     };
 
     // มีใบเดิม = แทนที่ · ไม่มี = ต่อท้าย
     const others = all.filter((r) => r.id !== id);
     localStorage.setItem(REQUESTS_KEY, JSON.stringify([...others, request]));
+
+    // ส่งจริง (ไม่ใช่ร่าง) → แจ้งเตือนผู้อนุมัติขั้นแรก (data/notification.ts)
+    if (status !== "ร่าง") notifyRequestEvent(request, "submitted", getUsers(), { at: now });
     return id;
   }
 
