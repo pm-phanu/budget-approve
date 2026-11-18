@@ -6,6 +6,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, Check, CheckCircle1 } from "@tailgrids/icons";
 import { addRequestsToBudget } from "@/data/budget";
 import { REQUESTS_KEY, loadRequests } from "@/data/request";
+import { actOnRequest, canApproveStep } from "@/data/approval";
+import { getCurrentUser } from "@/utils/login";
+import type { Credential } from "@/data/credential";
 
 /* ------------------------------------------------------------------
    ตั้งค่า
@@ -83,15 +86,6 @@ function loadAll(): Req[] {
     return Array.isArray(data) ? data : [];
   } catch {
     return [];
-  }
-}
-
-function currentUserName(): string {
-  try {
-    const raw = localStorage.getItem("current_user");
-    return raw ? (JSON.parse(raw).fullName ?? "-") : "-";
-  } catch {
-    return "-";
   }
 }
 
@@ -230,10 +224,17 @@ function ReviewContent() {
   const [rejectComment, setRejectComment] = useState(""); // ความเห็นที่พิมพ์
   const [rejectError, setRejectError] = useState("");
 
+  // คนที่ login (ใช้เช็คสิทธิ์อนุมัติ) · ขั้นที่เห็นตอนเปิดหน้า (ใช้กันกดซ้อน ดู actOnRequest)
+  const [me, setMe] = useState<Credential | null>(null);
+  const [openedStep, setOpenedStep] = useState(0);
+  const [notice, setNotice] = useState(""); // บันทึกไม่สำเร็จ (มีคนกดไปก่อน) → แสดงด้านบน
+
   useEffect(() => {
     const found = loadAll().find((x) => x.id === id) ?? null;
     /* eslint-disable react-hooks/set-state-in-effect -- อ่านได้หลังเปิดหน้าเท่านั้น */
     setRequest(found);
+    setMe(getCurrentUser());
+    if (found) setOpenedStep(found.currentStep);
 
     // งบคงเหลือของโครงการ (นับรวมคำขอที่ส่งแล้ว ตามที่ addRequestsToBudget คิด)
     if (found?.project) {
@@ -279,8 +280,16 @@ function ReviewContent() {
   const r = request;
   const requesterName = r.requester?.fullName ?? "-";
   const curStep = r.approvalSteps[r.currentStep];
-  // แสดงกล่องอนุมัติเมื่อคำขอยังรออนุมัติ และขั้นปัจจุบันยังเป็น "รอ"
-  const canAct = r.status === "รออนุมัติ" && !!curStep && curStep.status === "รอ";
+  // แสดงกล่องอนุมัติเมื่อคนที่ login เป็นผู้อนุมัติของขั้นปัจจุบันจริง (data/approval.ts canApproveStep)
+  // ※ ผู้ขออนุมัติคำขอตัวเองไม่ได้ · ขั้นที่ระบุตัวไว้ต้องเป็นคนนั้น · ขั้น "ใครก็ได้" ต้อง role ตรง
+  const canAct = canApproveStep(r as Parameters<typeof canApproveStep>[0], me);
+
+  // บันทึกไม่สำเร็จ (มีคนกดไปก่อน / ไม่มีสิทธิ์) → โหลดสถานะล่าสุดมาแสดง
+  const reloadLatest = () => {
+    const latest = loadAll().find((x) => x.id === r.id) ?? null;
+    setRequest(latest);
+    if (latest) setOpenedStep(latest.currentStep);
+  };
 
   // ไฟล์ทั้งหมด (แนบรายแถว → รวมเป็นลิสต์เดียว พร้อมบอกว่ามาจากรายการไหน)
   const allFiles = r.items.flatMap((it) =>
@@ -294,39 +303,18 @@ function ReviewContent() {
       return;
     }
 
-    const all = loadAll();
-    const idx = all.findIndex((x) => x.id === r.id);
-    if (idx < 0) return;
-
-    const now = new Date().toISOString();
-    const by = currentUserName();
-    const req: Req = { ...all[idx] };
-    const steps = req.approvalSteps.map((s) => ({ ...s }));
-    const cur = steps[req.currentStep];
-    if (!cur) return;
-
-    cur.status = "อนุมัติ";
-    cur.by = by;
-    cur.at = now;
-    cur.note = comment;
-
-    if (req.currentStep >= steps.length - 1) {
-      req.status = "อนุมัติแล้ว"; // ขั้นสุดท้าย = คำขอเสร็จสมบูรณ์
-    } else {
-      req.currentStep += 1; // ไปขั้นถัดไป สถานะคงเป็น "รออนุมัติ"
+    // อ่านคำขอล่าสุดก่อนบันทึก: ถ้ามีคนกดขั้นนี้ไปแล้ว (เปิดหน้าค้างไว้) จะไม่บันทึกซ้ำ
+    // บันทึก byId / ประวัติ / แจ้งเตือนให้ในครั้งเดียว (data/approval.ts actOnRequest)
+    const result = actOnRequest(r.id, me, "approve", {
+      expectedStep: openedStep,
+      note: comment,
+      extra: (now) => ({ reviewedAt: now, reviewComment: comment }), // ให้หน้า Home ใช้เรียงลำดับ
+    });
+    if (!result.ok) {
+      setNotice(result.reason);
+      reloadLatest();
+      return;
     }
-
-    req.approvalSteps = steps;
-    req.updatedAt = now;
-    req.reviewedAt = now; // ให้หน้า Home ใช้เรียงลำดับ
-    req.reviewComment = comment;
-    req.history = [
-      ...req.history,
-      { action: "อนุมัติ: " + cur.label, by, at: now },
-    ];
-
-    all[idx] = req;
-    localStorage.setItem(REQUESTS_KEY, JSON.stringify(all));
     router.push(HOME_PATH);
   };
 
@@ -350,37 +338,25 @@ function ReviewContent() {
       return;
     }
 
-    const all = loadAll();
-    const idx = all.findIndex((x) => x.id === r.id);
-    if (idx < 0) return;
-
-    const now = new Date().toISOString();
-    const by = currentUserName();
     const text = rejectComment.trim();
-    const req: Req = { ...all[idx] };
-    const steps = req.approvalSteps.map((s) => ({ ...s }));
-    const cur = steps[req.currentStep];
-    if (!cur) return;
-
-    cur.status = "ตีกลับ";
-    cur.by = by;
-    cur.at = now;
-    cur.note = text;
-
-    req.status = "ตีกลับ";
-    req.approvalSteps = steps;
-    req.updatedAt = now;
-    req.reviewedAt = now;
-    req.reviewComment = text;
-    // key ใหม่: เก็บว่าตีกลับเรื่องอะไร + ความเห็นที่พิมพ์
-    req.reject = { status: rejectReason, comment: text, by, at: now };
-    req.history = [
-      ...req.history,
-      { action: `ตีกลับ: ${cur.label} (${rejectReason})`, by, at: now },
-    ];
-
-    all[idx] = req;
-    localStorage.setItem(REQUESTS_KEY, JSON.stringify(all));
+    // อ่านคำขอล่าสุดก่อนบันทึก (กันกดซ้อน) · บันทึก byId / ประวัติ / แจ้งเตือนผู้ขอให้ในครั้งเดียว
+    const result = actOnRequest(r.id, me, "reject", {
+      expectedStep: openedStep,
+      note: text || rejectReason,
+      historyNote: rejectReason,
+      // key เดิม: เก็บว่าตีกลับเรื่องอะไร + ความเห็นที่พิมพ์ (หน้าคำขอของฉันใช้แสดงเหตุผล)
+      extra: (now, by) => ({
+        reviewedAt: now,
+        reviewComment: text,
+        reject: { status: rejectReason, comment: text, by, at: now },
+      }),
+    });
+    if (!result.ok) {
+      setNotice(result.reason);
+      setShowReject(false);
+      reloadLatest();
+      return;
+    }
     router.push(HOME_PATH);
   };
 
@@ -441,6 +417,12 @@ function ReviewContent() {
             </span>
           </div>
         </header>
+
+        {notice && (
+          <div role="alert" className="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-700">
+            {notice}
+          </div>
+        )}
 
         <div className="grid grid-cols-4 gap-5">
           {/* ===== ซ้าย ===== */}

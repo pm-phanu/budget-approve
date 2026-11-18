@@ -1,3 +1,12 @@
+// role ที่มีในระบบตั้งแต่ต้น
+export type BuiltInRole =
+  | "EMPLOYEE"
+  | "HEAD"
+  | "DIRECTOR"
+  | "MANAGING_DIRECTOR"
+  | "ACCOUNTANT_ADMIN"
+  | "FINANCE";
+
 // บัญชีธนาคารสำหรับรับเงินคืน (คำขอแบบสำรองจ่าย)
 export type BankAccount = {
   bank: string; // เช่น "กสิกรไทย"
@@ -9,7 +18,8 @@ export type User = {
   id: string;
   username: string;
   fullName: string;
-  role: "EMPLOYEE" | "HEAD" | "DIRECTOR" | "MANAGING_DIRECTOR" | "ACCOUNTANT_ADMIN" | "FINANCE";
+  // role ในตัว หรือ id ของตำแหน่งผู้อนุมัติที่ฝ่ายบัญชีเพิ่มเอง (เช่น "POS_1794...") ดู data/approval.ts
+  role: BuiltInRole | (string & {});
   email?: string;
   password?: string;
   // แผนกที่สังกัด → อ้างถึง departments ใน data/organization.ts
@@ -206,21 +216,14 @@ const isUser = (value: unknown): value is User => {
   }
 
   const department = departmentInfo as Record<string, unknown>;
-  const roles = [
-    "EMPLOYEE",
-    "HEAD",
-    "DIRECTOR",
-    "MANAGING_DIRECTOR",
-    "ACCOUNTANT_ADMIN",
-    "FINANCE",
-  ];
 
   return (
     typeof candidate.id === "string" &&
     typeof candidate.username === "string" &&
     typeof candidate.fullName === "string" &&
+    // role ในตัว หรือตำแหน่งที่เพิ่มเอง → ขอแค่เป็นข้อความไม่ว่าง
     typeof candidate.role === "string" &&
-    roles.includes(candidate.role) &&
+    candidate.role.length > 0 &&
     (candidate.email === undefined || typeof candidate.email === "string") &&
     (candidate.password === undefined ||
       typeof candidate.password === "string") &&
@@ -271,6 +274,11 @@ export const getUsers = (): User[] => {
 
 const saveUsers = (nextUsers: User[]) => {
   localStorage.setItem(USERS_KEY, JSON.stringify(nextUsers));
+};
+
+// แก้ข้อมูลผู้ใช้ 1 คน (เช่น เปลี่ยน role เป็นตำแหน่งผู้อนุมัติที่เพิ่มเอง) · ไม่แตะรหัสผ่าน
+export const updateUser = (id: string, patch: Partial<Omit<User, "id" | "password">>) => {
+  saveUsers(getUsers().map((u) => (u.id === id ? { ...u, ...patch } : u)));
 };
 
 const withoutPassword = (user: User): Credential => {

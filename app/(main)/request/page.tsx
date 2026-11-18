@@ -28,7 +28,10 @@ import { projects, addRequestsToBudget, type Project } from "@/data/budget";
 import {
   DEFAULT_RULES,
   loadApprovalRules,
-  ROLE_LABEL,
+  DEFAULT_POSITIONS,
+  getRoleLabel,
+  loadPositions,
+  type ApproverPosition,
   getApprovalSteps,
   planApprovalSteps,
   type ApprovalRule,
@@ -127,6 +130,7 @@ export default function NewRequest() {
   const [rules, setRules] = useState<ApprovalRule[]>(DEFAULT_RULES); // วงเงินอนุมัติ
   const [user, setUser] = useState<Credential | null>(null); // คนที่ล็อกอินอยู่
   const [org, setOrg] = useState<Organization>(DEFAULT_ORGANIZATION); // ผังองค์กร (หาผู้อนุมัติ)
+  const [positions, setPositions] = useState<ApproverPosition[]>(DEFAULT_POSITIONS); // ตำแหน่งผู้อนุมัติ (รวมที่เพิ่มเอง)
   const [budget, setBudget] = useState<Project[]>(projects); // งบที่หักคำขอที่ส่งไปแล้ว
 
   // อ่าน localStorage ครั้งเดียวตอนเปิดหน้า ([] ท้ายสุด = ทำครั้งเดียว)
@@ -138,6 +142,7 @@ export default function NewRequest() {
     // ผู้ใช้: ใช้ข้อมูลล่าสุด (มี departmentId) ไม่ใช่ภาพ ณ ตอน login
     setUser(getCurrentUser());
     setOrg(loadOrganization());
+    setPositions(loadPositions());
     setBudget(addRequestsToBudget(loadRequests()));
 
     // ---------- [5.1] เปิดร่างมาแก้ต่อ: /request/new?id=REQ-xxx ----------
@@ -191,7 +196,7 @@ export default function NewRequest() {
   // เส้นทางอนุมัติตามยอดรวม + ผู้อนุมัติแต่ละขั้น (ดู planApprovalSteps ใน data/approval.ts)
   // ยังไม่รู้ว่าใครล็อกอิน → แสดงตามวงเงินอย่างเดียว
   const plan: PlannedStep[] = user
-    ? planApprovalSteps(total, user, org, rules)
+    ? planApprovalSteps(total, user, org, rules, positions)
     : getApprovalSteps(total, rules).map((role) => ({ role, approverId: null }));
   const steps = plan.map((p) => p.role);
 
@@ -350,7 +355,7 @@ export default function NewRequest() {
       approvalSteps: plan.map(({ role, approverId }) => ({
         role,
         approverId,
-        label: ROLE_LABEL[role],
+        label: getRoleLabel(role, positions),
         status: "รอ",
         by: null,
         at: null,
@@ -393,7 +398,7 @@ export default function NewRequest() {
     // ส่งแล้วล้างฟอร์ม กันกดส่งซ้ำ + อัปเดตงบคงเหลือใหม่
     resetForm();
     setBudget(addRequestsToBudget(loadRequests()));
-    setMessage("ส่งคำขอ " + id + " เรียบร้อย ส่งต่อให้" + ROLE_LABEL[steps[0]]);
+    setMessage("ส่งคำขอ " + id + " เรียบร้อย ส่งต่อให้" + getRoleLabel(steps[0], positions));
   }
 
   // ร่างไม่ต้องตรวจ (ยังกรอกไม่ครบได้) แต่ต้องมีชื่อคำขอ ไว้หาเจอทีหลัง
@@ -667,10 +672,10 @@ export default function NewRequest() {
             {steps.map((role, i) => (
               <Step
                 key={role}
-                avatar={<User2 size={18} className={STEP_STYLE[role].icon} />}
-                color={STEP_STYLE[role].bg}
-                text={ROLE_LABEL[role]}
-                sub={STEP_SUB[role]}
+                avatar={<User2 size={18} className={(STEP_STYLE[role] ?? CUSTOM_STEP_STYLE).icon} />}
+                color={(STEP_STYLE[role] ?? CUSTOM_STEP_STYLE).bg}
+                text={getRoleLabel(role, positions)}
+                sub={STEP_SUB[role] ?? "อนุมัติ"}
                 last={i === steps.length - 1}
               />
             ))}
@@ -748,7 +753,7 @@ const fieldClass =
 const inputClass = "w-full " + fieldClass;
 
 // สีและคำอธิบายของแต่ละขั้นในเส้นทางอนุมัติ
-// ※ Record<StepRole, ...> = ตารางจับคู่ role แต่ละตัว → ค่าของมัน (ต้องครบทุก role)
+// ※ ตำแหน่งที่ฝ่ายบัญชีเพิ่มเองไม่มีในตารางนี้ → ใช้ CUSTOM_STEP_STYLE / "อนุมัติ"
 const STEP_STYLE: Record<StepRole, { bg: string; icon: string }> = {
   HEAD: { bg: "bg-[#D1FAE5]", icon: "text-[#047857]" },
   DIRECTOR: { bg: "bg-[#FEF3C7]", icon: "text-[#B45309]" },
@@ -756,6 +761,7 @@ const STEP_STYLE: Record<StepRole, { bg: string; icon: string }> = {
   ACCOUNTANT_ADMIN: { bg: "bg-[#E0E7FF]", icon: "text-[#3730A3]" },
   FINANCE: { bg: "bg-[#DBEAFE]", icon: "text-[#1D4ED8]" },
 };
+const CUSTOM_STEP_STYLE = { bg: "bg-[#F1F5F9]", icon: "text-[#475569]" };
 const STEP_SUB: Record<StepRole, string> = {
   HEAD: "อนุมัติ",
   DIRECTOR: "อนุมัติ",

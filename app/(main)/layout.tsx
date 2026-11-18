@@ -35,6 +35,7 @@ import { Button } from "@/components/tailgrids/core/button";
 import { Link } from "@/components/tailgrids/core/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Credential, User } from "@/data/credential";
+import { isApproverRole } from "@/data/approval";
 import { checkLogin, doLogout, getHomePath, HOME_PATHS } from "@/utils/login";
 
 type Role = User['role']
@@ -44,6 +45,8 @@ type MenuItem = {
   url: string,
   icon: React.FunctionComponent<SVGProps<SVGSVGElement>>
   roles?: Role[]
+  // true = เฉพาะผู้อนุมัติ (ตำแหน่งในตัว + ที่ฝ่ายบัญชีเพิ่มเอง + บัญชี / การเงิน) ดู isApproverRole
+  approverOnly?: boolean
   group: "main" | "approval" | "manage" | "report"
 }
 
@@ -54,8 +57,8 @@ const mainItems: MenuItem[] = [
 ];
 
 const approveItems: MenuItem[] = [
-  { title: "ประวัติการอนุมัติ", url: "#", icon: CheckCircle1, roles: ["HEAD", "ACCOUNTANT_ADMIN"], group: "approval" },
-  { title: "คำขอรออนุมัติทั้งหมด", url: "/all-request", icon: FileTextMultiple, roles: ["HEAD", "ACCOUNTANT_ADMIN"], group: "approval" },
+  { title: "ประวัติการอนุมัติ", url: "#", icon: CheckCircle1, approverOnly: true, group: "approval" },
+  { title: "คำขอรออนุมัติทั้งหมด", url: "/all-request", icon: FileTextMultiple, approverOnly: true, group: "approval" },
 
 ]
 
@@ -68,6 +71,12 @@ const reportItems: MenuItem[] = [
   { title: "รายงานงบประมาณ", url: "/home-account/report", icon: TrendUp2, roles: ["ACCOUNTANT_ADMIN"], group: "report" },
 
 ]
+
+// role นี้เห็น / เข้าเมนูนี้ได้ไหม (ใช้ทั้งใน sidebar และ route guard)
+function canAccess(item: MenuItem, role: string) {
+  if (item.approverOnly) return isApproverRole(role)
+  return !item.roles || item.roles.includes(role)
+}
 
 // รวมทุกหมวดเป็นก้อนเดียว: route guard กับ breadcrumb ใช้ค้นหาเมนูจาก pathname
 const items: MenuItem[] = [...mainItems, ...approveItems, ...manageItems, ...reportItems]
@@ -114,7 +123,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       Object.values(HOME_PATHS).includes(pathname) &&
       pathname !== getHomePath(currentUser.role)
 
-    if (isOtherHome || (menu?.roles && !menu.roles.includes(currentUser.role))) {
+    if (isOtherHome || (menu && !canAccess(menu, currentUser.role))) {
       setUser(null)
       router.replace(getHomePath(currentUser.role))
       return
@@ -127,7 +136,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   if(!user) return null 
 
   const visibleItems = items.filter(
-    (item) => !item.roles || item.roles.includes(user.role),
+    (item) => canAccess(item, user.role),
   )
 
   const dashboardItem: MenuItem = {
