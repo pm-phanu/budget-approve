@@ -104,8 +104,9 @@ export default function Home() {
             </div>
           </div>
 
-          <div>
-            <div className="bg-white border border-[#E2E8F0] rounded-xl p-6 shadow-2xl">
+          {/* grid 4 คอลัมน์: คำขอของฉัน 2 คอลัมน์ / แจ้งเตือนล่าสุด 2 คอลัมน์ */}
+          <div className="grid grid-cols-4 gap-5">
+            <div className="col-span-2 bg-white border border-[#E2E8F0] rounded-xl p-6 shadow-2xl">
               <div className="text-2xl font-bold text-black flex items-center justify-between mb-4">
                 <h1>คำขอของฉัน</h1>
                 <Link
@@ -150,6 +151,77 @@ export default function Home() {
                   <span>[account]</span>
                   <span>[finace]</span>
                 </div>
+              </div>
+            </div>
+
+            {/* แจ้งเตือนล่าสุด (ข้อมูลตัวอย่าง) */}
+            <div className="col-span-2 flex flex-col justify-between rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl">
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <h2 className="text-base font-bold text-gray-800">แจ้งเตือนล่าสุด</h2>
+                  <Link href="#" className="flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:underline">
+                    ดูทั้งหมด →
+                  </Link>
+                </div>
+
+                <ul className="divide-y divide-gray-100">
+                  {/* แจ้งเตือนที่ 1: ได้รับเงินแล้ว */}
+                  <li className="flex items-start gap-3 py-4">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+                      <Check size={18} />
+                    </span>
+                    <div className="text-sm text-gray-700">
+                      <p>
+                        คำขอ <strong className="text-gray-900">ค่าอบรมทีมการตลาด</strong> ได้รับเงินแล้ว
+                      </p>
+                      <p className="mt-0.5 text-xs text-gray-400">วันนี้ 09.00 น.</p>
+                    </div>
+                  </li>
+
+                  {/* แจ้งเตือนที่ 2: รอขั้นถัดไป */}
+                  <li className="flex items-start gap-3 py-4">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
+                      <ClockThree size={18} />
+                    </span>
+                    <div className="text-sm text-gray-700">
+                      <p>
+                        <strong className="text-gray-900">ซื้อหมึกพิมพ์สำนักงาน</strong> หัวหน้าแผนกอนุมัติแล้ว รอฝ่ายบัญชีตรวจ
+                      </p>
+                      <p className="mt-0.5 text-xs text-gray-400">12 ต.ค. 10:15</p>
+                    </div>
+                  </li>
+
+                  {/* แจ้งเตือนที่ 3: ได้รับเงินแล้ว */}
+                  <li className="flex items-start gap-3 py-4">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+                      <Check size={18} />
+                    </span>
+                    <div className="text-sm text-gray-700">
+                      <p>
+                        คำขอ <strong className="text-gray-900">ค่าอบรมทีมการตลาด</strong> ได้รับเงินแล้ว
+                      </p>
+                      <p className="mt-0.5 text-xs text-gray-400">วันนี้ 09.00 น.</p>
+                    </div>
+                  </li>
+
+                  {/* แจ้งเตือนที่ 4: ได้รับเงินแล้ว */}
+                  <li className="flex items-start gap-3 py-4">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+                      <Check size={18} />
+                    </span>
+                    <div className="text-sm text-gray-700">
+                      <p>
+                        คำขอ <strong className="text-gray-900">ค่าอบรมทีมการตลาด</strong> ได้รับเงินแล้ว
+                      </p>
+                      <p className="mt-0.5 text-xs text-gray-400">วันนี้ 09.00 น.</p>
+                    </div>
+                  </li>
+                </ul>
+              </div>
+
+              <div className="mt-6 flex items-center gap-2.5 rounded-xl border border-gray-200/60 bg-gray-50 p-3.5 text-xs text-gray-500">
+                <span>✓</span>
+                <span>ระบบจะแจ้งเตือนทุกครั้งที่สถานะคำขอเปลี่ยน</span>
               </div>
             </div>
           </div>
