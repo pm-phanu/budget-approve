@@ -28,9 +28,16 @@ import {
   DEFAULT_RULES,
   ROLE_LABEL,
   getApprovalSteps,
+  planApprovalSteps,
   type ApprovalRule,
+  type PlannedStep,
   type StepRole,
 } from "@/data/approval";
+import {
+  DEFAULT_ORGANIZATION,
+  loadOrganization,
+  type Organization,
+} from "@/data/organization";
 import {
   REQUESTS_KEY,
   loadRequests,
@@ -90,7 +97,7 @@ function money(n: number) {
 }
 
 // บัญชีรับเงินคืนของผู้ขอ (ข้อมูลสมมติ ยังไม่มีในข้อมูลผู้ใช้)
-const BANK_ACCOUNT = "กสิกรไทย ••• 4521";
+const BANK_ACCOUNT = "ยังไม่ได้ตั้งค่าบัญชีรับเงิน"; // ใช้เมื่อผู้ขอยังไม่มี bankAccount
 
 // ════════════════════════════════════════
 //  [5] หน้าหลัก
@@ -116,6 +123,7 @@ export default function NewRequest() {
   // ค่าที่อ่านจาก localStorage
   const [rules, setRules] = useState<ApprovalRule[]>(DEFAULT_RULES); // วงเงินอนุมัติ
   const [user, setUser] = useState<Credential | null>(null); // คนที่ล็อกอินอยู่
+  const [org, setOrg] = useState<Organization>(DEFAULT_ORGANIZATION); // ผังองค์กร (หาผู้อนุมัติ)
   const [budget, setBudget] = useState<Project[]>(projects); // งบที่หักคำขอที่ส่งไปแล้ว
 
   // อ่าน localStorage ครั้งเดียวตอนเปิดหน้า ([] ท้ายสุด = ทำครั้งเดียว)
@@ -126,6 +134,7 @@ export default function NewRequest() {
     /* eslint-disable react-hooks/set-state-in-effect -- อ่านได้หลังเปิดหน้าเท่านั้น */
     if (savedRules) setRules(JSON.parse(savedRules));
     if (savedUser) setUser(JSON.parse(savedUser));
+    setOrg(loadOrganization());
     setBudget(addRequestsToBudget(loadRequests()));
 
     // ---------- [5.1] เปิดร่างมาแก้ต่อ: /request/new?id=REQ-xxx ----------
@@ -176,8 +185,17 @@ export default function NewRequest() {
   let projectRemaining = 0;
   for (const c of categories) projectRemaining += c.limit - c.used;
 
-  // เส้นทางอนุมัติตามยอดรวม
-  const steps = getApprovalSteps(total, rules);
+  // เส้นทางอนุมัติตามยอดรวม + ผู้อนุมัติแต่ละขั้น (ดู planApprovalSteps ใน data/approval.ts)
+  // ยังไม่รู้ว่าใครล็อกอิน → แสดงตามวงเงินอย่างเดียว
+  const plan: PlannedStep[] = user
+    ? planApprovalSteps(total, user, org, rules)
+    : getApprovalSteps(total, rules).map((role) => ({ role, approverId: null }));
+  const steps = plan.map((p) => p.role);
+
+  // บัญชีรับเงินคืน: ของผู้ขอ (data/credential.ts) · ยังไม่มีข้อมูล = แสดงข้อความแทน
+  const bankLabel = user?.bankAccount
+    ? `${user.bankAccount.bank} ${user.bankAccount.number}`
+    : BANK_ACCOUNT;
 
   // คำที่เปลี่ยนตามประเภท
   const isAdvance = type === "advance";
@@ -298,6 +316,7 @@ export default function NewRequest() {
         id: user.id,
         fullName: user.fullName,
         role: user.role,
+        departmentId: user.departmentId ?? null,
         department: user.departmentInfo.department,
         lineOfWork: user.departmentInfo.lineOfWork,
         headId: user.hierarchy ? user.hierarchy.headId : null,
@@ -324,10 +343,11 @@ export default function NewRequest() {
       fileCount,
       requester,
       payTo: isAdvance ? "โอนคืนเข้าบัญชีผู้ขอ" : "โอนให้ผู้ขายตามใบแจ้งหนี้",
-      bankAccount: isAdvance ? BANK_ACCOUNT : null,
-      // ทุกขั้นเริ่มที่ "รอ" · หน้าอนุมัติเป็นคนเปลี่ยน
-      approvalSteps: steps.map((role) => ({
+      bankAccount: isAdvance && user?.bankAccount ? bankLabel : null,
+      // ทุกขั้นเริ่มที่ "รอ" · หน้าอนุมัติเป็นคนเปลี่ยน · approverId = คนที่ต้องอนุมัติขั้นนั้น
+      approvalSteps: plan.map(({ role, approverId }) => ({
         role,
+        approverId,
         label: ROLE_LABEL[role],
         status: "รอ",
         by: null,
@@ -669,7 +689,7 @@ export default function NewRequest() {
                 <div className="mb-4 flex items-center gap-3 rounded-xl border border-gray-200 p-3">
                   <div className="h-9 w-9 rounded-full bg-[#D1FAE5]" />
                   <div className="flex-1">
-                    <p className="text-sm font-bold">{BANK_ACCOUNT}</p>
+                    <p className="text-sm font-bold">{bankLabel}</p>
                     <p className="text-xs text-[#64748B]">
                       {user ? user.fullName : "-"}
                     </p>
