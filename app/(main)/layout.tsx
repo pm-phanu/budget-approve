@@ -35,7 +35,7 @@ import { Button } from "@/components/tailgrids/core/button";
 import { Link } from "@/components/tailgrids/core/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Credential, User } from "@/data/credential";
-import { checkLogin, doLogout, getHomePath } from "@/utils/login";
+import { checkLogin, doLogout, getHomePath, HOME_PATHS } from "@/utils/login";
 
 type Role = User['role']
 
@@ -47,18 +47,30 @@ type MenuItem = {
   group: "main" | "approval" | "manage" | "report"
 }
 
-const items: MenuItem[] = [
-  { title: "แดชบอร์ด", url: "/", icon: DashboardSquare1, roles: ["EMPLOYEE"], group: "main" },
-  { title: "แดชบอร์ด", url: "/home-department-head", icon: DashboardSquare1, roles: ["HEAD"], group: "main" },
-  { title: "แดชบอร์ด", url: "/home-account", icon: DashboardSquare1, roles: ["ACCOUNTANT_ADMIN"], group: "main" },
-  { title: "จัดการผู้ใช้และสิทธิ์", url: "/home-account/setting", icon: UserMultiple4, roles: ["ACCOUNTANT_ADMIN"], group: "manage" },
-  { title: "สร้างคำขอ", url: "/home-department-head/request", icon: Plus, group: "main" },
-  { title: "คำขอของฉัน", url: "/all-request-department-head", icon: FileText, group: "main" },
+const mainItems: MenuItem[] = [
+  { title: "สร้างคำขอ", url: "/request", icon: Plus, group: "main" },
+  { title: "คำขอของฉัน", url: "/my-request", icon: FileText, group: "main" },
   { title: "ประวัติการเบิก", url: "#", icon: ClockThree, group: "main" },
-  { title: "คำขอทั้งหมด", url: "/home-department-head/my-request-department-head", icon: FileTextMultiple, roles: ["HEAD", "ACCOUNTANT_ADMIN"], group: "approval" },
-  { title: "ประวัติการอนุมัติ", url: "#", icon: CheckCircle1, roles: ["HEAD", "ACCOUNTANT_ADMIN"], group: "approval" },
-  { title: "รายงายงบประมาณ", url: "/home-account/report", icon: TrendUp2, roles: ["ACCOUNTANT_ADMIN"], group: "report" },
 ];
+
+const approveItems: MenuItem[] = [
+  { title: "ประวัติการอนุมัติ", url: "#", icon: CheckCircle1, roles: ["HEAD", "ACCOUNTANT_ADMIN"], group: "approval" },
+  { title: "คำขอรออนุมัติทั้งหมด", url: "/all-request", icon: FileTextMultiple, roles: ["HEAD", "ACCOUNTANT_ADMIN"], group: "approval" },
+
+]
+
+const manageItems: MenuItem[] = [
+  { title: "จัดการผู้ใช้และสิทธิ์", url: "/home-account/setting", icon: UserMultiple4, roles: ["ACCOUNTANT_ADMIN"], group: "manage" },
+
+]
+
+const reportItems: MenuItem[] = [
+  { title: "รายงานงบประมาณ", url: "/home-account/report", icon: TrendUp2, roles: ["ACCOUNTANT_ADMIN"], group: "report" },
+
+]
+
+// รวมทุกหมวดเป็นก้อนเดียว: route guard กับ breadcrumb ใช้ค้นหาเมนูจาก pathname
+const items: MenuItem[] = [...mainItems, ...approveItems, ...manageItems, ...reportItems]
 
 function renderMenuItems(list: MenuItem[]) {
   return list.map((item) => (
@@ -97,7 +109,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
     const menu = items.find((item) => item.url === pathname)
 
-    if(menu?.roles && !menu.roles.includes(currentUser.role)) {
+    // หน้าแดชบอร์ดของ role อื่น (เช่น EMPLOYEE เปิด /home-account) → ไม่ให้เข้า
+    const isOtherHome =
+      Object.values(HOME_PATHS).includes(pathname) &&
+      pathname !== getHomePath(currentUser.role)
+
+    if (isOtherHome || (menu?.roles && !menu.roles.includes(currentUser.role))) {
       setUser(null)
       router.replace(getHomePath(currentUser.role))
       return
@@ -112,7 +129,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const visibleItems = items.filter(
     (item) => !item.roles || item.roles.includes(user.role),
   )
-  const mainItems = visibleItems.filter((item) => item.group === "main")
+
+  const dashboardItem: MenuItem = {
+    title: "แดชบอร์ด",
+    url: getHomePath(user.role),
+    icon: DashboardSquare1,
+    group: "main",
+  }
+  const mainItems = [
+    dashboardItem,
+    ...visibleItems.filter((item) => item.group === "main"),
+  ]
   const approvalItems = visibleItems.filter((item) => item.group === "approval")
   const manageUserItems = visibleItems.filter((item) => item.group === "manage")
   const report = visibleItems.filter((item) => item.group === "report")

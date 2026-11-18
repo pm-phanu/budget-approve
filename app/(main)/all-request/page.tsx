@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { REQUESTS_KEY, loadRequests as loadSaved } from "@/data/request";
 import { addRequestsToBudget } from "@/data/budget";
+import { getHomePath } from "@/utils/login";
+import type { Credential } from "@/data/credential";
 import {
   ArrowRight,
   Check,
@@ -15,8 +17,13 @@ import {
 /* ------------------------------------------------------------------
    ตั้งค่า
 ------------------------------------------------------------------- */
-const HOME_PATH = "/home-department-head"; // ← หน้า Home ของหัวหน้า
-const APPROVED_PATH = "/home-department-head/approve"; // ← หน้าตรวจสอบ
+// หน้า Home ใช้ getHomePath(role) จาก utils/login.ts
+// หน้าตรวจสอบแยกตาม role (หน้านี้ใช้ได้ทั้งหัวหน้าและฝ่ายบัญชี)
+const APPROVE_PATHS: Record<string, string> = {
+  HEAD: "/home-department-head/approve",
+  ACCOUNTANT_ADMIN: "/home-account/approve",
+};
+const DEFAULT_APPROVE_PATH = "/home-department-head/approve";
 const ROW_H = 72; // ความสูงแถว (px) ต้องตรงกับ min-h-[72px] ใน ROW_GRID
 const MIN_ROWS = 5; // เว้นพื้นที่อย่างน้อยกี่แถว (ว่าง/น้อยก็ไม่ยุบ)
 
@@ -200,6 +207,10 @@ export default function AllRequestDH() {
     return () => window.removeEventListener("storage", onStorage);
   }, []);
 
+  // path ตาม role ของคนที่ login: หัวหน้า → หน้าของหัวหน้า / ฝ่ายบัญชี → หน้าของบัญชี
+  const homePath = me ? getHomePath(me.role as Credential["role"]) : "/";
+  const approvePath = (me && APPROVE_PATHS[me.role]) || DEFAULT_APPROVE_PATH;
+
   // รอคุณตรวจสอบทั้งหมด (รอนานสุดขึ้นก่อน ถ้าอยากให้ล่าสุดขึ้นก่อน สลับ a/b)
   const pending = requests
     .filter((r) => isMyTurn(r, me))
@@ -321,7 +332,7 @@ export default function AllRequestDH() {
               </span>
             </div>
             <Link
-              href={HOME_PATH}
+              href={homePath}
               className="flex items-center gap-1 text-xs font-bold text-green-700 hover:underline"
             >
               <ArrowRight size={15} className="rotate-180" /> กลับหน้าหลัก
@@ -384,7 +395,7 @@ export default function AllRequestDH() {
                     {/* คอลัมน์ 5: ปุ่มตรวจสอบ (ชิดขวา) */}
                     <div className="flex justify-end">
                       <Link
-                        href={`${APPROVED_PATH}?id=${encodeURIComponent(r.id)}`}
+                        href={`${approvePath}?id=${encodeURIComponent(r.id)}`}
                         className="flex items-center gap-1 text-xs font-bold text-green-700 hover:underline"
                       >
                         ตรวจสอบ <ArrowRight size={15} />
