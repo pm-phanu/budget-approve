@@ -307,3 +307,136 @@ export function validateAllocation(
 
   return errs;
 }
+
+// ════════════════════════════════════════════════════════════
+//  ประวัติการแก้งบ + โอนงบกลางปี (localStorage "budgetHistory" · ใหม่สุดอยู่ท้าย)
+//  - แก้วงเงิน: เกิดตอนกด "บันทึกงบประมาณ" (เทียบของเดิมกับของใหม่ด้วย diffBudgets)
+//  - โอนงบ: ย้ายวงเงินจากหมวดหนึ่งไปอีกหมวด ในปีเดียวกัน (transferBudget) ต้องมีเหตุผล
+// ════════════════════════════════════════════════════════════
+export type BudgetChange = {
+  id: string;
+  at: string; // เวลา (ISO)
+  byId: string;
+  byName: string;
+  year: number; // ปีงบประมาณที่ถูกแก้
+  kind: "แก้วงเงิน" | "โอนงบ";
+  item: string; // เช่น "งบบอร์ด" · "แผนก A" · "โครงการ › หมวด" · "A › x → B › y"
+  before: number | null; // แก้วงเงิน: ก่อน/หลัง · โอนงบ: null
+  after: number | null;
+  amount: number; // ส่วนต่าง (+ เพิ่ม / − ลด) · โอนงบ = ยอดที่ย้าย
+  note: string; // เหตุผล (โอนงบต้องมี)
+};
+
+export const BUDGET_HISTORY_KEY = "budgetHistory";
+
+export function loadBudgetHistory(): BudgetChange[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const stored = localStorage.getItem(BUDGET_HISTORY_KEY);
+    return stored ? (JSON.parse(stored) as BudgetChange[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function appendBudgetHistory(entries: BudgetChange[]) {
+  if (entries.length === 0) return;
+  localStorage.setItem(BUDGET_HISTORY_KEY, JSON.stringify([...loadBudgetHistory(), ...entries]));
+}
+
+type ChangeBase = Pick<BudgetChange, "at" | "byId" | "byName">;
+let seq = 0;
+const changeId = (at: string) => `BH-${Date.parse(at)}-${++seq}`;
+
+// เทียบงบเดิมกับงบใหม่ → รายการ "แก้วงเงิน" (วงเงินหมวด + การแบ่งงบทุกชั้น)
+// ※ หมวด/โครงการที่เพิ่มใหม่ = เดิม 0 · ที่ถูกลบ = ใหม่ 0
+export function diffBudgets(
+  oldProjects: Project[],
+  newProjects: Project[],
+  oldAllocs: BudgetAllocation[],
+  newAllocs: BudgetAllocation[],
+  org: Organization | null,
+  base: ChangeBase,
+): BudgetChange[] {
+  const out: BudgetChange[] = [];
+  const push = (year: number, item: string, before: number, after: number) => {
+    if (before !== after)
+      out.push({ ...base, id: changeId(base.at), year, kind: "แก้วงเงิน", item, before, after, amount: after - before, note: "" });
+  };
+
+  // วงเงินหมวด
+  const catKey = (p: Project, c: Category) => `${p.id}/${c.id}`;
+  const oldCats = new Map(oldProjects.flatMap((p) => p.categories.map((c) => [catKey(p, c), c.limit] as const)));
+  const seen = new Set<string>();
+  for (const p of newProjects)
+    for (const c of p.categories) {
+      seen.add(catKey(p, c));
+      push(p.year, `${p.name} › ${c.name}`, oldCats.get(catKey(p, c)) ?? 0, c.limit);
+    }
+  for (const p of oldProjects)
+    for (const c of p.categories)
+      if (!seen.has(catKey(p, c))) push(p.year, `${p.name} › ${c.name} (ลบ)`, c.limit, 0);
+
+  // การแบ่งงบ: งบบอร์ด / สายงาน / ฝ่าย / แผนก
+  const name = (level: "lines" | "divisions" | "departments", id: string) => {
+    const list = level === "lines" ? org?.linesOfWork : level === "divisions" ? org?.divisions : org?.departments;
+    return list?.find((x) => x.id === id)?.name ?? id;
+  };
+  const years = new Set([...oldAllocs, ...newAllocs].map((a) => a.year));
+  for (const year of years) {
+    const o = oldAllocs.find((a) => a.year === year);
+    const n = newAllocs.find((a) => a.year === year);
+    push(year, "งบบอร์ด", o?.boardTotal ?? 0, n?.boardTotal ?? 0);
+    for (const level of ["lines", "divisions", "departments"] as const) {
+      const ids = new Set([...Object.keys(o?.[level] ?? {}), ...Object.keys(n?.[level] ?? {})]);
+      for (const id of ids) push(year, name(level, id), o?.[level][id] ?? 0, n?.[level][id] ?? 0);
+    }
+  }
+  return out;
+}
+
+// โอนวงเงินระหว่างหมวด (ปีเดียวกัน) → โครงการชุดใหม่ + รายการประวัติ หรือข้อความผิด
+// available = วงเงินที่ยังไม่ได้ใช้ของหมวดต้นทาง (limit − ใช้ไป) · โอนเกินนี้ไม่ได้
+export function transferBudget(
+  list: Project[],
+  from: { projectId: string; categoryId: string },
+  to: { projectId: string; categoryId: string },
+  amount: number,
+  available: number,
+  note: string,
+  base: ChangeBase,
+): { ok: true; projects: Project[]; entry: BudgetChange } | { ok: false; error: string } {
+  const fp = list.find((p) => p.id === from.projectId);
+  const tp = list.find((p) => p.id === to.projectId);
+  const fc = fp?.categories.find((c) => c.id === from.categoryId);
+  const tc = tp?.categories.find((c) => c.id === to.categoryId);
+  if (!fp || !tp || !fc || !tc) return { ok: false, error: "เลือกหมวดต้นทางและปลายทาง" };
+  if (fp.year !== tp.year) return { ok: false, error: "โอนได้เฉพาะในปีงบประมาณเดียวกัน" };
+  if (fp.id === tp.id && fc.id === tc.id) return { ok: false, error: "ต้นทางกับปลายทางต้องเป็นคนละหมวด" };
+  if (!Number.isInteger(amount) || amount <= 0) return { ok: false, error: "จำนวนเงินต้องเป็นจำนวนเต็มมากกว่า 0" };
+  if (amount > available) return { ok: false, error: `หมวดต้นทางเหลือให้โอนได้ไม่เกิน ${available.toLocaleString("en-US")}` };
+  if (!note.trim()) return { ok: false, error: "ใส่เหตุผลการโอนงบ" };
+
+  const projects = list.map((p) => ({
+    ...p,
+    categories: p.categories.map((c) =>
+      p.id === fp.id && c.id === fc.id
+        ? { ...c, limit: c.limit - amount }
+        : p.id === tp.id && c.id === tc.id
+          ? { ...c, limit: c.limit + amount }
+          : c,
+    ),
+  }));
+  const entry: BudgetChange = {
+    ...base,
+    id: changeId(base.at),
+    year: fp.year,
+    kind: "โอนงบ",
+    item: `${fp.name} › ${fc.name} → ${tp.name} › ${tc.name}`,
+    before: null,
+    after: null,
+    amount,
+    note: note.trim(),
+  };
+  return { ok: true, projects, entry };
+}

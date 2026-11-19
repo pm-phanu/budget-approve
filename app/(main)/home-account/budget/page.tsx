@@ -31,6 +31,11 @@ import {
 import {
   addRequestsToBudget,
   allocationFromProjects,
+  appendBudgetHistory,
+  diffBudgets,
+  loadBudgetHistory,
+  transferBudget,
+  type BudgetChange,
   departmentProjectTotal,
   loadAllocations,
   loadProjects,
@@ -43,6 +48,7 @@ import {
 } from "@/data/budget";
 import { loadOrganization, type Organization } from "@/data/organization";
 import { loadRequests, type SavedRequest } from "@/data/request";
+import { getCurrentUser } from "@/utils/login";
 
 const baht = (n: number) => "฿" + n.toLocaleString("en-US");
 const toBE = (year: number) => year + 543; // แสดงปีเป็น พ.ศ.
@@ -73,6 +79,15 @@ export default function BudgetSetting() {
   const [newDept, setNewDept] = useState("");
   const [newName, setNewName] = useState("");
 
+  // ประวัติการแก้งบ + ฟอร์มโอนงบ (หมวด = "projectId/categoryId")
+  const [history, setHistory] = useState<BudgetChange[]>([]);
+  const [tFrom, setTFrom] = useState("");
+  const [tTo, setTTo] = useState("");
+  const [tAmount, setTAmount] = useState("");
+  const [tNote, setTNote] = useState("");
+  const [tError, setTError] = useState("");
+  const [tMessage, setTMessage] = useState("");
+
   // localStorage มีแค่ในเบราว์เซอร์ → อ่านหลังเปิดหน้า
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect -- localStorage อ่านได้หลังเปิดหน้าเท่านั้น */
@@ -84,6 +99,7 @@ export default function BudgetSetting() {
     setDraftAlloc(alloc);
     setRequests(loadRequests());
     setOrg(loadOrganization());
+    setHistory(loadBudgetHistory());
     /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
@@ -323,10 +339,13 @@ export default function BudgetSetting() {
       setMessage("");
       return;
     }
+    const changes = diffBudgets(saved, clean, savedAlloc, allocs, org, changeBase());
     saveProjects(clean);
     setSaved(clean);
     setDraft(clean);
     saveAllocations(allocs);
+    appendBudgetHistory(changes);
+    setHistory(loadBudgetHistory());
     setSavedAlloc(allocs);
     setDraftAlloc(allocs);
     // หมวดที่วงเงินต่ำกว่ายอดใช้ไป → บันทึกได้ แต่เตือน
@@ -338,6 +357,45 @@ export default function BudgetSetting() {
         ? `บันทึกแล้ว · หมวดที่วงเงินต่ำกว่ายอดใช้ไป: ${over.join(", ")}`
         : "บันทึกงบประมาณแล้ว",
     );
+  }
+
+  // ใครแก้ เมื่อไร (ใส่ในประวัติ)
+  function changeBase() {
+    const me = getCurrentUser();
+    return { at: new Date().toISOString(), byId: me?.id ?? "", byName: me?.fullName ?? "-" };
+  }
+
+  // โอนงบกลางปี: บันทึกทันที (ไม่ผ่าน draft) → ต้องไม่มีการแก้ค้าง จะได้ไม่ปนกัน
+  function handleTransfer() {
+    setTMessage("");
+    const [fp, fc] = tFrom.split("/");
+    const [tp, tc] = tTo.split("/");
+    const fromCat = saved.find((p) => p.id === fp)?.categories.find((c) => c.id === fc);
+    const available = fromCat ? fromCat.limit - usedOf(fromCat.id) : 0;
+    const res = transferBudget(
+      saved,
+      { projectId: fp ?? "", categoryId: fc ?? "" },
+      { projectId: tp ?? "", categoryId: tc ?? "" },
+      Number(tAmount.replace(/,/g, "")),
+      Math.max(0, available),
+      tNote,
+      changeBase(),
+    );
+    if (!res.ok) return setTError(res.error);
+    // โอนข้ามแผนกแล้วโครงการรวมเกินงบแผนก → ไม่ให้โอน (ต้องแบ่งงบแผนกใหม่ในขั้นที่ 2 ก่อน)
+    const yearAlloc = savedAlloc.find((a) => a.year === year);
+    const errs = org && yearAlloc ? validateAllocation(yearAlloc, org, res.projects) : [];
+    if (errs.length > 0) return setTError(errs.join(" · "));
+
+    saveProjects(res.projects);
+    setSaved(res.projects);
+    setDraft(res.projects);
+    appendBudgetHistory([res.entry]);
+    setHistory(loadBudgetHistory());
+    setTError("");
+    setTAmount("");
+    setTNote("");
+    setTMessage(`โอนงบแล้ว: ${res.entry.item} ${baht(res.entry.amount)}`);
   }
 
   function handleDiscard() {
@@ -739,6 +797,120 @@ export default function BudgetSetting() {
             </button>
           </div>
         </div>
+
+        {/* ===== โอนงบกลางปี: ย้ายวงเงินระหว่างหมวด (บันทึกทันที + ลงประวัติ) ===== */}
+        <section className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl">
+          {stepTitle(4, `โอนงบกลางปี ${toBE(year)}`, "ย้ายวงเงินที่ยังไม่ได้ใช้จากหมวดหนึ่งไปอีกหมวด · ข้ามแผนกได้ถ้างบแผนกปลายทางยังพอ")}
+          {dirty ? (
+            <p className="rounded-xl bg-[#FFFBEB] p-3 text-sm text-[#92400E]">
+              มีการแก้ไขที่ยังไม่บันทึก · บันทึกหรือยกเลิกการแก้ไขก่อน จึงจะโอนงบได้
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              {(
+                [
+                  ["จากหมวด", tFrom, setTFrom],
+                  ["ไปหมวด", tTo, setTTo],
+                ] as const
+              ).map(([label, value, set]) => (
+                <NativeSelect
+                  key={label}
+                  aria-label={label}
+                  value={value}
+                  onChange={(e) => set(e.target.value)}
+                >
+                  <NativeSelectOption value="">{label}</NativeSelectOption>
+                  {saved
+                    .filter((p) => p.year === year)
+                    .flatMap((p) =>
+                      p.categories.map((c) => (
+                        <NativeSelectOption key={`${p.id}/${c.id}`} value={`${p.id}/${c.id}`}>
+                          {p.dept} › {p.name} › {c.name} (เหลือ {baht(Math.max(0, c.limit - usedOf(c.id)))})
+                        </NativeSelectOption>
+                      )),
+                    )}
+                </NativeSelect>
+              ))}
+              <TextField aria-label="จำนวนเงินที่โอน" value={tAmount} onChange={setTAmount}>
+                <Input inputMode="numeric" placeholder="จำนวนเงิน (บาท)" className="money text-right" />
+              </TextField>
+              <TextField aria-label="เหตุผลการโอนงบ" value={tNote} onChange={setTNote}>
+                <Input placeholder="เหตุผล เช่น ย้ายงบเดินทางไปค่าโฆษณา Q4" />
+              </TextField>
+              <div className="flex flex-wrap items-center gap-3 md:col-span-2">
+                {tError && (
+                  <p role="alert" className="mr-auto rounded-xl bg-[#FFF1F2] px-3 py-2 text-sm text-[#9F1239]">
+                    {tError}
+                  </p>
+                )}
+                {tMessage && !tError && (
+                  <p role="status" className="mr-auto rounded-xl bg-[#ECFDF5] px-3 py-2 text-sm text-[#047857]">
+                    {tMessage}
+                  </p>
+                )}
+                <button
+                  type="button"
+                  onClick={handleTransfer}
+                  className="ml-auto rounded-xl bg-[#059669] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#047857]"
+                >
+                  โอนงบ
+                </button>
+              </div>
+            </div>
+          )}
+        </section>
+
+        {/* ===== ประวัติการแก้งบ (ปีที่เลือก · ใหม่สุดอยู่บน) ===== */}
+        <section className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl">
+          {stepTitle(5, `ประวัติการแก้งบ ปี ${toBE(year)}`, "ทุกครั้งที่บันทึกวงเงินหรือโอนงบ ระบบจะเก็บไว้ที่นี่ · แก้หรือลบไม่ได้")}
+          {(() => {
+            const rows = history.filter((h) => h.year === year).reverse();
+            if (rows.length === 0)
+              return <p className="text-sm text-[#64748B]">ยังไม่มีการแก้งบของปีนี้</p>;
+            return (
+              <div className="overflow-x-auto">
+                <TableRoot>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>เวลา</TableHead>
+                      <TableHead>ผู้แก้</TableHead>
+                      <TableHead>ประเภท</TableHead>
+                      <TableHead>รายการ</TableHead>
+                      <TableHead className="text-right">ก่อน → หลัง</TableHead>
+                      <TableHead className="text-right">เปลี่ยน</TableHead>
+                      <TableHead>เหตุผล</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {rows.map((h) => (
+                      <TableRow key={h.id}>
+                        <TableCell className="whitespace-nowrap">
+                          {new Date(h.at).toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" })}
+                        </TableCell>
+                        <TableCell>{h.byName}</TableCell>
+                        <TableCell>
+                          <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${h.kind === "โอนงบ" ? "bg-[#EFF6FF] text-[#1D4ED8]" : "bg-[#F1F5F9] text-[#475569]"}`}>
+                            {h.kind}
+                          </span>
+                        </TableCell>
+                        <TableCell>{h.item}</TableCell>
+                        <TableCell className="money whitespace-nowrap text-right">
+                          {h.before === null ? "-" : `${baht(h.before)} → ${baht(h.after ?? 0)}`}
+                        </TableCell>
+                        <TableCell
+                          className={`money whitespace-nowrap text-right font-semibold ${h.kind === "โอนงบ" ? "text-[#1D4ED8]" : h.amount < 0 ? "text-[#BE123C]" : "text-[#047857]"}`}
+                        >
+                          {h.kind === "โอนงบ" ? baht(h.amount) : (h.amount > 0 ? "+" : "−") + baht(Math.abs(h.amount))}
+                        </TableCell>
+                        <TableCell>{h.note || "-"}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </TableRoot>
+              </div>
+            );
+          })()}
+        </section>
       </div>
     </div>
   );

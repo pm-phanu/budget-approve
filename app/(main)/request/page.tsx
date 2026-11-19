@@ -291,6 +291,8 @@ export default function NewRequest() {
     if (it.categoryId)
       categoryAsked.set(it.categoryId, (categoryAsked.get(it.categoryId) ?? 0) + Number(it.amount || 0));
   }
+  // หมวดที่ขอเกินงบคงเหลือ → เตือนอย่างเดียว ยังส่งได้
+  const overCategories = categories.filter((c) => (categoryAsked.get(c.id) ?? 0) > c.limit - c.used);
 
   // ส่งกลับไปหาคนที่ตีกลับได้หรือไม่:
   // เส้นทางตามยอดใหม่ต้องเหมือนเส้นทางเดิม (ถ้าแก้ยอดจนเส้นทางเปลี่ยน → เริ่มอนุมัติใหม่ตั้งแต่ขั้นแรก)
@@ -394,17 +396,7 @@ export default function NewRequest() {
         list.push(row + ": แนบ" + fileLabel + "อย่างน้อย 1 ไฟล์");
     });
 
-    // รวมยอดต่อหมวด แล้วเทียบกับงบคงเหลือของหมวดนั้น
-    // ※ หลายแถวใช้หมวดเดียวกันได้ เลยต้องรวมก่อนเทียบ
-    for (const c of categories) {
-      let sum = 0;
-      for (const it of items) {
-        if (it.categoryId === c.id) sum += Number(it.amount || 0);
-      }
-      const left = c.limit - c.used;
-      if (sum > left)
-        list.push(c.name + " เกินงบคงเหลือ (เหลือ ฿" + money(left) + ")");
-    }
+    // ※ เกินงบคงเหลือของหมวด = แค่เตือน (ใต้แถว + ในป็อปอัพยืนยัน) ไม่บล็อกการส่ง
     return list;
   }
 
@@ -734,9 +726,9 @@ export default function NewRequest() {
                   <div className="flex gap-2">
                     <select
                       aria-label={`หมวด รายการที่ ${row}`}
-                      className={`${fieldClassFor(err.category || over)} w-40 shrink-0 cursor-pointer px-3 disabled:cursor-not-allowed`} // กดได้ = รูปมือ · ยังไม่เลือกโครงการ = รูปห้าม
+                      className={`${fieldClassFor(err.category)} w-40 shrink-0 cursor-pointer px-3 disabled:cursor-not-allowed`} // กดได้ = รูปมือ · ยังไม่เลือกโครงการ = รูปห้าม
                       value={it.categoryId}
-                      aria-invalid={err.category || over}
+                      aria-invalid={err.category}
                       onChange={(e) => changeItem(i, "categoryId", e.target.value)}
                       disabled={!project}
                     >
@@ -816,7 +808,7 @@ export default function NewRequest() {
                   {(left !== undefined || it.files.length > 0 || err.any) && (
                     <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 px-1 text-xs">
                       {left !== undefined && (
-                        <span className={over ? "font-semibold text-[#BE123C]" : "text-[#64748B]"}>
+                        <span className={over ? "font-semibold text-[#B45309]" : "text-[#64748B]"}>
                           {over
                             ? `เกินงบหมวดนี้ ฿${money(asked - left)} (เหลือ ฿${money(left)})`
                             : `งบหมวดนี้เหลือ ฿${money(left - asked)} หลังรายการนี้`}
@@ -1077,6 +1069,11 @@ export default function NewRequest() {
                     <b>{targetLabel}</b>
                   </div>
                 </div>
+                {overCategories.length > 0 && (
+                  <p role="alert" className="mt-3 rounded-xl border border-[#FDE68A] bg-[#FFFBEB] p-3 text-sm text-[#92400E]">
+                    เกินงบคงเหลือของหมวด {overCategories.map((c) => c.name).join(", ")} · ยังส่งได้
+                  </p>
+                )}
                 <div className="mt-5 flex gap-2">
                   <button
                     onClick={() => setPopup("closed")}
