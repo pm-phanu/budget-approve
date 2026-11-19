@@ -526,7 +526,8 @@ export function actOnRequest(
     updatedAt: now,
   };
   if (action === "approve") {
-    if (latest.currentStep >= steps.length - 1) next.status = "อนุมัติแล้ว";
+    // ขั้นสุดท้ายเป็นการเงิน = โอนเงินแล้ว → "จ่ายแล้ว" (หน้ารายงานนับสถานะนี้)
+    if (latest.currentStep >= steps.length - 1) next.status = cur.role === "FINANCE" ? "จ่ายแล้ว" : "อนุมัติแล้ว";
     else next.currentStep = latest.currentStep + 1;
   } else {
     next.status = "ตีกลับ";
@@ -544,7 +545,7 @@ export function actOnRequest(
   localStorage.setItem(REQUESTS_KEY, JSON.stringify(all));
 
   // แจ้งเตือนผู้ขอ / ผู้อนุมัติขั้นถัดไป (data/notification.ts)
-  const finishedByFinance = action === "approve" && next.status === "อนุมัติแล้ว" && cur.role === "FINANCE";
+  const finishedByFinance = action === "approve" && next.status === "จ่ายแล้ว";
   // ขั้นนี้จบแล้ว → ปล่อยล็อก "กำลังตรวจสอบ"
   releaseReviewLock(latest.id, user.id);
 
