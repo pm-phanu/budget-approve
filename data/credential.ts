@@ -1,10 +1,38 @@
+// role ที่มีในระบบตั้งแต่ต้น
+export type BuiltInRole =
+  | "EMPLOYEE"
+  | "HEAD"
+  | "DIRECTOR"
+  | "MANAGING_DIRECTOR"
+  | "ACCOUNTANT_ADMIN"
+  | "FINANCE";
+
+// บัญชีธนาคารสำหรับรับเงินคืน (คำขอแบบสำรองจ่าย)
+export type BankAccount = {
+  bank: string; // เช่น "กสิกรไทย"
+  number: string; // เลขบัญชี (ข้อมูลตัวอย่าง)
+  name: string; // ชื่อบัญชี
+};
+
 export type User = {
   id: string;
   username: string;
   fullName: string;
-  role: "EMPLOYEE" | "HEAD" | "DIRECTOR" | "MANAGING_DIRECTOR" | "ACCOUNTANT_ADMIN" | "FINANCE";
+  // role ในตัว หรือ id ของตำแหน่งผู้อนุมัติที่ฝ่ายบัญชีเพิ่มเอง (เช่น "POS_1794...") ดู data/approval.ts
+  role: BuiltInRole | (string & {});
   email?: string;
   password?: string;
+  // แผนกที่สังกัด → อ้างถึง departments ใน data/organization.ts
+  // null = ไม่สังกัดแผนก (ผอ.ฝ่าย / กรรมการผู้จัดการ / ผู้ลงทะเบียนใหม่ที่ยังไม่ได้กำหนด)
+  // ※ optional เพื่อให้ข้อมูลเก่าใน localStorage ยังอ่านได้
+  departmentId?: string | null;
+  // ผอ.ฝ่าย / ผู้บริหารสายงาน ที่ไม่สังกัดแผนก → เก็บแค่ฝ่าย หรือสายงาน
+  // มีแผนกแล้ว ฝ่าย/สายงานให้ดูจากผังของแผนก (ฟิลด์นี้เก็บคู่ไว้เพื่อแสดงผล)
+  divisionId?: string | null;
+  lineOfWorkId?: string | null;
+  bankAccount?: BankAccount | null;
+  // ※ departmentInfo / hierarchy: ของเดิมที่หลายหน้ายังใช้อยู่ เก็บคู่ไปก่อน
+  //   ข้อมูลจริงให้ดูจาก departmentId + data/organization.ts
   departmentInfo: {
     lineOfWork: string;
     department: string;
@@ -13,9 +41,20 @@ export type User = {
     headId: string | null;
     directorId: string | null;
   };
-  status: "ACTIVE";
+  status: "ACTIVE" | "INACTIVE";
 };
 
+// ────────────────────────────────────────────────────────────
+//  ข้อมูลตัวอย่าง: ใส่สังกัดให้ผู้ใช้ทดสอบไว้แล้ว (แก้ต่อได้ที่หน้า "การตั้งค่า")
+//    ฝ่ายบัญชี DV01: แผนกงบประมาณฯ DP01 = phanu (พนักงาน), head_dcm (หัวหน้า)
+//                    แผนกบัญชีทั่วไป DP02 = accountant_admin, accountant_2
+//                    dir_finance = ผอ.ฝ่ายบัญชี (ไม่สังกัดแผนก · divisionId = DV01)
+//    ฝ่ายการเงิน DV05: แผนกการเงินฯ DP03 = finance_pay
+//    ฝ่ายการตลาด DV03: การตลาด DP05 = head_mkt (หัวหน้า), emp_mkt (พนักงาน) · ยังไม่มี ผอ.
+//    md = กรรมการผู้จัดการ (ทั้งบริษัท · ไม่สังกัด)
+//
+//  รหัสผ่านทุกคน = "pass" (ข้อมูลทดสอบเท่านั้น)
+// ────────────────────────────────────────────────────────────
 export const users: User[] = [
   {
     id: "u_01",
@@ -24,30 +63,23 @@ export const users: User[] = [
     email: "riampaat@gmail.com",
     password: "pass",
     role: "EMPLOYEE",
-    departmentInfo: {
-      lineOfWork: "สายงานบัญชีและการเงิน",
-      department: "แผนกงบประมาณและควบคุมต้นทุน",
-    },
-    hierarchy: {
-      headId: "u_02",
-      directorId: "u_03",
-    },
+    lineOfWorkId: "LW01",
+    divisionId: "DV01",
+    departmentId: "DP01",
+    bankAccount: { bank: "กสิกรไทย", number: "xxx-x-x4521-x", name: "ภาณุ ศรีบุญเพ็ง" },
+    departmentInfo: { lineOfWork: "สายงานบัญชีและการเงิน", department: "แผนกงบประมาณและควบคุมต้นทุน" },
     status: "ACTIVE",
   },
   {
     id: "u_02",
     username: "head_dcm",
-    fullName: "หัวหน้าแผนก DCM",
+    fullName: "หัวหน้าแผนกงบประมาณ",
     role: "HEAD",
     password: "pass",
-    departmentInfo: {
-      lineOfWork: "สายงานธุรกิจและปฏิบัติการ",
-      department: "ฝ่ายวาณิชธนกิจ / จัดจำหน่ายตราสารหนี้ (DCM)",
-    },
-    hierarchy: {
-      headId: null,
-      directorId: "u_03",
-    },
+    lineOfWorkId: "LW01",
+    divisionId: "DV01",
+    departmentId: "DP01",
+    departmentInfo: { lineOfWork: "สายงานบัญชีและการเงิน", department: "แผนกงบประมาณและควบคุมต้นทุน" },
     status: "ACTIVE",
   },
   {
@@ -55,14 +87,11 @@ export const users: User[] = [
     username: "dir_finance",
     fullName: "ผอ.ฝ่ายการเงิน",
     role: "DIRECTOR",
-    departmentInfo: {
-      lineOfWork: "สายงานบัญชีและการเงิน",
-      department: "ฝ่ายบัญชีและการเงินองค์กร",
-    },
-    hierarchy: {
-      headId: null,
-      directorId: null,
-    },
+    password: "pass",
+    lineOfWorkId: "LW01",
+    divisionId: "DV01",
+    departmentId: null,
+    departmentInfo: { lineOfWork: "สายงานบัญชีและการเงิน", department: "" },
     status: "ACTIVE",
   },
   {
@@ -71,10 +100,10 @@ export const users: User[] = [
     fullName: "เจ้าหน้าที่บัญชีและแอดมิน",
     password: "pass",
     role: "ACCOUNTANT_ADMIN",
-    departmentInfo: {
-      lineOfWork: "สายงานบัญชีและการเงิน",
-      department: "แผนกบัญชีทั่วไป",
-    },
+    lineOfWorkId: "LW01",
+    divisionId: "DV01",
+    departmentId: "DP02",
+    departmentInfo: { lineOfWork: "สายงานบัญชีและการเงิน", department: "แผนกบัญชีทั่วไป" },
     status: "ACTIVE",
   },
   {
@@ -82,10 +111,60 @@ export const users: User[] = [
     username: "finance_pay",
     fullName: "เจ้าหน้าที่การเงิน (ทำจ่าย)",
     role: "FINANCE",
-    departmentInfo: {
-      lineOfWork: "สายงานบัญชีและการเงิน",
-      department: "แผนกการเงินและทำจ่าย",
-    },
+    password: "pass",
+    lineOfWorkId: "LW01",
+    divisionId: "DV05",
+    departmentId: "DP03",
+    departmentInfo: { lineOfWork: "สายงานบัญชีและการเงิน", department: "แผนกการเงินและทำจ่าย" },
+    status: "ACTIVE",
+  },
+  {
+    id: "u_06",
+    username: "md",
+    fullName: "กรรมการผู้จัดการ",
+    role: "MANAGING_DIRECTOR",
+    password: "pass",
+    lineOfWorkId: null,
+    divisionId: null,
+    departmentId: null,
+    departmentInfo: { lineOfWork: "", department: "" },
+    status: "ACTIVE",
+  },
+  {
+    id: "u_07",
+    username: "accountant_2",
+    fullName: "เจ้าหน้าที่บัญชี 2",
+    role: "ACCOUNTANT_ADMIN",
+    password: "pass",
+    lineOfWorkId: "LW01",
+    divisionId: "DV01",
+    departmentId: "DP02",
+    departmentInfo: { lineOfWork: "สายงานบัญชีและการเงิน", department: "แผนกบัญชีทั่วไป" },
+    status: "ACTIVE",
+  },
+  {
+    id: "u_08",
+    username: "head_mkt",
+    fullName: "หัวหน้าแผนกการตลาด",
+    role: "HEAD",
+    password: "pass",
+    lineOfWorkId: "LW02",
+    divisionId: "DV03",
+    departmentId: "DP05",
+    departmentInfo: { lineOfWork: "สายงานธุรกิจและปฏิบัติการ", department: "การตลาด" },
+    status: "ACTIVE",
+  },
+  {
+    id: "u_09",
+    username: "emp_mkt",
+    fullName: "พนักงานการตลาด",
+    role: "EMPLOYEE",
+    password: "pass",
+    lineOfWorkId: "LW02",
+    divisionId: "DV03",
+    departmentId: "DP05",
+    bankAccount: { bank: "ไทยพาณิชย์", number: "xxx-x-x7788-x", name: "พนักงานการตลาด" },
+    departmentInfo: { lineOfWork: "สายงานธุรกิจและปฏิบัติการ", department: "การตลาด" },
     status: "ACTIVE",
   },
 ];
@@ -110,28 +189,38 @@ const isUser = (value: unknown): value is User => {
   }
 
   const department = departmentInfo as Record<string, unknown>;
-  const roles = [
-    "EMPLOYEE",
-    "HEAD",
-    "DIRECTOR",
-    "MANAGING_DIRECTOR",
-    "ACCOUNTANT_ADMIN",
-    "FINANCE",
-  ];
 
   return (
     typeof candidate.id === "string" &&
     typeof candidate.username === "string" &&
     typeof candidate.fullName === "string" &&
+    // role ในตัว หรือตำแหน่งที่เพิ่มเอง → ขอแค่เป็นข้อความไม่ว่าง
     typeof candidate.role === "string" &&
-    roles.includes(candidate.role) &&
+    candidate.role.length > 0 &&
     (candidate.email === undefined || typeof candidate.email === "string") &&
     (candidate.password === undefined ||
       typeof candidate.password === "string") &&
     typeof department.lineOfWork === "string" &&
     typeof department.department === "string" &&
-    candidate.status === "ACTIVE"
+    (candidate.status === "ACTIVE" || candidate.status === "INACTIVE")
   );
+};
+
+// ข้อมูลเก่าใน localStorage (ก่อนมี departmentId) → เติมฟิลด์ที่ขาดจากข้อมูลตัวอย่าง
+// และเพิ่ม user ตัวอย่างใหม่ที่ยังไม่มีในเครื่อง · ไม่ทับค่าที่มีอยู่แล้ว
+const mergeWithSeed = (stored: User[]): User[] => {
+  const merged = stored.map((user) => {
+    const seed = users.find((s) => s.id === user.id);
+    if (!seed) return user;
+    return {
+      ...user,
+      departmentId: user.departmentId === undefined ? seed.departmentId : user.departmentId,
+      bankAccount: user.bankAccount === undefined ? seed.bankAccount : user.bankAccount,
+      password: user.password ?? seed.password,
+    };
+  });
+  const missing = users.filter((s) => !stored.some((u) => u.id === s.id));
+  return [...merged, ...missing.map((user) => ({ ...user }))];
 };
 
 export const getUsers = (): User[] => {
@@ -148,11 +237,21 @@ export const getUsers = (): User[] => {
   if (!Array.isArray(parsedUsers) || !parsedUsers.every(isUser)) {
     throw new Error("ข้อมูลผู้ใช้ในเครื่องไม่ถูกต้อง กรุณาตรวจสอบ localStorage");
   }
-  return parsedUsers;
+
+  const merged = mergeWithSeed(parsedUsers);
+  if (JSON.stringify(merged) !== storedUsers) {
+    localStorage.setItem(USERS_KEY, JSON.stringify(merged));
+  }
+  return merged;
 };
 
 const saveUsers = (nextUsers: User[]) => {
   localStorage.setItem(USERS_KEY, JSON.stringify(nextUsers));
+};
+
+// แก้ข้อมูลผู้ใช้ 1 คน (เช่น เปลี่ยน role เป็นตำแหน่งผู้อนุมัติที่เพิ่มเอง) · ไม่แตะรหัสผ่าน
+export const updateUser = (id: string, patch: Partial<Omit<User, "id" | "password">>) => {
+  saveUsers(getUsers().map((u) => (u.id === id ? { ...u, ...patch } : u)));
 };
 
 const withoutPassword = (user: User): Credential => {
@@ -241,6 +340,8 @@ export const register = (input: RegistrationInput): Credential => {
     email,
     password,
     role: "EMPLOYEE",
+    departmentId: null, // ผู้ลงทะเบียนใหม่: แอดมินกำหนดแผนกทีหลัง
+    bankAccount: null,
     departmentInfo: {
       lineOfWork: "",
       department: "",

@@ -2,8 +2,17 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { REQUESTS_KEY, loadRequests as loadSaved } from "@/data/request";
-import { addRequestsToBudget } from "@/data/budget";
+import {
+  REQUESTS_KEY,
+  getActedRequests,
+  historyType,
+  loadRequests,
+  type SavedRequest,
+} from "@/data/request";
+import { getDepartmentBudget } from "@/data/budget";
+import { canApproveStep } from "@/data/approval";
+import type { Credential } from "@/data/credential";
+import { getCurrentUser } from "@/utils/login";
 import {
   ArrowRight,
   Bell1,
@@ -15,45 +24,15 @@ import {
 } from "@tailgrids/icons";
 
 /* ------------------------------------------------------------------
-   ชนิดข้อมูล (ตรงกับที่หน้า request/new บันทึกไว้)
+   ชนิดข้อมูล: ใช้ของกลางใน data/ (คำขอ = SavedRequest · ผู้ใช้ = Credential)
 ------------------------------------------------------------------- */
-interface ApprovalStep {
-  role: string; // "HEAD" | "DIRECTOR" | "MANAGING_DIRECTOR" | "ACCOUNTANT_ADMIN" | "FINANCE"
-  label: string;
-  status: string; // "รอ" | "อนุมัติ" | "ตีกลับ"
-  by: string | null;
-  at: string | null;
-  note: string;
-}
-
-interface ExpenseRequest {
-  id: string; // "REQ-xxxxxxxx"
-  createdAt: string;
-  status: string; // "ร่าง" | "รออนุมัติ" | "อนุมัติแล้ว" | "ตีกลับ"
-  title: string;
-  total: number;
-  requester: {
-    id: string | number;
-    fullName: string;
-    headId: string | number | null;
-    directorId: string | number | null;
-  } | null;
-  approvalSteps: ApprovalStep[];
-  currentStep: number;
-}
-
-// คนที่ล็อกอินอยู่ (หน้าล็อกอินบันทึกไว้ที่ localStorage "current_user")
-interface CurrentUser {
-  id: string | number;
-  fullName: string;
-  role: string;
-  departmentInfo?: { department?: string }; // ใช้เลือกงบของฝ่ายตัวเอง
-}
+type ExpenseRequest = SavedRequest;
+type CurrentUser = Credential;
 
 const APPROVED_PATH = "/home-department-head/approve"; // ← path หน้าตรวจสอบ ต้องตรงกับชื่อโฟลเดอร์
-const ROW_H = 93; // ความสูงแถว (px) ต้องตรงกับ h-[93px] ใน ROW_GRID
-const RECENT_LIMIT = 5; // แสดง "อนุมัติล่าสุด" สูงสุดกี่รายการ
-const RECENT_MIN_ROWS = 3; // เว้นพื้นที่อย่างน้อยกี่แถว (ว่าง/น้อยกว่า 3 ก็ไม่ยุบ)
+// แสดงสูงสุดกี่รายการ ทั้ง "รอคุณตรวจสอบ" และ "อนุมัติล่าสุด"
+// ความสูงการ์ดเป็น auto ตามจำนวนรายการ (1 รายการ = เตี้ย · มากสุด 5) เริ่มจากบนสุดเสมอ
+const LIST_LIMIT = 5;
 
 // ความกว้างคอลัมน์ของแถวรายการ ใช้ร่วมกันทั้ง "รอคุณตรวจสอบ" และ "อนุมัติล่าสุด"
 // (ชื่อ | ป้ายรอ | ยอดเงิน | ปุ่ม/สถานะ) ถ้าจะปรับความกว้าง แก้ที่นี่ที่เดียว
@@ -61,48 +40,20 @@ const ROW_GRID =
   "grid h-[93px] grid-cols-[260px_90px_110px_1fr] items-center gap-3";
 
 /* ------------------------------------------------------------------
-   อ่านข้อมูลจาก localStorage
+   อ่านข้อมูลจาก localStorage (ผ่านฟังก์ชันกลางใน data/ และ utils/login)
 ------------------------------------------------------------------- */
-function loadRequests(): ExpenseRequest[] {
+// ข้ามข้อมูลรูปแบบเก่าที่ไม่มีเส้นทางอนุมัติ
+function readRequests(): ExpenseRequest[] {
   try {
-    const raw = localStorage.getItem(REQUESTS_KEY);
-    if (!raw) return [];
-    const data = JSON.parse(raw);
-    if (!Array.isArray(data)) return [];
-    // ข้ามข้อมูลรูปแบบเก่าที่ไม่มีเส้นทางอนุมัติ
-    return data.filter((r) => r && Array.isArray(r.approvalSteps));
+    return loadRequests().filter((r) => r && Array.isArray(r.approvalSteps));
   } catch {
     return [];
   }
 }
 
-function loadUser(): CurrentUser | null {
-  try {
-    const raw = localStorage.getItem("current_user");
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
-// งบรายปี: รวมวงเงิน (limit) และยอดที่ใช้ไป (used) ของทุกหมวด
-// - มีโครงการของฝ่ายผู้ล็อกอิน → รวมเฉพาะฝ่ายนั้น
-// - ไม่มี (หรือยังไม่ได้ล็อกอิน) → รวมทุกฝ่าย
-// ※ used นับรวมคำขอที่ส่งแล้ว ตามที่ addRequestsToBudget คิดไว้
-function loadBudget(user: CurrentUser | null) {
-  const projects = addRequestsToBudget(loadSaved());
-  const dept = user?.departmentInfo?.department;
-  const own = dept ? projects.filter((p) => p.dept === dept) : [];
-  const list = own.length > 0 ? own : projects;
-
-  let limit = 0;
-  let used = 0;
-  for (const p of list) {
-    for (const c of p.categories) {
-      limit += c.limit;
-      used += c.used;
-    }
-  }
+// งบของแผนกตัวเองปีนี้ (งบที่บัญชีแบ่งให้แผนก · data/budget.ts)
+function readBudget(user: CurrentUser | null) {
+  const { limit, used } = getDepartmentBudget(user?.departmentId, readRequests(), new Date().getFullYear());
   return { limit, used };
 }
 
@@ -141,21 +92,17 @@ function waitLabel(iso: string) {
   return `รอ ${Math.floor(hours / 24)} วัน`;
 }
 
-// คำขอนี้ "ถึงคิวของคุณ" หรือไม่
-// - ขั้นปัจจุบันต้องยังเป็น "รอ" และ role ตรงกับของคุณ
-// - หัวหน้า/ผอ.ฝ่าย ต้องเป็นผู้บังคับบัญชาของผู้ขอจริง (ถ้าข้อมูลมี headId / directorId)
-function isMyTurn(r: ExpenseRequest, me: CurrentUser | null) {
-  if (!me || r.status !== "รออนุมัติ") return false;
-  const step = r.approvalSteps[r.currentStep];
-  if (!step || step.status !== "รอ" || step.role !== me.role) return false;
-
-  const owner =
-    step.role === "HEAD"
-      ? r.requester?.headId
-      : step.role === "DIRECTOR"
-        ? r.requester?.directorId
-        : null;
-  return !owner || owner === me.id;
+// เวลาที่คำขอ "ถึงคิวรอตรวจ" ล่าสุด = ส่งคำขอ / ส่งใหม่ ครั้งล่าสุดในประวัติ
+// ถูกตีกลับแล้วส่งใหม่ → เวลานี้เปลี่ยน ป้ายรอจึงนับใหม่จาก 0
+// (คำขอเก่าที่ไม่มีประวัติ ใช้ createdAt)
+// ※ ไม่ใช้ updatedAt เพราะ updatedAt เปลี่ยนทุกครั้งที่มีคนกดอนุมัติ
+function sentAt(r: ExpenseRequest) {
+  let latest = r.createdAt;
+  for (const h of r.history ?? []) {
+    const t = historyType(h);
+    if ((t === "ส่งคำขอ" || t === "ส่งใหม่") && h.at > latest) latest = h.at;
+  }
+  return latest;
 }
 
 // ป้ายสถานะของคำขอที่คุณอนุมัติไปแล้ว
@@ -191,10 +138,10 @@ export default function DH() {
   // โหลดใน useEffect เท่านั้น (ฝั่งเซิร์ฟเวอร์ไม่มี localStorage)
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect -- อ่านได้หลังเปิดหน้าเท่านั้น */
-    const user = loadUser();
-    setRequests(loadRequests());
+    const user = getCurrentUser();
+    setRequests(readRequests());
     setMe(user);
-    setBudget(loadBudget(user));
+    setBudget(readBudget(user));
     setCurrentYear(new Date().getFullYear());
     setToday(
       new Date().toLocaleDateString("th-TH", {
@@ -209,13 +156,13 @@ export default function DH() {
     // อัปเดตอัตโนมัติถ้าแท็บอื่นแก้ข้อมูล
     const onStorage = (e: StorageEvent) => {
       if (e.key === REQUESTS_KEY) {
-        setRequests(loadRequests());
-        setBudget(loadBudget(loadUser()));
+        setRequests(readRequests());
+        setBudget(readBudget(getCurrentUser()));
       }
       if (e.key === "current_user") {
-        const u = loadUser();
+        const u = getCurrentUser();
         setMe(u);
-        setBudget(loadBudget(u));
+        setBudget(readBudget(u));
       }
     };
     window.addEventListener("storage", onStorage);
@@ -223,24 +170,20 @@ export default function DH() {
   }, []);
 
   // รอคุณตรวจสอบ: คำขอที่ขั้นปัจจุบันเป็นของคุณ
-  const pending = requests.filter((r) => isMyTurn(r, me));
+  const pending = requests.filter((r) => canApproveStep(r, me));
 
   // คำขอที่คุณอนุมัติไปแล้ว (ล่าสุดอยู่บนสุด) พร้อมเวลาที่คุณอนุมัติ
   // ※ ใช้เวลาของขั้นที่คุณอนุมัติเอง ไม่ใช่สถานะรวมของคำขอ
   //   เพราะหัวหน้าอนุมัติแล้ว คำขอยังต้องไปต่อที่ผอ./บัญชี/การเงิน
+  //   (getActedRequests เทียบด้วย id ก่อน · คำขอเก่าไม่มี id → เทียบชื่อ)
   const mine = !me
     ? []
-    : requests
-        .flatMap((r) => {
-          const step = [...r.approvalSteps]
-            .reverse()
-            .find((s) => s.status === "อนุมัติ" && s.by === me.fullName);
-          return step && step.at ? [{ r, at: step.at }] : [];
-        })
-        .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+    : getActedRequests(requests, me).flatMap(({ request, step }) =>
+        step.status === "อนุมัติ" && step.at ? [{ r: request, at: step.at }] : [],
+      );
 
   // อนุมัติล่าสุด: แสดงสูงสุด 5 รายการ (ล่าสุดอยู่บนสุด)
-  const recentApproved = mine.slice(0, RECENT_LIMIT);
+  const recentApproved = mine.slice(0, LIST_LIMIT);
 
   // อนุมัติแล้วปีนี้: รวมยอดของคำขอที่คุณอนุมัติในปีปัจจุบัน
   const approvedTotal = mine
@@ -350,7 +293,7 @@ export default function DH() {
 
         {/* รอคุณตรวจสอบ */}
         <div className="grid grid-cols-4 gap-5">
-          <div className="bg-white relative flex justify-between p-6 flex-col col-span-4 rounded-xl border border-[#E2E8F0] shadow-2xl">
+          <div className="bg-white relative flex self-start p-6 flex-col col-span-2 rounded-xl border border-[#E2E8F0] shadow-2xl">
             <div className="items-center flex justify-between mb-1">
               <div>
                 <span className="font-bold text-md">รอคุณตรวจสอบ</span>
@@ -365,16 +308,21 @@ export default function DH() {
               </div>
             </div>
 
-            {/* รายการรอตรวจสอบ: grid คอลัมน์คงที่ / พื้นที่สูงเท่า 3 แถวเสมอ */}
-            <div className="min-h-[279px]">
+            {/* รายการรอตรวจสอบ: grid คอลัมน์คงที่ / สูงตามจำนวนรายการ มากสุด LIST_LIMIT */}
+            <div>
               {pending.length === 0 ? (
-                <div className="flex h-[279px] flex-col items-center justify-center gap-2 text-gray-400">
+                <div className="flex flex-col items-center justify-center gap-2 py-8 text-gray-400">
                   <CheckCircle1 />
                   <span className="text-sm">ไม่มีคำขอ</span>
                 </div>
               ) : (
-                pending.map((r) => {
+                pending.slice(0, LIST_LIMIT).map((r) => {
                   const name = r.requester?.fullName ?? "-";
+                  const sent = sentAt(r); // เวลาส่ง/ส่งใหม่ล่าสุด
+                  // เคยถูกตีกลับแล้วส่งใหม่ = มีประวัติ "ส่งใหม่"
+                  // ※ ห้ามเทียบ sent กับ createdAt: บันทึกร่างไว้ก่อนแล้วค่อยส่ง createdAt = เวลาบันทึกร่าง
+                  //   จะไม่เท่ากับเวลาส่งเสมอ → ติดป้าย "ส่งใหม่" ผิด
+                  const resent = (r.history ?? []).some((h) => historyType(h) === "ส่งใหม่");
                   return (
                     <div key={r.id} className={ROW_GRID}>
                       {/* คอลัมน์ 1: ผู้ขอ + ชื่อคำขอ */}
@@ -385,15 +333,16 @@ export default function DH() {
                         <div className="flex min-w-0 flex-col ml-3">
                           <div className="truncate font-bold">{r.title}</div>
                           <div className="truncate text-xs text-gray-400">
-                            {name} {timeAgo(r.createdAt)}
+                            {name} {resent ? "ส่งใหม่" : ""}
+                            {timeAgo(sent)}
                           </div>
                         </div>
                       </div>
 
-                      {/* คอลัมน์ 2: เวลารอ (รอสักครู่ / X นาที / X ชม. / X วัน) */}
+                      {/* คอลัมน์ 2: เวลารอ (นับใหม่ทุกครั้งที่ส่งใหม่) */}
                       <div className="flex justify-center">
                         <span className="whitespace-nowrap bg-amber-50 text-amber-600 text-xs px-2.5 py-1 rounded-full border border-amber-200">
-                          {waitLabel(r.createdAt)}
+                          {waitLabel(sent)}
                         </span>
                       </div>
 
@@ -444,14 +393,11 @@ export default function DH() {
               </div>
             </div>
 
-            {/* อนุมัติล่าสุด: แสดงสูงสุด 5 รายการ ล่าสุดอยู่บนสุด / ใช้ grid เดียวกับด้านบน
-                ว่างหรือน้อยกว่า 3 รายการ ก็เว้นพื้นที่ไว้ 3 แถว */}
-            <div style={{ minHeight: RECENT_MIN_ROWS * ROW_H }}>
+            {/* อนุมัติล่าสุด: แสดงสูงสุด LIST_LIMIT รายการ ล่าสุดอยู่บนสุด / ใช้ grid เดียวกับด้านบน
+                สูงตามจำนวนรายการ */}
+            <div>
               {recentApproved.length === 0 ? (
-                <div
-                  className="flex flex-col items-center justify-center gap-2 text-gray-400"
-                  style={{ height: RECENT_MIN_ROWS * ROW_H }}
-                >
+                <div className="flex flex-col items-center justify-center gap-2 py-8 text-gray-400">
                   <CheckCircle1 />
                   <span className="text-sm">ยังไม่มีรายการที่อนุมัติ</span>
                 </div>
@@ -493,6 +439,128 @@ export default function DH() {
                   );
                 })
               )}
+            </div>
+          </div>
+
+          {/* คำขอของฉัน (ข้อมูลตัวอย่าง) */}
+          <div className="col-span-2 self-start flex flex-col justify-between rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl">
+            <div>
+              <div className="mb-2 flex items-center justify-between">
+                <h2 className="text-base font-bold text-gray-800">คำขอของฉัน</h2>
+                <Link href="/my-request" className="flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:underline">
+                  ดูทั้งหมด →
+                </Link>
+              </div>
+
+              <div className="divide-y divide-gray-100">
+                {/* รายการที่ 1: รออนุมัติ */}
+                <div className="space-y-4 py-5 pt-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-sm font-bold text-gray-800">ซื้อคอมพิวเตอร์ให้ทีม 2 เครื่อง</div>
+                      <div className="mt-0.5 text-xs text-gray-400">
+                        ส่งเมื่อ 14 ต.ค. <span className="font-bold text-gray-700">฿56,000</span>
+                      </div>
+                    </div>
+                    <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-600">รออนุมัติ</span>
+                  </div>
+                  <div className="relative px-2 py-2">
+                    <div className="absolute left-5 right-5 top-5 z-0 h-1 -translate-y-1/2 bg-gray-200"></div>
+                    <div className="absolute left-5 right-[50%] top-5 z-0 h-1 -translate-y-1/2 bg-emerald-500"></div>
+                    <div className="relative z-10 flex items-center justify-between text-xs">
+                      <div className="flex flex-col items-center gap-1">
+                        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500 font-bold text-white">✓</div>
+                        <span className="font-medium text-gray-600">ส่งคำขอ</span>
+                      </div>
+                      <div className="flex flex-col items-center gap-1">
+                        <div className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-dashed border-emerald-500 bg-white"></div>
+                        <span className="font-bold text-emerald-700">หัวหน้าสายงาน</span>
+                      </div>
+                      <div className="flex flex-col items-center gap-1">
+                        <div className="flex h-7 w-7 items-center justify-center rounded-full border border-gray-300 bg-white"></div>
+                        <span className="text-gray-400">ฝ่ายบัญชี</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* รายการที่ 2: อนุมัติแล้ว */}
+                <div className="space-y-4 py-5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-sm font-bold text-gray-800">ค่าจัดงานเปิดตัวสินค้า</div>
+                      <div className="mt-0.5 text-xs text-gray-400">
+                        ส่งเมื่อ 12 ต.ค. <span className="font-bold text-gray-700">฿48,000</span>
+                      </div>
+                    </div>
+                    <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-600">อนุมัติแล้ว</span>
+                  </div>
+                  <div className="relative px-2 py-2">
+                    <div className="absolute left-5 right-5 top-5 z-0 h-1 -translate-y-1/2 bg-emerald-500"></div>
+                    <div className="relative z-10 flex items-center justify-between text-xs">
+                      <div className="flex flex-col items-center gap-1">
+                        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500 font-bold text-white">✓</div>
+                        <span className="font-medium text-gray-600">ส่งคำขอ</span>
+                      </div>
+                      <div className="flex flex-col items-center gap-1">
+                        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500 font-bold text-white">✓</div>
+                        <span className="font-bold text-emerald-700">หัวหน้าสายงาน</span>
+                      </div>
+                      <div className="flex flex-col items-center gap-1">
+                        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500 font-bold text-white">✓</div>
+                        <span className="font-medium text-emerald-700">ฝ่ายบัญชี</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* รายการที่ 3: ถูกตีกลับ */}
+                <div className="space-y-4 py-5 pb-0">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-sm font-bold text-gray-800">ค่ารับรองลูกค้าองค์กร</div>
+                      <div className="mt-0.5 text-xs text-gray-400">
+                        ส่งเมื่อ 28 ก.ย. <span className="font-bold text-gray-700">฿15,600</span>
+                      </div>
+                    </div>
+                    <span className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-medium text-rose-600">ถูกตีกลับ</span>
+                  </div>
+                  <div className="relative px-2 py-2">
+                    <div className="absolute left-5 right-5 top-5 z-0 h-1 -translate-y-1/2 bg-gray-200"></div>
+                    <div className="absolute left-5 right-[50%] top-5 z-0 h-1 -translate-y-1/2 bg-emerald-500"></div>
+                    <div className="relative z-10 flex items-center justify-between text-xs">
+                      <div className="flex flex-col items-center gap-1">
+                        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500 font-bold text-white">✓</div>
+                        <span className="font-medium text-gray-600">ส่งคำขอ</span>
+                      </div>
+                      <div className="flex flex-col items-center gap-1">
+                        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-rose-500 font-bold text-white">✕</div>
+                        <span className="font-bold text-rose-600">หัวหน้าสายงาน</span>
+                      </div>
+                      <div className="flex flex-col items-center gap-1">
+                        <div className="flex h-7 w-7 items-center justify-center rounded-full border border-gray-300 bg-white"></div>
+                        <span className="text-gray-400">ฝ่ายบัญชี</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between rounded-xl border border-rose-200/60 bg-rose-50/60 p-3.5 text-xs">
+                    <div className="flex items-center gap-2.5 text-rose-700">
+                      <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-rose-100 text-[10px] font-bold">!</div>
+                      <span>
+                        <strong>เหตุผล:</strong> แนบใบเสร็จไม่ครบ ขาดใบเสร็จค่าอาหาร...
+                      </span>
+                    </div>
+                    <Link href="/my-request" className="shrink-0 font-semibold text-rose-700 hover:underline">
+                      ดูทั้งหมด →
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 flex items-center gap-2.5 rounded-xl border border-gray-200/60 bg-gray-50 p-3.5 text-xs text-gray-500">
+              <span>✓</span>
+              <span>คำขอของคุณจะถูกส่งให้หัวหน้าสายงานอนุมัติ</span>
             </div>
           </div>
         </div>

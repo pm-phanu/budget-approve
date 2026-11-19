@@ -2,68 +2,40 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { REQUESTS_KEY } from "@/data/request";
+import { REQUESTS_KEY, loadRequests, type SavedRequest } from "@/data/request";
+import type { Credential } from "@/data/credential";
+import { getCurrentUser } from "@/utils/login";
 import { ArrowRight, Bell1, Plus, Search1 } from "@tailgrids/icons";
 
 /* ------------------------------------------------------------------
    ตั้งค่า
 ------------------------------------------------------------------- */
 const NEW_REQUEST_PATH = "/request"; // หน้าสร้างคำขอ 
-const DETAIL_PATH = "/home-department-head/approve"; // ← หน้าดูรายละเอียดคำขอ 
+const DETAIL_PATH = "/my-request/detail"; // หน้าดูรายละเอียดคำขอของตัวเอง (ทุก role · ไม่ใช่หน้าอนุมัติ)
 
 /* ------------------------------------------------------------------
-   ชนิดข้อมูล
+   ชนิดข้อมูล: ใช้ของกลางใน data/ (คำขอ = SavedRequest · ผู้ใช้ = Credential)
 ------------------------------------------------------------------- */
-interface ApprovalStep {
-  role: string; // "HEAD" | "DIRECTOR" | "MANAGING_DIRECTOR" | "ACCOUNTANT_ADMIN" | "FINANCE"
-  label: string;
-  status: string; // "รอ" | "อนุมัติ" | "ตีกลับ"
-  by: string | null;
-  at: string | null;
-  note?: string;
-}
-interface ExpenseRequest {
-  id: string;
-  createdAt: string;
-  status: string; // "ร่าง" | "รออนุมัติ" | "อนุมัติแล้ว" | "ตีกลับ"
-  title: string;
-  total: number;
-  requester: { id: string | number; fullName: string } | null;
-  approvalSteps: ApprovalStep[];
-  currentStep: number;
+// + ผลตรวจที่หน้าอนุมัติบันทึกเพิ่ม (actOnRequest → extra)
+type ExpenseRequest = SavedRequest & {
   reviewComment?: string;
   reject?: { status: string; comment: string };
-}
-interface CurrentUser {
-  id: string | number;
-  fullName: string;
-  role: string;
-}
+};
+type CurrentUser = Credential;
 
 type Group = "progress" | "done" | "rejected";
 type Filter = "all" | Group;
 type StepState = "done" | "rejected" | "current" | "pending";
 
 /* ------------------------------------------------------------------
-   อ่านข้อมูล
+   อ่านข้อมูลจาก localStorage (ผ่านฟังก์ชันกลางใน data/ และ utils/login)
 ------------------------------------------------------------------- */
-function loadRequests(): ExpenseRequest[] {
+// ข้ามข้อมูลรูปแบบเก่าที่ไม่มีเส้นทางอนุมัติ
+function readRequests(): ExpenseRequest[] {
   try {
-    const raw = localStorage.getItem(REQUESTS_KEY);
-    const data = raw ? JSON.parse(raw) : [];
-    if (!Array.isArray(data)) return [];
-    return data.filter((r) => r && Array.isArray(r.approvalSteps));
+    return (loadRequests() as ExpenseRequest[]).filter((r) => r && Array.isArray(r.approvalSteps));
   } catch {
     return [];
-  }
-}
-
-function loadUser(): CurrentUser | null {
-  try {
-    const raw = localStorage.getItem("current_user");
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
   }
 }
 
@@ -88,7 +60,7 @@ function groupOf(r: ExpenseRequest): Group {
   if (r.status === "ตีกลับ" || r.approvalSteps.some((s) => s.status === "ตีกลับ")) {
     return "rejected";
   }
-  if (r.status === "อนุมัติแล้ว") return "done";
+  if (r.status === "อนุมัติแล้ว" || r.status === "จ่ายแล้ว") return "done";
   return "progress";
 }
 
@@ -212,13 +184,13 @@ export default function MyRequest() {
   // โหลดใน useEffect เท่านั้น (ฝั่งเซิร์ฟเวอร์ไม่มี localStorage)
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect -- อ่านได้หลังเปิดหน้าเท่านั้น */
-    setRequests(loadRequests());
-    setMe(loadUser());
+    setRequests(readRequests());
+    setMe(getCurrentUser());
     /* eslint-enable react-hooks/set-state-in-effect */
 
     const onStorage = (e: StorageEvent) => {
-      if (e.key === REQUESTS_KEY) setRequests(loadRequests());
-      if (e.key === "current_user") setMe(loadUser());
+      if (e.key === REQUESTS_KEY) setRequests(readRequests());
+      if (e.key === "current_user") setMe(getCurrentUser());
     };
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
@@ -267,15 +239,15 @@ export default function MyRequest() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#F1F5F9] p-6 text-slate-800">
-      <div className="mx-auto max-w-7xl">
+    <div className="text-slate-800">
+      <div>
         {/* ===== หัวหน้า ===== */}
-        <header className="flex flex-wrap items-center justify-between gap-4">
-          <h1 className="text-3xl font-bold text-slate-900">คำขอของฉัน</h1>
+        <header className="mb-9 flex flex-wrap items-center justify-between gap-4">
+          <h1 className="text-[32px] font-bold text-[#111]">คำขอของฉัน</h1>
         </header>
 
         {/* ===== การ์ดสรุป 4 ใบ ===== */}
-        <div className="mt-5 grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-5 lg:grid-cols-4">
           {[
             { label: "ทั้งหมด", value: counts.all, color: "text-slate-900" },
             { label: "กำลังดำเนินการ", value: counts.progress, color: "text-orange-500" },
@@ -284,7 +256,7 @@ export default function MyRequest() {
           ].map((c) => (
             <div
               key={c.label}
-              className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm"
+              className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl"
             >
               <div className="text-sm text-gray-500">{c.label}</div>
               <div className={`mt-1 text-3xl font-bold ${c.color}`}>
@@ -295,7 +267,7 @@ export default function MyRequest() {
         </div>
 
         {/* ===== รายการคำขอ ===== */}
-        <section className="mt-5 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+        <section className="mt-9 rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl">
           {/* แท็บกรอง */}
           <div className="mb-2 flex flex-wrap gap-2">
             {tabs.map((t) => (

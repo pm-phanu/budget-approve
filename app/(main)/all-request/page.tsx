@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { REQUESTS_KEY, loadRequests as loadSaved } from "@/data/request";
-import { addRequestsToBudget } from "@/data/budget";
-import { getHomePath } from "@/utils/login";
+import { REQUESTS_KEY, loadRequests, type SavedRequest } from "@/data/request";
+import { getDepartmentBudget } from "@/data/budget";
+import { canApproveStep } from "@/data/approval";
+import { getCurrentUser, getHomePath } from "@/utils/login";
 import type { Credential } from "@/data/credential";
 import {
   ArrowRight,
@@ -34,76 +35,26 @@ const ROW_GRID =
   "grid min-h-[72px] grid-cols-[2.7fr_2fr_2.5fr_1.5fr_1.3fr] items-center";
 
 /* ------------------------------------------------------------------
-   ชนิดข้อมูล
+   ชนิดข้อมูล: ใช้ของกลางใน data/ (คำขอ = SavedRequest · ผู้ใช้ = Credential)
 ------------------------------------------------------------------- */
-interface ApprovalStep {
-  role: string;
-  label: string;
-  status: string; // "รอ" | "อนุมัติ" | "ตีกลับ"
-  by: string | null;
-  at: string | null;
-}
-interface ExpenseRequest {
-  id: string;
-  createdAt: string;
-  status: string; // "ร่าง" | "รออนุมัติ" | "อนุมัติแล้ว" | "ตีกลับ"
-  title: string;
-  total: number;
-  items?: { categoryName?: string }[];
-  requester: {
-    id: string | number;
-    fullName: string;
-    headId: string | number | null;
-    directorId: string | number | null;
-  } | null;
-  approvalSteps: ApprovalStep[];
-  currentStep: number;
-}
-interface CurrentUser {
-  id: string | number;
-  fullName: string;
-  role: string;
-  departmentInfo?: { department?: string };
-}
+type ExpenseRequest = SavedRequest;
+type CurrentUser = Credential;
 
 /* ------------------------------------------------------------------
-   อ่านข้อมูล
+   อ่านข้อมูลจาก localStorage (ผ่านฟังก์ชันกลางใน data/ และ utils/login)
 ------------------------------------------------------------------- */
-function loadRequests(): ExpenseRequest[] {
+// ข้ามข้อมูลรูปแบบเก่าที่ไม่มีเส้นทางอนุมัติ
+function readRequests(): ExpenseRequest[] {
   try {
-    const raw = localStorage.getItem(REQUESTS_KEY);
-    const data = raw ? JSON.parse(raw) : [];
-    if (!Array.isArray(data)) return [];
-    return data.filter((r) => r && Array.isArray(r.approvalSteps));
+    return loadRequests().filter((r) => r && Array.isArray(r.approvalSteps));
   } catch {
     return [];
   }
 }
 
-function loadUser(): CurrentUser | null {
-  try {
-    const raw = localStorage.getItem("current_user");
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
-// งบรายปี: รวมวงเงินและยอดที่ใช้ไปของทุกหมวด (ฝ่ายของผู้ล็อกอิน ถ้าไม่มีรวมทุกฝ่าย)
-function loadBudget(user: CurrentUser | null) {
-  const projects = addRequestsToBudget(loadSaved());
-  const dept = user?.departmentInfo?.department;
-  const own = dept ? projects.filter((p) => p.dept === dept) : [];
-  const list = own.length > 0 ? own : projects;
-
-  let limit = 0;
-  let used = 0;
-  for (const p of list) {
-    for (const c of p.categories) {
-      limit += c.limit;
-      used += c.used;
-    }
-  }
+// งบของแผนกตัวเองปีนี้ (งบที่บัญชีแบ่งให้แผนก · data/budget.ts)
+function readBudget(user: CurrentUser | null) {
+  const { limit, used } = getDepartmentBudget(user?.departmentId, readRequests(), new Date().getFullYear());
   return { limit, used };
 }
 
@@ -137,20 +88,6 @@ function waitLabel(iso: string) {
   return `รอ ${Math.floor(hours / 24)} วัน`;
 }
 
-// คำขอนี้ "ถึงคิวของคุณ" หรือไม่ (เหมือนหน้า Home)
-function isMyTurn(r: ExpenseRequest, me: CurrentUser | null) {
-  if (!me || r.status !== "รออนุมัติ") return false;
-  const step = r.approvalSteps[r.currentStep];
-  if (!step || step.status !== "รอ" || step.role !== me.role) return false;
-
-  const owner =
-    step.role === "HEAD"
-      ? r.requester?.headId
-      : step.role === "DIRECTOR"
-        ? r.requester?.directorId
-        : null;
-  return !owner || owner === me.id;
-}
 
 // หมวดค่าใช้จ่ายของคำขอ: แสดงชื่อหมวดทั้งหมด คั่นด้วย " + "
 // เช่น "ค่าที่พัก + ค่าเดินทาง" (ชื่อหมวดซ้ำกันแสดงครั้งเดียว)
@@ -185,22 +122,22 @@ export default function AllRequestDH() {
 
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect -- อ่านได้หลังเปิดหน้าเท่านั้น */
-    const user = loadUser();
-    setRequests(loadRequests());
+    const user = getCurrentUser();
+    setRequests(readRequests());
     setMe(user);
-    setBudget(loadBudget(user));
+    setBudget(readBudget(user));
     setCurrentYear(new Date().getFullYear());
     /* eslint-enable react-hooks/set-state-in-effect */
 
     const onStorage = (e: StorageEvent) => {
       if (e.key === REQUESTS_KEY) {
-        setRequests(loadRequests());
-        setBudget(loadBudget(loadUser()));
+        setRequests(readRequests());
+        setBudget(readBudget(getCurrentUser()));
       }
       if (e.key === "current_user") {
-        const u = loadUser();
+        const u = getCurrentUser();
         setMe(u);
-        setBudget(loadBudget(u));
+        setBudget(readBudget(u));
       }
     };
     window.addEventListener("storage", onStorage);
@@ -213,7 +150,7 @@ export default function AllRequestDH() {
 
   // รอคุณตรวจสอบทั้งหมด (รอนานสุดขึ้นก่อน ถ้าอยากให้ล่าสุดขึ้นก่อน สลับ a/b)
   const pending = requests
-    .filter((r) => isMyTurn(r, me))
+    .filter((r) => canApproveStep(r, me))
     .sort(
       (a, b) =>
         new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
@@ -244,12 +181,15 @@ export default function AllRequestDH() {
   const overBudget = budget.limit > 0 && budget.used > budget.limit;
 
   return (
-    <div className="min-h-screen bg-[#F1F5F9]">
-      <div className="mx-auto max-w-7xl">
+    <div>
+      <header className="mb-9">
+        <h1 className="text-[32px] font-bold text-[#111]">คำขอรออนุมัติทั้งหมด</h1>
+      </header>
+      <div>
         {/* ===== แบนเนอร์ข้อมูล (เหมือนหน้าหลัก) ===== */}
-        <div className="grid grid-cols-1 gap-5 pt-5 lg:grid-cols-[3fr_1.5fr_1.5fr]">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-[3fr_1.5fr_1.5fr]">
           {/* งบประมาณคงเหลือ */}
-          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#0b1f2a] via-[#0e4b3e] to-[#0a8f5f] p-6 text-white">
+          <div className="relative overflow-hidden rounded-xl shadow-2xl bg-gradient-to-br from-[#0b1f2a] via-[#0e4b3e] to-[#0a8f5f] p-6 text-white">
             {/* ลวดลายวงกลมตกแต่ง */}
             <div className="pointer-events-none absolute -right-12 -top-16 h-56 w-56 rounded-full border border-white/10" />
             <div className="pointer-events-none absolute -right-4 -top-8 h-40 w-40 rounded-full border border-white/10" />
@@ -289,7 +229,7 @@ export default function AllRequestDH() {
           </div>
 
           {/* กำลังดำเนินการ */}
-          <div className="flex flex-col justify-between rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+          <div className="flex flex-col justify-between rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
               <ClockThree />
             </div>
@@ -307,7 +247,7 @@ export default function AllRequestDH() {
           </div>
 
           {/* อนุมัติแล้วปีนี้ */}
-          <div className="flex flex-col justify-between rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+          <div className="flex flex-col justify-between rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600">
               <Check />
             </div>
@@ -323,7 +263,7 @@ export default function AllRequestDH() {
         </div>
 
         {/* ===== รายการคำขอรอตรวจทั้งหมด (เต็มความกว้าง) ===== */}
-        <section className="mt-5 w-full rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+        <section className="mt-9 w-full rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl">
           <div className="mb-4 flex items-center justify-between border-b border-gray-100 pb-4">
             <div>
               <span className="text-base font-bold">รอคุณตรวจสอบ</span>
