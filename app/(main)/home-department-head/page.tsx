@@ -2,7 +2,13 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { REQUESTS_KEY, getActedRequests, loadRequests, type SavedRequest } from "@/data/request";
+import {
+  REQUESTS_KEY,
+  getActedRequests,
+  historyType,
+  loadRequests,
+  type SavedRequest,
+} from "@/data/request";
 import { getDepartmentBudget } from "@/data/budget";
 import { canApproveStep } from "@/data/approval";
 import type { Credential } from "@/data/credential";
@@ -86,6 +92,18 @@ function waitLabel(iso: string) {
   return `รอ ${Math.floor(hours / 24)} วัน`;
 }
 
+// เวลาที่คำขอ "ถึงคิวรอตรวจ" ล่าสุด = ส่งคำขอ / ส่งใหม่ ครั้งล่าสุดในประวัติ
+// ถูกตีกลับแล้วส่งใหม่ → เวลานี้เปลี่ยน ป้ายรอจึงนับใหม่จาก 0
+// (คำขอเก่าที่ไม่มีประวัติ ใช้ createdAt)
+// ※ ไม่ใช้ updatedAt เพราะ updatedAt เปลี่ยนทุกครั้งที่มีคนกดอนุมัติ
+function sentAt(r: ExpenseRequest) {
+  let latest = r.createdAt;
+  for (const h of r.history ?? []) {
+    const t = historyType(h);
+    if ((t === "ส่งคำขอ" || t === "ส่งใหม่") && h.at > latest) latest = h.at;
+  }
+  return latest;
+}
 
 // ป้ายสถานะของคำขอที่คุณอนุมัติไปแล้ว
 function statusBadge(r: ExpenseRequest) {
@@ -300,6 +318,11 @@ export default function DH() {
               ) : (
                 pending.slice(0, LIST_LIMIT).map((r) => {
                   const name = r.requester?.fullName ?? "-";
+                  const sent = sentAt(r); // เวลาส่ง/ส่งใหม่ล่าสุด
+                  // เคยถูกตีกลับแล้วส่งใหม่ = มีประวัติ "ส่งใหม่"
+                  // ※ ห้ามเทียบ sent กับ createdAt: บันทึกร่างไว้ก่อนแล้วค่อยส่ง createdAt = เวลาบันทึกร่าง
+                  //   จะไม่เท่ากับเวลาส่งเสมอ → ติดป้าย "ส่งใหม่" ผิด
+                  const resent = (r.history ?? []).some((h) => historyType(h) === "ส่งใหม่");
                   return (
                     <div key={r.id} className={ROW_GRID}>
                       {/* คอลัมน์ 1: ผู้ขอ + ชื่อคำขอ */}
@@ -310,15 +333,16 @@ export default function DH() {
                         <div className="flex min-w-0 flex-col ml-3">
                           <div className="truncate font-bold">{r.title}</div>
                           <div className="truncate text-xs text-gray-400">
-                            {name} {timeAgo(r.createdAt)}
+                            {name} {resent ? "ส่งใหม่" : ""}
+                            {timeAgo(sent)}
                           </div>
                         </div>
                       </div>
 
-                      {/* คอลัมน์ 2: เวลารอ (รอสักครู่ / X นาที / X ชม. / X วัน) */}
+                      {/* คอลัมน์ 2: เวลารอ (นับใหม่ทุกครั้งที่ส่งใหม่) */}
                       <div className="flex justify-center">
                         <span className="whitespace-nowrap bg-amber-50 text-amber-600 text-xs px-2.5 py-1 rounded-full border border-amber-200">
-                          {waitLabel(r.createdAt)}
+                          {waitLabel(sent)}
                         </span>
                       </div>
 

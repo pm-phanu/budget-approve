@@ -8,7 +8,8 @@
 //   [3] กฎการอนุมัติตามวงเงิน             (data/approval.ts)
 //   [4] ฟังก์ชันช่วย
 //   [5] หน้าหลัก
-//       [5.1] state + เปิดร่าง (?id=)   [5.2] ค่าที่คำนวณ (ยอดรวม / จำนวนไฟล์)
+//       [5.1] state + เปิดร่าง / เปิดคำขอที่ถูกตีกลับ (?id=)
+//       [5.2] ค่าที่คำนวณ (ยอดรวม / จำนวนไฟล์ / เส้นทางส่งกลับ)
 //       [5.3] รายการค่าใช้จ่าย    [5.4] แนบหลักฐานรายแถว
 //       [5.5] ตรวจก่อนส่ง        [5.6] บันทึก localStorage
 //       [5.7] ส่ง / บันทึกร่าง / ล้างฟอร์ม
@@ -21,6 +22,7 @@
 // ════════════════════════════════════════════════════════════
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation"; // ✅ เพิ่ม: ใช้เปลี่ยนหน้าหลังส่งคำขอที่ถูกตีกลับ
 import { getUsers, type Credential } from "@/data/credential";
 import { notifyRequestEvent } from "@/data/notification";
 import { getCurrentUser } from "@/utils/login";
@@ -48,6 +50,7 @@ import {
   loadRequests,
   makeHistory,
   type SavedRequest,
+  type SavedStep,
   type RequestStatus,
 } from "@/data/request";
 import {
@@ -62,6 +65,9 @@ import {
   FileText,
 } from "@tailgrids/icons";
 
+// ✅ เพิ่ม: path หน้า "คำขอของฉัน" (ตรงกับลิงก์ในหน้า Home)
+const MY_REQUEST_PATH = "/my-request";
+
 // ════════════════════════════════════════
 //  [1] ชนิดข้อมูล
 // ════════════════════════════════════════
@@ -72,6 +78,22 @@ type Item = {
   name: string;
   amount: string;
   files: string[];
+};
+
+// ข้อมูลของคำขอที่ "ถูกตีกลับ" และกำลังเปิดมาแก้ไข (ไม่มี = สร้างใหม่ / แก้ร่าง)
+type ResubmitInfo = {
+  id: string; // เลขที่คำขอ
+  stepIndex: number; // ลำดับขั้นที่ตีกลับ ใน approvalSteps
+  oldSteps: SavedStep[]; // เส้นทางอนุมัติเดิม (ขั้นที่ผ่านแล้วจะคงสถานะไว้)
+  label: string; // ชื่อขั้นที่ตีกลับ เช่น "หัวหน้าแผนก"
+  by: string; // ชื่อคนที่ตีกลับ
+  reason: string; // เหตุผลที่ตีกลับ
+};
+
+// ฟิลด์เสริมที่หน้าอนุมัติบันทึกตอนตีกลับ (ไม่อยู่ใน SavedRequest)
+type RejectExtras = {
+  reject?: { status: string; comment: string };
+  reviewComment?: string;
 };
 
 // แถวว่าง 1 แถว (ใช้ตอนเปิดหน้า / กดเพิ่มรายการ / ล้างฟอร์ม)
@@ -109,6 +131,8 @@ const BANK_ACCOUNT = "ยังไม่ได้ตั้งค่าบัญ�
 //  [5] หน้าหลัก
 // ════════════════════════════════════════
 export default function NewRequest() {
+  const router = useRouter(); // ✅ เพิ่ม: ตัวเปลี่ยนหน้า
+
   // ---------- [5.1] state ----------
   // ช่องในฟอร์ม
   const [type, setType] = useState("advance"); // advance = สำรองจ่าย · invoice = ใบแจ้งหนี้
@@ -122,9 +146,12 @@ export default function NewRequest() {
   const [errors, setErrors] = useState<string[]>([]);
   const [message, setMessage] = useState("");
 
-  // เลขที่ร่างที่กำลังแก้ (ยังไม่เคยบันทึกร่าง = "")
+  // เลขที่ใบที่กำลังแก้ (ร่าง หรือ คำขอที่ถูกตีกลับ) · ยังไม่เคยบันทึก = ""
   // ※ กดบันทึกร่างซ้ำ → ทับใบเดิม ไม่เกิดร่างซ้ำหลายใบ
   const [draftId, setDraftId] = useState("");
+
+  // คำขอที่ถูกตีกลับและเปิดมาแก้ (ส่งใหม่แล้วจะกลับไปหาคนที่ตีกลับ)
+  const [resubmit, setResubmit] = useState<ResubmitInfo | null>(null);
 
   // ค่าที่อ่านจาก localStorage
   const [rules, setRules] = useState<ApprovalRule[]>(DEFAULT_RULES); // วงเงินอนุมัติ
@@ -137,19 +164,32 @@ export default function NewRequest() {
   // ※ ต้องอ่านใน useEffect เพราะ localStorage มีแค่ในเบราว์เซอร์
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect -- อ่านได้หลังเปิดหน้าเท่านั้น */
+    // ผู้ใช้: ใช้ข้อมูลล่าสุด (มี departmentId) ไม่ใช่ภาพ ณ ตอน login
+    const me = getCurrentUser();
+
+    // อ่านป้ายท้าย URL: /request/new?id=REQ-xxx (เปิดร่าง หรือ คำขอที่ถูกตีกลับมาแก้)
+    const params = new URLSearchParams(window.location.search);
+    const openId = params.get("id"); // "REQ-xxx" หรือ null ถ้าไม่มีป้าย
+
     // กฎวงเงิน: ข้อมูลในเครื่องผิดรูปแบบ → ใช้ค่าเริ่มต้น (ดู loadApprovalRules)
     setRules(loadApprovalRules());
-    // ผู้ใช้: ใช้ข้อมูลล่าสุด (มี departmentId) ไม่ใช่ภาพ ณ ตอน login
-    setUser(getCurrentUser());
+    setUser(me);
     setOrg(loadOrganization());
     setPositions(loadPositions());
-    setBudget(addRequestsToBudget(loadRequests()));
+    // งบ: ถ้าเปิดใบเดิมมาแก้ ไม่นับยอดของใบนี้ซ้ำ (ไม่งั้นตรวจงบคงเหลือผิด)
+    setBudget(addRequestsToBudget(loadRequests().filter((r) => r.id !== openId)));
 
-    // ---------- [5.1] เปิดร่างมาแก้ต่อ: /request/new?id=REQ-xxx ----------
-    const params = new URLSearchParams(window.location.search); // อ่านป้ายท้าย URL
-    const openId = params.get("id"); // "REQ-xxx" หรือ null ถ้าไม่มีป้าย
+    // ---------- [5.1] เปิดร่าง / เปิดคำขอที่ถูกตีกลับ มาแก้ต่อ ----------
+    // - ร่าง: เปิดได้
+    // - ตีกลับ: เปิดได้เฉพาะเจ้าของคำขอ (ผู้ขอคนเดิม)
     const draft = loadRequests().find(
-      (r) => r.id === openId && r.status === "ร่าง",
+      (r) =>
+        r.id === openId &&
+        (r.status === "ร่าง" ||
+          (r.status === "ตีกลับ" &&
+            !!me &&
+            r.requester != null &&
+            String(r.requester.id) === String(me.id))),
     );
     if (draft) {
       setType(draft.type);
@@ -166,6 +206,28 @@ export default function NewRequest() {
         })),
       );
       setDraftId(draft.id); // บันทึก/ส่ง → ทับใบเดิม ไม่สร้างใหม่
+
+      // คำขอที่ถูกตีกลับ: จำว่าใครตีกลับที่ขั้นไหน เพื่อส่งกลับไปหาคนนั้น
+      if (draft.status === "ตีกลับ") {
+        const idx = draft.approvalSteps.findIndex((s) => s.status === "ตีกลับ");
+        if (idx >= 0) {
+          const s = draft.approvalSteps[idx];
+          const extra = draft as SavedRequest & RejectExtras;
+          const why = extra.reject
+            ? extra.reject.comment
+              ? `${extra.reject.status} — ${extra.reject.comment}`
+              : extra.reject.status
+            : s.note || extra.reviewComment || "-";
+          setResubmit({
+            id: draft.id,
+            stepIndex: idx,
+            oldSteps: draft.approvalSteps,
+            label: s.label,
+            by: s.by ?? "-",
+            reason: why,
+          });
+        }
+      }
     }
     /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
@@ -205,6 +267,21 @@ export default function NewRequest() {
   const steps = plan.map((p) => p.role);
   // ขั้นที่ยังไม่มีใครอนุมัติได้ (ในแผนก/ฝ่ายของผู้ขอ) → ส่งไม่ได้จนกว่าบัญชีจะกำหนดคน
   const missingSteps = plan.filter((p) => !p.hasApprover).map((p) => p.role);
+
+  // ส่งกลับไปหาคนที่ตีกลับได้หรือไม่:
+  // เส้นทางตามยอดใหม่ต้องเหมือนเส้นทางเดิม (ถ้าแก้ยอดจนเส้นทางเปลี่ยน → เริ่มอนุมัติใหม่ตั้งแต่ขั้นแรก)
+  const sameRoute =
+    !!resubmit &&
+    resubmit.oldSteps.length === steps.length &&
+    resubmit.oldSteps.every((s, i) => s.role === steps[i]);
+
+  // ปลายทางที่คำขอจะถูกส่งไป (ใช้แสดงข้อความ / ประวัติ)
+  const targetLabel =
+    resubmit && sameRoute
+      ? resubmit.label
+      : steps[0]
+        ? getRoleLabel(steps[0], positions)
+        : "-";
 
   // บัญชีรับเงินคืน: ของผู้ขอ (data/credential.ts) · ยังไม่มีข้อมูล = แสดงข้อความแทน
   const bankLabel = user?.bankAccount
@@ -310,10 +387,13 @@ export default function NewRequest() {
     const now = new Date().toISOString();
     const all = loadRequests();
 
-    // เคยบันทึกร่างไว้ → ใช้ใบเดิม · ยังไม่เคย → ออกเลขใหม่
+    // เคยบันทึกร่างไว้ / เปิดคำขอที่ถูกตีกลับมาแก้ → ใช้ใบเดิม · ยังไม่เคย → ออกเลขใหม่
     // ※ ใช้เวลาเป็นเลขที่ ไม่ซ้ำแม้ลบคำขอเก่า
     const id = draftId ? draftId : "REQ-" + new Date().getTime();
     const old = all.find((r) => r.id === id);
+
+    // ส่งใหม่หลังถูกตีกลับ (ไม่ใช่การบันทึกร่าง)
+    const resubmitted = !!resubmit && status !== "ร่าง";
 
     // แปลงแถวในฟอร์ม → แถวที่บันทึก (จำนวนเงินเป็นตัวเลข + ใส่ชื่อหมวด)
     const savedItems = items.map((it) => {
@@ -342,9 +422,55 @@ export default function NewRequest() {
       };
     }
 
+    // เส้นทางอนุมัติ + ขั้นที่ต้องทำต่อ
+    let approvalSteps: SavedStep[];
+    let currentStep = 0;
+    if (resubmit && resubmitted && sameRoute) {
+      // ส่งกลับไปหาคนที่ตีกลับ: ขั้นที่ผ่านแล้วคงเดิม รีเซ็ตเฉพาะขั้นที่ถูกตีกลับให้กลับเป็น "รอ"
+      // และล็อกให้คนที่ตีกลับเป็นผู้อนุมัติขั้นนั้น
+      approvalSteps = resubmit.oldSteps.map((s, i): SavedStep =>
+        i === resubmit.stepIndex
+          ? {
+              ...s,
+              approverId: s.byId ?? s.approverId ?? null,
+              status: "รอ",
+              by: null,
+              byId: null,
+              at: null,
+              note: "",
+            }
+          : s,
+      );
+      currentStep = resubmit.stepIndex;
+    } else {
+      // คำขอใหม่ / ร่าง / ยอดเปลี่ยนจนเส้นทางเปลี่ยน → เริ่มที่ขั้นแรก
+      // ทุกขั้นเริ่มที่ "รอ" · หน้าอนุมัติเป็นคนเปลี่ยน · approverId = คนที่ต้องอนุมัติขั้นนั้น
+      approvalSteps = plan.map(({ role, approverId }): SavedStep => ({
+        role,
+        approverId,
+        label: getRoleLabel(role, positions),
+        status: "รอ",
+        by: null,
+        at: null,
+        note: "",
+      }));
+    }
+
+    // ข้อความในประวัติ
+    const historyType = status === "ร่าง" ? "บันทึกร่าง" : resubmitted ? "ส่งใหม่" : "ส่งคำขอ";
+    const historyOptions = resubmitted
+      ? {
+          at: now,
+          action: sameRoute ? `ส่งใหม่ → ${targetLabel}` : "ส่งใหม่ (เส้นทางอนุมัติเปลี่ยนตามยอดใหม่)",
+          note: sameRoute
+            ? `แก้ไขตามที่ ${resubmit?.label} ตีกลับ`
+            : "ยอดเงินที่แก้ไขทำให้เส้นทางอนุมัติเปลี่ยน เริ่มอนุมัติใหม่ตั้งแต่ขั้นแรก",
+        }
+      : { at: now };
+
     const request: SavedRequest = {
       id,
-      createdAt: old ? old.createdAt : now, // แก้ร่าง = วันสร้างเดิม
+      createdAt: old ? old.createdAt : now, // แก้ร่าง / แก้ใบที่ถูกตีกลับ = วันสร้างเดิม
       updatedAt: now,
       status,
       type: isAdvance ? "advance" : "invoice",
@@ -361,28 +487,22 @@ export default function NewRequest() {
       requester,
       payTo: isAdvance ? "โอนคืนเข้าบัญชีผู้ขอ" : "โอนให้ผู้ขายตามใบแจ้งหนี้",
       bankAccount: isAdvance && user?.bankAccount ? bankLabel : null,
-      // ทุกขั้นเริ่มที่ "รอ" · หน้าอนุมัติเป็นคนเปลี่ยน · approverId = คนที่ต้องอนุมัติขั้นนั้น
-      approvalSteps: plan.map(({ role, approverId }) => ({
-        role,
-        approverId,
-        label: getRoleLabel(role, positions),
-        status: "รอ",
-        by: null,
-        at: null,
-        note: "",
-      })),
-      currentStep: 0, // ขั้นแรกในลิสต์
+      approvalSteps,
+      currentStep,
       history: [
-        ...(old ? old.history : []), // ประวัติเดิมของร่าง
-        makeHistory(status === "ร่าง" ? "บันทึกร่าง" : "ส่งคำขอ", user, { at: now }),
+        ...(old ? old.history : []), // ประวัติเดิมของร่าง / ของคำขอที่ถูกตีกลับ
+        makeHistory(historyType, user, historyOptions),
       ],
     };
+    // ※ สร้างอ็อบเจ็กต์ใหม่ทั้งก้อน ฟิลด์ที่หน้าอนุมัติเคยเติมตอนตีกลับ (reject / reviewedAt / reviewComment)
+    //   จึงไม่ติดไปด้วย → คำขอพ้นสถานะ "ตีกลับ" แล้วกล่องเหตุผลสีแดงในหน้า "คำขอของฉัน" จะหายไปเอง
 
     // มีใบเดิม = แทนที่ · ไม่มี = ต่อท้าย
     const others = all.filter((r) => r.id !== id);
     localStorage.setItem(REQUESTS_KEY, JSON.stringify([...others, request]));
 
-    // ส่งจริง (ไม่ใช่ร่าง) → แจ้งเตือนผู้อนุมัติขั้นแรก (data/notification.ts)
+    // ส่งจริง (ไม่ใช่ร่าง) → แจ้งเตือนผู้อนุมัติ (data/notification.ts)
+    // ※ ส่งใหม่ก็ใช้ event "submitted" เดิม ถ้า notification.ts มี event สำหรับส่งใหม่ ให้เปลี่ยนตรงนี้
     if (status !== "ร่าง") notifyRequestEvent(request, "submitted", getUsers(), { at: now });
     return id;
   }
@@ -395,6 +515,7 @@ export default function NewRequest() {
     setReason("");
     setItems([emptyItem()]);
     setDraftId("");
+    setResubmit(null);
   }
 
   function submit() {
@@ -404,11 +525,19 @@ export default function NewRequest() {
       setMessage("");
       return; // มีข้อผิด → หยุด ไม่บันทึก
     }
+    const wasResubmit = !!resubmit; // จำไว้ก่อน เพราะ resetForm จะล้างค่า
     const id = saveRequest("รออนุมัติ");
+
+    // ✅ เพิ่ม: ส่งคำขอที่ถูกตีกลับสำเร็จ → ไปหน้า "คำขอของฉัน" ทันที
+    if (wasResubmit) {
+      router.push(MY_REQUEST_PATH);
+      return;
+    }
+
     // ส่งแล้วล้างฟอร์ม กันกดส่งซ้ำ + อัปเดตงบคงเหลือใหม่
     resetForm();
     setBudget(addRequestsToBudget(loadRequests()));
-    setMessage("ส่งคำขอ " + id + " เรียบร้อย ส่งต่อให้" + getRoleLabel(steps[0], positions));
+    setMessage("ส่งคำขอ " + id + " เรียบร้อย ส่งต่อให้" + targetLabel); // ✅ แก้: เหลือเฉพาะข้อความของคำขอใหม่
   }
 
   // ร่างไม่ต้องตรวจ (ยังกรอกไม่ครบได้) แต่ต้องมีชื่อคำขอ ไว้หาเจอทีหลัง
@@ -430,11 +559,31 @@ export default function NewRequest() {
   return (
     <div className="text-[#0F172A]">
       {/* breadcrumb ย้ายไปอยู่บน header ของ layout แล้ว */}
-      <h1 className="mb-9 text-[32px] font-bold text-[#111]">สร้างคำขอเบิก</h1>
+      <h1 className="mb-9 text-[32px] font-bold text-[#111]">
+        {resubmit ? "แก้ไขคำขอที่ถูกตีกลับ" : "สร้างคำขอเบิก"}
+      </h1>
 
       <div className="grid grid-cols-4 gap-5">
         {/* ===== คอลัมน์ซ้าย: ฟอร์ม ===== */}
         <section className="col-span-3 rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl">
+          {/* ---------- กล่องแจ้ง: คำขอนี้ถูกตีกลับ ---------- */}
+          {resubmit && (
+            <div className="mb-5 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+              <p className="font-bold">
+                คำขอ {resubmit.id} ถูกตีกลับโดย {resubmit.label}
+                {resubmit.by !== "-" ? ` (${resubmit.by})` : ""}
+              </p>
+              <p className="mt-1">
+                <strong>เหตุผล:</strong> {resubmit.reason}
+              </p>
+              <p className="mt-1 text-xs text-rose-600">
+                {sameRoute
+                  ? `แก้ไขแล้วกด "แก้ไขแล้วส่งใหม่" ระบบจะส่งกลับไปให้ ${resubmit.label} พิจารณาต่อ`
+                  : "ยอดเงินที่แก้ไขทำให้เส้นทางอนุมัติเปลี่ยน คำขอจะเริ่มอนุมัติใหม่ตั้งแต่ขั้นแรก"}
+              </p>
+            </div>
+          )}
+
           {/* ---------- [6.1] ข้อมูลคำขอ ---------- */}
           <h2 className="text-lg font-bold">ข้อมูลคำขอ</h2>
           <Label text="ประเภทคำขอ" />
@@ -695,7 +844,13 @@ export default function NewRequest() {
                 color={(STEP_STYLE[role] ?? CUSTOM_STEP_STYLE).bg}
                 text={getRoleLabel(role, positions)}
                 sub={STEP_SUB[role] ?? "อนุมัติ"}
-                warning={missingSteps.includes(role) ? "ยังไม่มีผู้อนุมัติ" : undefined}
+                warning={
+                  missingSteps.includes(role)
+                    ? "ยังไม่มีผู้อนุมัติ"
+                    : resubmit && sameRoute && i === resubmit.stepIndex
+                      ? "ตีกลับ — จะส่งกลับมาที่ขั้นนี้"
+                      : undefined
+                }
                 last={i === steps.length - 1}
               />
             ))}
@@ -748,14 +903,18 @@ export default function NewRequest() {
               onClick={submit}
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#059669] py-3 font-bold text-white hover:bg-[#047857]"
             >
-              <Send1 size={18} /> ส่งคำขอ
+              <Send1 size={18} />{" "}
+              {resubmit ? "แก้ไขแล้วส่งใหม่" : "ส่งคำขอ"}
             </button>
-            <button
-              onClick={saveDraft}
-              className="mt-2 w-full rounded-xl bg-gray-100 py-3 font-semibold text-gray-600 hover:bg-gray-200"
-            >
-              บันทึกร่าง
-            </button>
+            {/* คำขอที่ถูกตีกลับ แปลงกลับเป็นร่างไม่ได้ (จะหลุดจากสถานะตีกลับ) จึงซ่อนปุ่มนี้ */}
+            {!resubmit && (
+              <button
+                onClick={saveDraft}
+                className="mt-2 w-full rounded-xl bg-gray-100 py-3 font-semibold text-gray-600 hover:bg-gray-200"
+              >
+                บันทึกร่าง
+              </button>
+            )}
           </div>
         </section>
       </div>
@@ -830,7 +989,7 @@ function Step({
   color: string;
   text: string;
   sub: string;
-  warning?: string; // ขั้นที่ยังไม่มีผู้อนุมัติ → แสดงตัวแดงใต้ชื่อขั้น
+  warning?: string; // ข้อความตัวแดงใต้ชื่อขั้น (ขั้นที่ยังไม่มีผู้อนุมัติ / ขั้นที่ตีกลับ)
   last?: boolean;
 }) {
   return (
