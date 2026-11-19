@@ -5,9 +5,14 @@ import bgCircleR from "@/app/img/bgCircleR.svg";
 import bgCircleL from "@/app/img/bgCircleL.svg";
 import { Button } from "@/components/tailgrids/core/button";
 import { Link } from "@/components/tailgrids/core/link";
-import { ArrowRight, Eye, EyeDisabled, Shield1Check } from "@tailgrids/icons";
+import { ArrowRight, CheckCircle1, Eye, EyeDisabled, InfoCircle, Shield1Check } from "@tailgrids/icons";
 import { useState } from "react";
 import { register } from "@/data/credential";
+
+// ช่องกรอก: สีในธีม · โฟกัสขอบเขียว (เหมือนหน้าเข้าสู่ระบบ)
+const FIELD =
+  "mt-2 w-full rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2.5 text-[15px] text-[#0F172A] placeholder:text-sm placeholder:text-[#94A3B8] focus:border-[#059669] focus:outline-none focus:ring-2 focus:ring-[#059669]/20";
+const MIN_PASSWORD = 8;
 
 export default function Register() {
   const [formData, setFormData] = useState({
@@ -21,9 +26,15 @@ export default function Register() {
   const [successMessage, setSuccessMessage] = useState("");
   const passwordInputType = showPassword ? "text" : "password";
 
+  // บอกทันทีระหว่างพิมพ์ (ไม่ต้องรอกดลงทะเบียน)
+  const passwordShort = formData.password.length > 0 && formData.password.length < MIN_PASSWORD;
+  const mismatch =
+    formData.confirmPassword.length > 0 && formData.password !== formData.confirmPassword;
+
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = event.target;
     setFormData((previous) => ({ ...previous, [name]: value }));
+    if (errorMessage) setErrorMessage("");
   };
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
@@ -52,191 +63,202 @@ export default function Register() {
     }
   };
 
+  // ปุ่มแสดง / ซ่อนรหัสผ่าน (ใช้ร่วมทั้ง 2 ช่อง)
+  const eyeButton = (
+    <button
+      type="button"
+      aria-label={showPassword ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"}
+      aria-pressed={showPassword}
+      onClick={() => setShowPassword((show) => !show)}
+      className="absolute right-2 top-1/2 mt-1 -translate-y-1/2 rounded-lg p-2 text-[#64748B] hover:bg-[#F1F5F9] hover:text-[#0F172A]"
+    >
+      {showPassword ? <EyeDisabled size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
+    </button>
+  );
+
   return (
-    <div className="bg-[#F5F7FA] h-screen overflow-hidden">
-      {/* container */}
-      <div className="grid grid-cols-2">
-        {/* left */}
-        <div className="bg-[#DCFCE7] h-screen relative">
-          {/* bgCircleR */}
-          <div className="absolute right-0">
-            <Image src={bgCircleR} alt="bgCircleR" />
+    <div className="min-h-screen bg-[#F5F7FA] text-[#0F172A]">
+      <div className="grid min-h-screen lg:grid-cols-2">
+        {/* ซ้าย: แนะนำระบบ (จอเล็กซ่อน เหลือแค่ฟอร์ม) */}
+        <div className="relative hidden overflow-hidden bg-[#DCFCE7] lg:block">
+          <div className="pointer-events-none absolute right-0" aria-hidden="true">
+            <Image src={bgCircleR} alt="" />
           </div>
-          {/* bgCircleL */}
-          <div className="absolute bottom-0">
-            <Image src={bgCircleL} alt="bgCircleL" />
+          <div className="pointer-events-none absolute bottom-0" aria-hidden="true">
+            <Image src={bgCircleL} alt="" />
           </div>
-          {/* container */}
-          <div className="max-w-3xl m-16">
-            {/* header */}
-            <div className="text-[1rem] font-semibold capitalize pb-80">
-              <h1>budget approval system</h1>
+          <div className="relative flex h-full max-w-3xl flex-col justify-between p-16">
+            <p className="text-base font-semibold capitalize">budget approval system</p>
+            <div>
+              <p className="mb-4 text-5xl font-bold leading-tight">ระบบอนุมัติงบประมาณ</p>
+              <p className="max-w-md text-balance text-base text-[#475569]">
+                ยื่นคำขอ ติดตามสถานะ และอนุมัติงบประมาณได้ในที่เดียว โปร่งใส
+                ตรวจสอบได้ทุกขั้นตอน
+              </p>
             </div>
-            {/* content */}
-            <div className="pb-80">
-              {/* container */}
-              <div>
-                {/* header content */}
-                <div className="mb-4">
-                  <p className="text-5xl font-bold">ระบบอนุมัตงบประมาณ</p>
-                </div>
-                {/* footer content */}
-                <div className="text-balance text-[1rem]">
-                  <p className="text-[#64748B]">
-                    ยื่นคำขอ ติดตามสถานะ และอนุมัติงบประมาณได้ในที่เดียว โปร่งใส
-                    ตรวจสอบได้ทุกขั้นตอน
-                  </p>
-                </div>
-              </div>
-          </div>
-          {/* footer */}
-          <div>
-            <p className="text-[13px]">
-              ©{" "}
-              <span className="text-[#64748B]">
-                2026 Budget Approval System. สงวนลิขสิทธิ์
-              </span>
+            <p className="text-[13px] text-[#64748B]">
+              © 2026 Budget Approval System. สงวนลิขสิทธิ์
             </p>
           </div>
         </div>
-      </div>
-      {/* right */}
-      <div>
-        {/* container */}
-        <div className="border border-[#E5E9F0] bg-[#FFFFFF] shadow-md max-w-120 mx-auto my-20 rounded-2xl p-10">
-          <div className="mb-6">
-            <h2 className="text-3xl font-bold mb-2 text-[#0F172A]">
-              ลงทะเบียนเข้าใช้งานระบบ
-            </h2>
-            <p className="text-[#64748B] text-[14px]">
-              กรอกข้อมูลพื้นฐาน <br />
-              ระบบจะดึงข้อมูลสังกัดจากฐานข้อมูลกลางของบริษัทให้อัตโนมัติ
-            </p>
-          </div>
-          {/* form */}
-          <form onSubmit={handleSubmit}>
-            <div className="flex flex-col gap-6">
-              <div>
-                <label className="text-[#0F172A]">
-                  ชื่อ-นามสกุล (name-lastname)
-                </label>
-                <input
-                  onChange={handleChange}
-                  value={formData.username}
-                  type="text"
-                  name="username"
-                  required
-                  placeholder="กรอกชื่อและนามสกุล"
-                  className="w-full border border-[#E5E9F0] rounded-lg mt-2 focus:outline-none focus:ring-alert-success-title placeholder:text-[14px] placeholder:text-[#64748B]"
-                />
-              </div>
-              <div>
-                <label className="text-[#0F172A]">
-                  อีเมลบริษัท (Company Email)
-                </label>
-                <input
-                  onChange={handleChange}
-                  value={formData.email}
-                  type="email"
-                  name="email"
-                  required
-                  placeholder="name@company.co.th"
-                  className="w-full border border-[#E5E9F0] rounded-lg mt-2 focus:outline-none focus:ring-alert-success-title placeholder:text-[14px] placeholder:text-[#64748B]"
-                />
-              </div>
-              <div className="relative">
-                <label className="text-[#0F172A]">รหัสผ่าน (password)</label>
-                <input
-                  onChange={handleChange}
-                  value={formData.password}
-                  type={passwordInputType}
-                  name="password"
-                  required
-                  minLength={8}
-                  placeholder="กำหนดรหัสผ่าน"
-                  className="w-full border border-[#E5E9F0] rounded-lg mt-2 focus:outline-none focus:ring-alert-success-title placeholder:text-[14px] placeholder:text-[#64748B]"
-                />
-                <button
-                  className="absolute top-11 right-4 text-[#64748B]"
-                  type="button"
-                  onClick={() => setShowPassword((show) => !show)}
-                  aria-label={showPassword ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"}
-                >
-                  {showPassword ? <EyeDisabled size={18} /> : <Eye size={18} />}
-                </button>
-              </div>
-              <div className="relative">
-                <label className="text-[#0F172A]">
-                  ยืนยันรหัสผ่าน (confirm password)
-                </label>
-                <input
-                  onChange={handleChange}
-                  value={formData.confirmPassword}
-                  type={passwordInputType}
-                  name="confirmPassword"
-                  required
-                  placeholder="กำหนดรหัสผ่านอีกครั้ง"
-                  className="w-full border border-[#E5E9F0] rounded-lg mt-2 focus:outline-none focus:ring-alert-success-title placeholder:text-[14px] placeholder:text-[#64748B]"
-                />
-                <button
-                  className="absolute top-11 right-4 text-[#64748B]"
-                  type="button"
-                  onClick={() => setShowPassword((show) => !show)}
-                  aria-label={showPassword ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"}
-                >
-                  {showPassword ? <EyeDisabled size={18} /> : <Eye size={18} />}
-                </button>
-              </div>
-            </div>
-            {errorMessage && (
-              <p className="mt-3 text-sm text-red-600" role="alert">
-                {errorMessage}
+
+        {/* ขวา: ฟอร์มลงทะเบียน */}
+        <main className="flex items-center justify-center px-4 py-12">
+          <div className="w-full max-w-120 rounded-2xl border border-[#E5E9F0] bg-white p-8 shadow-md sm:p-10">
+            <div className="mb-8">
+              <p className="mb-6 text-sm font-semibold text-[#047857] lg:hidden">
+                ระบบอนุมัติงบประมาณ
               </p>
-            )}
-            {successMessage && (
-              <p className="mt-3 text-sm text-green-700" role="status">
-                {successMessage}
+              <h1 className="mb-2 text-3xl font-bold">ลงทะเบียนเข้าใช้งานระบบ</h1>
+              <p className="text-sm text-[#64748B]">
+                กรอกข้อมูลพื้นฐาน ระบบจะดึงข้อมูลสังกัดจากฐานข้อมูลกลางของบริษัทให้อัตโนมัติ
               </p>
-            )}
-            {/* noti */}
-            <div className="flex items-center gap-1 mt-2 text-[#64748B] text-[14px]">
-              <Shield1Check className="text-alert-success-title size-5" />
-              <p>รหัสผ่านต้องมีความยาวอย่างน้อย 8 ตัวอักษร</p>
             </div>
-            {/* btn register */}
-            <div className="flex flex-col gap-6 mt-6">
-              <div>
+
+            {successMessage ? (
+              // ลงทะเบียนสำเร็จ → บอกขั้นต่อไปชัด ๆ แทนฟอร์มว่าง
+              <div role="status" className="flex flex-col items-center gap-4 py-4 text-center">
+                <CheckCircle1 size={40} className="text-[#059669]" aria-hidden="true" />
+                <p className="font-semibold">{successMessage}</p>
+                <Link
+                  href="/login"
+                  className="font-bold text-alert-success-title underline hover:text-alert-success-title/90"
+                >
+                  ไปหน้าเข้าสู่ระบบ
+                  <ArrowRight size={16} aria-hidden="true" />
+                </Link>
+              </div>
+            ) : (
+              <form onSubmit={handleSubmit}>
+                <div className="flex flex-col gap-5">
+                  <div>
+                    <label htmlFor="username" className="text-sm font-medium">
+                      ชื่อ-นามสกุล
+                    </label>
+                    <input
+                      id="username"
+                      onChange={handleChange}
+                      value={formData.username}
+                      type="text"
+                      name="username"
+                      autoComplete="name"
+                      required
+                      autoFocus
+                      placeholder="กรอกชื่อและนามสกุล"
+                      className={FIELD}
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="email" className="text-sm font-medium">
+                      อีเมลบริษัท
+                    </label>
+                    <input
+                      id="email"
+                      onChange={handleChange}
+                      value={formData.email}
+                      type="email"
+                      name="email"
+                      autoComplete="email"
+                      autoCapitalize="none"
+                      spellCheck={false}
+                      required
+                      placeholder="name@company.co.th"
+                      className={FIELD}
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="password" className="text-sm font-medium">
+                      รหัสผ่าน
+                    </label>
+                    <div className="relative">
+                      <input
+                        id="password"
+                        onChange={handleChange}
+                        value={formData.password}
+                        type={passwordInputType}
+                        name="password"
+                        autoComplete="new-password"
+                        required
+                        minLength={MIN_PASSWORD}
+                        aria-describedby="password-hint"
+                        aria-invalid={passwordShort}
+                        placeholder="กำหนดรหัสผ่าน"
+                        className={`${FIELD} pr-12`}
+                      />
+                      {eyeButton}
+                    </div>
+                    <p
+                      id="password-hint"
+                      className={`mt-1.5 flex items-center gap-1 text-xs ${passwordShort ? "text-[#B45309]" : "text-[#64748B]"}`}
+                    >
+                      <Shield1Check size={16} className="shrink-0 text-alert-success-title" aria-hidden="true" />
+                      รหัสผ่านต้องมีความยาวอย่างน้อย {MIN_PASSWORD} ตัวอักษร
+                      {passwordShort && ` (ตอนนี้ ${formData.password.length})`}
+                    </p>
+                  </div>
+                  <div>
+                    <label htmlFor="confirmPassword" className="text-sm font-medium">
+                      ยืนยันรหัสผ่าน
+                    </label>
+                    <div className="relative">
+                      <input
+                        id="confirmPassword"
+                        onChange={handleChange}
+                        value={formData.confirmPassword}
+                        type={passwordInputType}
+                        name="confirmPassword"
+                        autoComplete="new-password"
+                        required
+                        aria-invalid={mismatch}
+                        aria-describedby={mismatch ? "confirm-hint" : undefined}
+                        placeholder="กรอกรหัสผ่านอีกครั้ง"
+                        className={`${FIELD} pr-12`}
+                      />
+                      {eyeButton}
+                    </div>
+                    {mismatch && (
+                      <p id="confirm-hint" className="mt-1.5 text-xs text-[#B45309]">
+                        รหัสผ่านยังไม่ตรงกัน
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {errorMessage && (
+                  <p
+                    role="alert"
+                    className="mt-4 flex items-start gap-2 rounded-xl bg-[#FFF1F2] px-3.5 py-2.5 text-sm text-[#9F1239]"
+                  >
+                    <InfoCircle size={18} className="mt-0.5 shrink-0" aria-hidden="true" />
+                    {errorMessage}
+                  </p>
+                )}
+
                 <Button
                   type="submit"
                   variant={"success"}
-                  className={"w-full bg-alert-success-title"}
+                  className={"mt-6 w-full bg-alert-success-title"}
                 >
                   ลงทะเบียน
                 </Button>
-              </div>
-              <div className="text-[12px] text-center text-[#647488]">
-                <p>
+                <p className="mt-4 text-center text-xs text-[#64748B]">
                   การลงทะเบียนถือเป็นการยอมรับเงื่อนไขการใช้งานระบบภายในบริษัท
                 </p>
-              </div>
-              <div>
-                <p className="flex gap-2 justify-center items-center">
-                  <span className="text-[#0F172A]">มีบัญชีอยู่แล้ว?</span>
+
+                <p className="mt-6 flex flex-wrap items-center justify-center gap-2 text-sm">
+                  <span>มีบัญชีอยู่แล้ว?</span>
                   <Link
                     href="/login"
-                    className="text-alert-success-title underline hover:text-alert-success-title/90 font-bold"
+                    className="font-bold text-alert-success-title underline hover:text-alert-success-title/90"
                   >
                     เข้าสู่ระบบ
-                    <span>
-                      <ArrowRight />
-                    </span>
+                    <ArrowRight size={16} aria-hidden="true" />
                   </Link>
                 </p>
-              </div>
-            </div>
-          </form>
-        </div>
-      </div>
+              </form>
+            )}
+          </div>
+        </main>
       </div>
     </div>
   );

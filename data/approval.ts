@@ -215,9 +215,35 @@ export function getRuleRanges(rules: ApprovalRule[]) {
 //      (เช่น แผนกยังไม่มีหัวหน้า / หัวหน้ายื่นเองและไม่มีหัวหน้าคนอื่น)
 // ════════════════════════════════════════════════════════════
 
-export type PlannedStep = { role: StepRole; approverId: string | null; hasApprover: boolean };
+export type PlannedStep = {
+  role: StepRole;
+  approverId: string | null;
+  hasApprover: boolean;
+  actingRole: StepRole | null; // ทางสำรองเมื่อบัญชี/การเงินไม่มีคนอื่น (spec §5)
+};
 
-type Requester = { id: string; departmentId?: string | null };
+type Requester = {
+  id: string;
+  role?: string;
+  departmentId?: string | null;
+  hierarchy?: { headId: string | null; directorId: string | null };
+};
+
+// ลำดับสายบังคับบัญชา (ต่ำ → สูง) ใช้ข้ามขั้นตัวเอง (spec §4.2)
+const CHAIN: StepRole[] = ["HEAD", "DIRECTOR", "MANAGING_DIRECTOR"];
+
+// ทางสำรองเมื่อขั้นบัญชี/การเงินไม่มีคนอื่นนอกจากผู้ขอ (spec §5)
+export const FALLBACK_ROLE: StepRole = "MANAGING_DIRECTOR";
+
+// หัวหน้า / ผอ. โดยตรงของผู้ขอ (spec §3) · ไม่ได้กำหนด = null → ใช้ขอบเขตสังกัดแทน
+function directSupervisor(
+  role: StepRole,
+  r: { headId?: string | null; directorId?: string | null } | null | undefined,
+) {
+  if (role === "HEAD") return r?.headId ?? null;
+  if (role === "DIRECTOR") return r?.directorId ?? null;
+  return null;
+}
 
 // คนที่ผังองค์กรกำหนดให้ดำรงตำแหน่งในตัวนี้ เหนือผู้ขอ (ไม่มี = null)
 function holderOf(role: StepRole, requester: Requester, org: Organization): string | null {
@@ -244,6 +270,12 @@ function hasApproverInScope(
   org: Organization,
   users: ScopeCandidate[],
 ) {
+  // กำหนดหัวหน้า/ผอ. โดยตรงไว้ → ต้องเป็นคนนั้น (มีตัวตน ACTIVE และไม่ใช่ผู้ขอ)
+  const direct = directSupervisor(role, requester.hierarchy);
+  if (direct) {
+    return direct !== requester.id && users.some((u) => u.id === direct && u.status !== "INACTIVE");
+  }
+
   const holder = holderOf(role, requester, org);
   if (holder && holder !== requester.id) return true;
   return users.some(
@@ -264,16 +296,44 @@ export function planApprovalSteps(
   users: ScopeCandidate[] = typeof window === "undefined" ? [] : getUsers(),
 ): PlannedStep[] {
   const rule = rules.find((r) => r.max === null || total <= r.max);
-  const approvers = (rule ? rule.approvers : []).filter(
-    // ตำแหน่งที่ถูกลบไปแล้ว / ซ้ำ → ข้าม
+  let approvers = (rule ? rule.approvers : []).filter(
     (role, i, list) => positions.some((p) => p.id === role) && list.indexOf(role) === i,
   );
 
-  return [...approvers, ...FINAL_STEPS].map((role) => ({
+  // ── spec §4.2 ข้ามขั้นตัวเอง (Skip-level / 1-step up) ──
+  // ผู้ขอเป็น หัวหน้า / ผอ. / MD → ตัดขั้นของตัวเองและขั้นที่ต่ำกว่าออก
+  // ถ้าตัดแล้วไม่เหลือขั้นที่สูงกว่าในเส้นทาง → เพิ่มตำแหน่งที่สูงกว่า 1 ขั้น
+  //   หัวหน้า 3,001–30,000 → ผอ. · ผอ. 3,001–300,000 → MD · MD → ไม่เพิ่ม (ไปบัญชีเลย)
+  const rank = CHAIN.indexOf(requester.role ?? "");
+  if (rank >= 0) {
+    const hadChain = approvers.some((r) => CHAIN.includes(r));
+    approvers = approvers.filter((r) => CHAIN.indexOf(r) < 0 || CHAIN.indexOf(r) > rank);
+    const hasHigher = approvers.some((r) => CHAIN.indexOf(r) > rank);
+    const next = CHAIN[rank + 1];
+    if (hadChain && !hasHigher && next) approvers = [next, ...approvers];
+  }
+
+  const steps: PlannedStep[] = approvers.map((role) => ({
     role,
     approverId: null,
+    actingRole: null,
     hasApprover: hasApproverInScope(role, requester, org, users),
   }));
+
+  // ── บัญชี → การเงิน เสมอ · spec §5 ทางสำรองเมื่อไม่มีคนอื่นนอกจากผู้ขอ ──
+  for (const role of FINAL_STEPS) {
+    if (hasApproverInScope(role, requester, org, users)) {
+      steps.push({ role, approverId: null, actingRole: null, hasApprover: true });
+    } else {
+      steps.push({
+        role,
+        approverId: null,
+        actingRole: FALLBACK_ROLE,
+        hasApprover: hasApproverInScope(FALLBACK_ROLE, requester, org, users),
+      });
+    }
+  }
+  return steps;
 }
 
 // ════════════════════════════════════════════════════════════
@@ -305,19 +365,17 @@ export function canApproveStep(
   //   ※ เส้นทางปกติ approverId = null (planApprovalSteps) → ใช้ขอบเขตสังกัดด้านล่าง
   if (step.approverId) return step.approverId === user.id;
 
-  if (step.role !== user.role) return false;
+  // ทางสำรอง: ขั้นบัญชี/การเงินที่ให้ MD อนุมัติแทน (spec §5)
+  const approverRole = step.actingRole ?? step.role;
+  if (approverRole !== user.role) return false;
 
-  // มีแผนกของผู้ขอ → ดูขอบเขตตามสังกัด
-  if (deptId) return isInApproverScope(org, step.role, user, deptId);
+  // spec §3: กำหนดหัวหน้า/ผอ. โดยตรงของผู้ขอไว้ → ต้องเป็นคนนั้น
+  const direct = directSupervisor(approverRole, request.requester);
+  if (direct) return direct === user.id;
 
-  // คำขอเก่าที่ไม่มีทั้งแผนกและ approverId: หัวหน้า / ผอ. ต้องเป็นของผู้ขอจริง
-  const owner =
-    step.role === "HEAD"
-      ? request.requester?.headId
-      : step.role === "DIRECTOR"
-        ? request.requester?.directorId
-        : null;
-  return !owner || owner === user.id;
+  // ไม่ได้กำหนด → ขอบเขตสังกัด (หัวหน้า = แผนกเดียวกัน · ผอ. = ฝ่ายเดียวกัน · อื่นๆ = ทั้งบริษัท)
+  if (deptId) return isInApproverScope(org, approverRole, user, deptId);
+  return true;
 }
 
 // ════════════════════════════════════════════════════════════

@@ -42,16 +42,22 @@ export type User = {
     directorId: string | null;
   };
   status: "ACTIVE" | "INACTIVE";
+  // สิทธิ์ผู้ดูแลระบบ (แยกจาก role): จัดการผู้ใช้ · Approval Matrix · ตั้งงบประมาณ
+  // ไม่ผูกกับ role → คนตรวจคำขอ (บัญชี) ไม่ได้แก้กฎ/วงเงินเองโดยอัตโนมัติ
+  isAdmin?: boolean;
 };
 
 // ────────────────────────────────────────────────────────────
 //  ข้อมูลตัวอย่าง: ใส่สังกัดให้ผู้ใช้ทดสอบไว้แล้ว (แก้ต่อได้ที่หน้า "การตั้งค่า")
-//    ฝ่ายบัญชี DV01: แผนกงบประมาณฯ DP01 = phanu (พนักงาน), head_dcm (หัวหน้า)
-//                    แผนกบัญชีทั่วไป DP02 = accountant_admin, accountant_2
-//                    dir_finance = ผอ.ฝ่ายบัญชี (ไม่สังกัดแผนก · divisionId = DV01)
-//    ฝ่ายการเงิน DV05: แผนกการเงินฯ DP03 = finance_pay
-//    ฝ่ายการตลาด DV03: การตลาด DP05 = head_mkt (หัวหน้า), emp_mkt (พนักงาน) · ยังไม่มี ผอ.
-//    md = กรรมการผู้จัดการ (ทั้งบริษัท · ไม่สังกัด)
+//  username = ชื่อคน (ไม่ใส่ชื่อตำแหน่ง กันสับสนเวลาเปลี่ยน role)
+//    ฝ่ายบัญชี DV01: แผนกงบประมาณฯ DP01 = phanu (พนักงาน), somchai (หัวหน้า)
+//                    แผนกบัญชีทั่วไป DP02 = kanya, nattaya (บัญชี)
+//                    wanida = ผอ.ฝ่ายบัญชี (ไม่สังกัดแผนก · divisionId = DV01)
+//    ฝ่ายการเงิน DV05: แผนกการเงินฯ DP03 = preecha (การเงิน)
+//    ฝ่ายการตลาด DV03: การตลาด DP05 = kittisak (หัวหน้า), malee (พนักงาน) · ยังไม่มี ผอ.
+//    thanakorn = กรรมการผู้จัดการ (ทั้งบริษัท · ไม่สังกัด)
+//
+//  ผู้ดูแลระบบ (isAdmin) = kanya เท่านั้น · nattaya เป็นบัญชีแต่ไม่มีสิทธิ์จัดการระบบ
 //
 //  รหัสผ่านทุกคน = "pass" (ข้อมูลทดสอบเท่านั้น)
 // ────────────────────────────────────────────────────────────
@@ -72,8 +78,8 @@ export const users: User[] = [
   },
   {
     id: "u_02",
-    username: "head_dcm",
-    fullName: "หัวหน้าแผนกงบประมาณ",
+    username: "somchai",
+    fullName: "สมชาย ใจดี",
     role: "HEAD",
     password: "pass",
     lineOfWorkId: "LW01",
@@ -84,8 +90,8 @@ export const users: User[] = [
   },
   {
     id: "u_03",
-    username: "dir_finance",
-    fullName: "ผอ.ฝ่ายการเงิน",
+    username: "wanida",
+    fullName: "วนิดา รัตนกุล",
     role: "DIRECTOR",
     password: "pass",
     lineOfWorkId: "LW01",
@@ -96,8 +102,9 @@ export const users: User[] = [
   },
   {
     id: "u_04",
-    username: "accountant_admin",
-    fullName: "เจ้าหน้าที่บัญชีและแอดมิน",
+    username: "kanya",
+    fullName: "กัญญา ทองดี",
+    isAdmin: true, // ผู้ดูแลระบบคนเดียวในข้อมูลตัวอย่าง
     password: "pass",
     role: "ACCOUNTANT_ADMIN",
     lineOfWorkId: "LW01",
@@ -108,8 +115,8 @@ export const users: User[] = [
   },
   {
     id: "u_05",
-    username: "finance_pay",
-    fullName: "เจ้าหน้าที่การเงิน (ทำจ่าย)",
+    username: "preecha",
+    fullName: "ปรีชา มั่นคง",
     role: "FINANCE",
     password: "pass",
     lineOfWorkId: "LW01",
@@ -120,8 +127,8 @@ export const users: User[] = [
   },
   {
     id: "u_06",
-    username: "md",
-    fullName: "กรรมการผู้จัดการ",
+    username: "thanakorn",
+    fullName: "ธนกร วงศ์สวัสดิ์",
     role: "MANAGING_DIRECTOR",
     password: "pass",
     lineOfWorkId: null,
@@ -132,8 +139,8 @@ export const users: User[] = [
   },
   {
     id: "u_07",
-    username: "accountant_2",
-    fullName: "เจ้าหน้าที่บัญชี 2",
+    username: "nattaya",
+    fullName: "ณัฐยา สุขใจ",
     role: "ACCOUNTANT_ADMIN",
     password: "pass",
     lineOfWorkId: "LW01",
@@ -144,8 +151,8 @@ export const users: User[] = [
   },
   {
     id: "u_08",
-    username: "head_mkt",
-    fullName: "หัวหน้าแผนกการตลาด",
+    username: "kittisak",
+    fullName: "กิตติศักดิ์ แสงทอง",
     role: "HEAD",
     password: "pass",
     lineOfWorkId: "LW02",
@@ -156,14 +163,14 @@ export const users: User[] = [
   },
   {
     id: "u_09",
-    username: "emp_mkt",
-    fullName: "พนักงานการตลาด",
+    username: "malee",
+    fullName: "มาลี พรหมมา",
     role: "EMPLOYEE",
     password: "pass",
     lineOfWorkId: "LW02",
     divisionId: "DV03",
     departmentId: "DP05",
-    bankAccount: { bank: "ไทยพาณิชย์", number: "xxx-x-x7788-x", name: "พนักงานการตลาด" },
+    bankAccount: { bank: "ไทยพาณิชย์", number: "xxx-x-x7788-x", name: "มาลี พรหมมา" },
     departmentInfo: { lineOfWork: "สายงานธุรกิจและปฏิบัติการ", department: "การตลาด" },
     status: "ACTIVE",
   },
@@ -217,6 +224,7 @@ const mergeWithSeed = (stored: User[]): User[] => {
       departmentId: user.departmentId === undefined ? seed.departmentId : user.departmentId,
       bankAccount: user.bankAccount === undefined ? seed.bankAccount : user.bankAccount,
       password: user.password ?? seed.password,
+      isAdmin: user.isAdmin ?? seed.isAdmin,
     };
   });
   const missing = users.filter((s) => !stored.some((u) => u.id === s.id));

@@ -224,17 +224,18 @@ export default function Report() {
       {/* ---------- [5.1] หัวข้อ (ค้นหา + กระดิ่งใช้ของ layout) ---------- */}
       {/* หัวข้อ + แท็บช่วงเวลาอยู่ก้อนเดียวกัน แล้วเว้น 36px ก่อนเนื้อหา (เหมือนหน้า employee) */}
       <header className="mb-9 print:mb-4">
-        <div className="flex items-start justify-between">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="text-[32px] font-bold text-[#111] print:text-2xl">รายงานงบประมาณ</h1>
+            <h1 className="text-[32px] font-bold print:text-2xl">รายงานงบประมาณ</h1>
             <p className="mt-1 text-sm text-[#64748B]">
               สรุปการเบิกจ่ายและงบประมาณปี {YEAR + 543} · นับเฉพาะคำขอที่จ่ายแล้ว
             </p>
           </div>
           {/* พิมพ์รายงาน = เปิดหน้าพิมพ์ของเบราว์เซอร์ (เลือกบันทึกเป็น PDF ได้) */}
           <button
+            type="button"
             onClick={() => window.print()}
-            className="print:hidden rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-[#334155] hover:bg-gray-50"
+            className="cursor-pointer rounded-lg border border-[#E2E8F0] bg-white px-4 py-2 text-sm font-semibold text-[#334155] hover:bg-[#F8FAFC] print:hidden"
           >
             พิมพ์รายงาน
           </button>
@@ -248,14 +249,16 @@ export default function Report() {
         </p>
 
       {/* ---------- [5.2] แท็บช่วงเวลา ---------- */}
-      <div className="mt-4 inline-flex gap-1 rounded-lg border border-gray-200 bg-white p-1 print:hidden">
+      <div className="mt-4 inline-flex flex-wrap gap-1 rounded-xl border border-[#E2E8F0] bg-white p-1 print:hidden" role="group" aria-label="ช่วงเวลา">
         {/* map = สร้างปุ่มแท็บจาก periods ทีละอัน */}
         {periods.map((p) => (
           <button
             key={p.days}
+            type="button"
+            aria-pressed={days === p.days}
             onClick={() => setDays(p.days)} // กดแท็บ → เปลี่ยนจำนวนวันในกล่อง days → ตัวเลขทั้งหน้าคิดใหม่
             // แท็บที่เลือกอยู่ → พื้นสีเข้ม
-            className={`rounded-lg px-4 py-2 text-sm font-semibold ${days === p.days ? "bg-[#0F172A] text-white" : "text-[#64748B] hover:bg-gray-100"}`}
+            className={`rounded-lg px-4 py-2 text-sm font-semibold ${days === p.days ? "bg-[#0F172A] text-white" : "text-[#64748B] hover:bg-[#F1F5F9]"}`}
           >
             {p.label}
           </button>
@@ -266,17 +269,17 @@ export default function Report() {
       {/* แต่ละส่วนห่างกัน 36px เหมือนหน้า employee */}
       <div className="flex flex-col gap-9 print:gap-4">
       {/* ---------- [5.3] การ์ด 4 ใบ ---------- */}
-      <div className="grid grid-cols-4 gap-5">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
         {/* การ์ดใบแรก สีเข้ม */}
-        <div className="rounded-lg bg-gradient-to-br from-[#0F172A] via-[#0F172A] to-[#047857] p-6 text-white print:p-4">
-          <p className="flex items-center gap-2 text-sm text-gray-300">
-            <Wallet2 size={16} className="text-[#34D399]" /> งบคงเหลือทั้งหมด
+        <div className="rounded-xl bg-gradient-to-br from-[#0F172A] via-[#0F172A] to-[#047857] p-6 text-white shadow-2xl print:p-4 print:shadow-none">
+          <p className="flex items-center gap-2 text-sm text-[#CBD5E1]">
+            <Wallet2 size={16} className="text-[#34D399]" aria-hidden="true" /> งบคงเหลือทั้งหมด
           </p>
-          <p className="my-2 text-3xl font-bold tabular-nums">฿{money(remaining)}</p>
-          <div className="h-1.5 rounded-full bg-white/15">
+          <p className="money my-2 text-3xl font-bold">฿{money(remaining)}</p>
+          <div className="h-1.5 rounded-full bg-white/15" role="img" aria-label={`เหลือ ${boardTotal > 0 ? Math.max(0, 100 - usedPercent) : 0}% ของงบ`}>
             <div
               className="h-1.5 rounded-full bg-[#34D399]"
-              style={{ width: `${boardTotal > 0 ? 100 - usedPercent : 0}%` }} // ความยาวหลอด = % งบที่เหลือ · ยังไม่ตั้งงบ = หลอดว่าง
+              style={{ width: `${boardTotal > 0 ? Math.min(100, Math.max(0, 100 - usedPercent)) : 0}%` }} // ความยาวหลอด = % งบที่เหลือ · ยังไม่ตั้งงบ = หลอดว่าง
             />
           </div>
         </div>
@@ -295,34 +298,36 @@ export default function Report() {
         <Card
           icon={<TrendUp2 size={16} />}
           label="ใช้งบไปแล้ว (ทั้งปี)"
-          value={usedPercent + "%"}
-          unit={"฿" + money(yearTotal)}
+          value={boardTotal > 0 ? usedPercent + "%" : "—"}
+          unit={boardTotal > 0 ? "฿" + money(yearTotal) : "ยังไม่ตั้งงบ"}
         />
       </div>
 
       {/* grid 4 คอลัมน์: กราฟ 3 คอลัมน์ / เบิกสูงสุด 1 คอลัมน์ */}
-      <div className="grid grid-cols-4 gap-5">
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-4">
         {/* ---------- [5.4] กราฟ 6 เดือน ---------- */}
-        <section className="col-span-3 rounded-lg border border-[#E2E8F0] bg-white p-6 print:p-4">
+        <section className="rounded-xl xl:col-span-3 border border-[#E2E8F0] bg-white p-6 shadow-2xl print:p-4 print:shadow-none">
           <h2 className="mb-4 text-lg font-bold">ยอดเบิกจ่ายย้อนหลัง 6 เดือน</h2>
-          <div className="flex h-56 print:h-40 items-end gap-6 border-b border-gray-200 px-4">
+          <div className="flex h-56 items-end gap-3 border-b border-[#E2E8F0] px-2 sm:gap-6 sm:px-4 print:h-40">
             {/* map = วาดแท่งกราฟทีละเดือน · i = ลำดับเดือน */}
             {chart.map((c, i) => (
               <div
                 key={c.month}
                 className="flex h-full flex-1 flex-col items-center justify-end"
               >
-                <span className="mb-1 text-xs text-[#64748B]">
+                <span className="money mb-1 text-xs text-[#64748B]">
                   {money(c.amount)}
                 </span>
                 <div
+                  role="img"
+                  aria-label={`${c.month} ฿${money(c.amount)}`}
                   className={`w-full rounded-t-lg ${i === chart.length - 1 ? "bg-[#059669]" : "bg-[#CBD5E1]"}`} // แท่งสุดท้าย (เดือนล่าสุด) = สีเขียว · อื่นๆ = สีเทา
                   style={{ height: `${(c.amount / maxAmount) * 85}%` }} // ความสูง = ยอดเดือนนี้ ÷ ยอดสูงสุด (แท่งสูงสุดสูง 85%)
                 />
               </div>
             ))}
           </div>
-          <div className="flex gap-6 px-4 pt-2">
+          <div className="flex gap-3 px-2 pt-2 sm:gap-6 sm:px-4" aria-hidden="true">
             {chart.map((c, i) => (
               <span
                 key={c.month}
@@ -335,11 +340,11 @@ export default function Report() {
         </section>
 
         {/* ---------- [5.5] เบิกสูงสุด ---------- */}
-        <section className="col-span-1 rounded-lg border border-[#E2E8F0] bg-white p-6 print:p-4">
+        <section className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl print:p-4 print:shadow-none">
           <h2 className="mb-2 text-lg font-bold">รายการเบิกจ่ายสูงสุด</h2>
           {/* ไม่มีรายการ (length === 0) → โชว์ข้อความแทน */}
           {top.length === 0 && (
-            <p className="py-6 text-center text-sm text-[#94A3B8]">
+            <p className="py-6 text-center text-sm text-[#64748B]">
               ไม่มีรายการในช่วงนี้
             </p>
           )}
@@ -347,52 +352,60 @@ export default function Report() {
           {top.map((r, i) => (
             <div
               key={r.doc}
-              className="flex items-center gap-3 border-b border-gray-100 py-3 last:border-0"
+              className="flex items-center gap-3 border-b border-[#F1F5F9] py-3 last:border-0"
             >
-              <span className="w-5 font-bold">{i + 1}</span>
-              <div className="flex-1">
-                <p className="text-sm font-semibold">{r.title}</p>
+              <span
+                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${i === 0 ? "bg-[#ECFDF5] text-[#047857]" : "bg-[#F1F5F9] text-[#475569]"}`}
+              >
+                {i + 1}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold">{r.title}</p>
                 <p className="text-xs text-[#64748B]">{r.dept}</p>
               </div>
-              <b className="text-sm">฿{money(r.amount)}</b>
+              <b className="money text-sm">฿{money(r.amount)}</b>
             </div>
           ))}
         </section>
       </div>
 
       {/* ---------- [5.6] งบตามโครงการ / หมวด ---------- */}
-      <section className="rounded-lg border border-[#E2E8F0] bg-white p-6 print:p-4">
-        <div className="mb-4 flex items-center justify-between">
+      <section className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl print:p-4 print:shadow-none">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-lg font-bold">
             งบตามโครงการ / หมวดค่าใช้จ่าย (งบทั้งปี)
           </h2>
-          <span className="text-sm text-[#64748B]">
+          <span className="money text-sm text-[#64748B]">
             {projectRows.length} โครงการ · งบรวม ฿{money(boardTotal)}
           </span>
         </div>
-        <div className="grid grid-cols-3 gap-4">
+        {projectRows.length === 0 && (
+          <p className="py-6 text-center text-sm text-[#64748B]">ยังไม่มีโครงการ · ตั้งได้ที่หน้า “ตั้งงบประมาณ”</p>
+        )}
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {projectRows.map((p) => (
-            <div key={p.id} className="rounded-lg border border-gray-200 p-4">
+            <div key={p.id} className="rounded-xl border border-[#E2E8F0] p-4">
               <p className="text-xs text-[#64748B]">{p.dept}</p>
               <p className="font-bold">{p.name}</p>
-              <p className="mb-3 mt-1 text-sm text-[#64748B]">
+              <p className="money mb-3 mt-1 text-sm text-[#64748B]">
                 ใช้ไป <b className="text-[#0F172A]">฿{money(p.used)}</b> จาก ฿
                 {money(p.limit)}
               </p>
               {p.categories.map((c) => {
-                const percent = c.limit > 0 ? Math.min(100, Math.round((c.used / c.limit) * 100)) : 0; // ยังไม่ตั้งวงเงิน = 0%
+                // ยังไม่ตั้งวงเงิน: ไม่มีการใช้ = 0% · มีการใช้ = เต็ม (กันหารด้วย 0)
+                const percent = c.limit > 0 ? Math.round((c.used / c.limit) * 100) : c.used > 0 ? 100 : 0;
                 return (
                   <div key={c.id} className="mb-2.5">
                     <div className="flex justify-between text-xs">
                       <span>{c.name}</span>
-                      <span className="text-[#64748B]">
-                        เหลือ ฿{money(c.limit - c.used)}
+                      <span className={`money ${c.limit - c.used < 0 ? "font-semibold text-[#BE123C]" : "text-[#64748B]"}`}>
+                        {c.limit - c.used < 0 ? "เกิน" : "เหลือ"} ฿{money(Math.abs(c.limit - c.used))}
                       </span>
                     </div>
-                    <div className="mt-1 h-1.5 rounded-full bg-gray-100">
+                    <div className="mt-1 h-1.5 rounded-full bg-[#F1F5F9]" role="img" aria-label={`${c.name} ใช้ไป ${percent}%`}>
                       <div
                         className={`h-1.5 rounded-full ${percent >= 80 ? "bg-[#E11D48]" : "bg-[#059669]"}`} // ใช้เกิน 80% = แดง
-                        style={{ width: `${percent}%` }}
+                        style={{ width: `${Math.min(100, percent)}%` }}
                       />
                     </div>
                   </div>
@@ -404,28 +417,32 @@ export default function Report() {
       </section>
 
       {/* ---------- [5.7] ตารางรายฝ่าย ---------- */}
-      <section className="rounded-lg border border-[#E2E8F0] bg-white p-6 print:p-4">
-        <div className="mb-4 flex items-center justify-between">
+      <section className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl print:p-4 print:shadow-none">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-bold">รายการเบิกจ่าย</h2>
-          <div className="flex w-64 items-center gap-2 rounded-lg border print:hidden border-gray-200 px-3">
-            <Search1 size={18} className="text-[#94A3B8]" />
+          <label className="flex w-full items-center gap-2 rounded-xl border border-[#E2E8F0] px-3 focus-within:border-[#059669] sm:w-64 print:hidden">
+            <Search1 size={18} className="shrink-0 text-[#94A3B8]" aria-hidden="true" />
+            <span className="sr-only">ค้นหาเลขที่เอกสาร</span>
             <input
+              type="search"
               className="w-full border-0 bg-transparent py-2 text-sm outline-none focus:ring-0"
               placeholder="ค้นหาเลขที่เอกสาร"
               value={search} // value = โชว์คำค้นในกล่อง search
               onChange={(e) => setSearch(e.target.value)} // พิมพ์ → เก็บคำค้น → ตาราง rows กรองใหม่เอง
             />
-          </div>
+          </label>
         </div>
 
         {/* แท็บฝ่าย */}
-        <div className="mb-4 inline-flex gap-1 rounded-lg border border-gray-200 p-1 print:hidden">
+        <div className="mb-4 inline-flex flex-wrap gap-1 rounded-xl border border-[#E2E8F0] p-1 print:hidden" role="group" aria-label="แผนก">
           {/* map = สร้างปุ่มแท็บฝ่ายทีละฝ่าย */}
           {depts.map((d) => (
             <button
               key={d}
+              type="button"
+              aria-pressed={currentDept === d}
               onClick={() => setDept(d)} // กดแท็บ → เปลี่ยนแผนกในกล่อง dept
-              className={`rounded-lg px-4 py-1.5 text-sm font-semibold ${currentDept === d ? "bg-[#0F172A] text-white" : "text-[#64748B] hover:bg-gray-100"}`}
+              className={`rounded-lg px-4 py-1.5 text-sm font-semibold ${currentDept === d ? "bg-[#0F172A] text-white" : "text-[#64748B] hover:bg-[#F1F5F9]"}`}
             >
               {d}
             </button>
@@ -433,9 +450,10 @@ export default function Report() {
         </div>
 
         {/* ตาราง */}
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[640px] text-sm">
           <thead>
-            <tr className="border-b border-gray-200 text-left text-xs text-[#64748B]">
+            <tr className="border-b border-[#E2E8F0] text-left text-xs text-[#64748B]">
               <th className="py-2 font-semibold">วันที่</th>
               <th className="py-2 font-semibold">รายการ</th>
               <th className="py-2 font-semibold">เลขที่เอกสาร</th>
@@ -446,23 +464,28 @@ export default function Report() {
           <tbody>
             {/* map = วาดแถวตารางจาก rows ที่กรองแล้ว · key = เลขเอกสาร (ไม่ซ้ำกัน) */}
             {rows.map((r) => (
-              <tr key={r.doc} className="border-b border-gray-100">
-                <td className="py-3 text-[#64748B]">{r.date}</td>
+              <tr key={r.doc} className="border-b border-[#F1F5F9] hover:bg-[#F8FAFC]">
+                <td className="whitespace-nowrap py-3 text-[#64748B]">{r.date}</td>
                 <td className="py-3 font-semibold">{r.title}</td>
                 <td className="py-3">
-                  {r.doc}
+                  <span className="flex items-center gap-1">
+                    <FileText size={16} className="shrink-0 text-[#94A3B8]" aria-hidden="true" /> {r.doc}
+                  </span>
                 </td>
                 <td className="py-3">{r.requester}</td>
-                <td className="py-3 text-right font-bold tabular-nums">
+                <td className="money py-3 text-right font-bold">
                   ฿{money(r.amount)}
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
+        </div>
         {/* ค้นแล้วไม่เจอ → โชว์ "ไม่พบรายการ" */}
         {rows.length === 0 && (
-          <p className="py-6 text-center text-sm text-[#94A3B8]">ไม่พบรายการ</p>
+          <p className="py-6 text-center text-sm text-[#64748B]">
+            {search ? `ไม่พบเลขที่เอกสาร “${search}” ในแผนก${currentDept}` : `ไม่มีรายการของแผนก${currentDept}ในช่วงนี้`}
+          </p>
         )}
       </section>
       </div>
@@ -487,11 +510,11 @@ function Card({
   unit: string;
 }) {
   return (
-    <div className="rounded-lg border border-[#E2E8F0] bg-white p-6 print:p-4">
+    <div className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl print:p-4 print:shadow-none">
       <p className="flex items-center gap-2 text-sm text-[#64748B]">
         {icon} {label}
       </p>
-      <p className="mt-2 text-3xl font-bold tabular-nums">
+      <p className="money mt-2 text-3xl font-bold">
         {value}{" "}
         <span className="text-sm font-normal text-[#64748B]">{unit}</span>
       </p>

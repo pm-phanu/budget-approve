@@ -12,7 +12,7 @@
 // ════════════════════════════════════════════════════════════
 
 import { Fragment, useEffect, useState } from "react";
-import { Wallet2 } from "@tailgrids/icons";
+import { Close, Copy1, Locked3, Trash1 } from "@tailgrids/icons";
 
 import {
   TableBody,
@@ -75,6 +75,7 @@ export default function BudgetSetting() {
 
   // localStorage มีแค่ในเบราว์เซอร์ → อ่านหลังเปิดหน้า
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect -- localStorage อ่านได้หลังเปิดหน้าเท่านั้น */
     const list = loadProjects();
     setSaved(list);
     setDraft(list);
@@ -83,6 +84,7 @@ export default function BudgetSetting() {
     setDraftAlloc(alloc);
     setRequests(loadRequests());
     setOrg(loadOrganization());
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
   const dirty =
@@ -146,7 +148,7 @@ export default function BudgetSetting() {
             style={{ paddingLeft: depth * 24 }}
             className={depth === 0 ? "font-bold" : depth === 1 ? "font-semibold" : ""}
           >
-            {depth > 0 && <span className="mr-2 text-gray-400">└</span>}
+            {depth > 0 && <span aria-hidden="true" className="mr-2 text-[#CBD5E1]">└</span>}
             {name}
           </span>
         </TableCell>
@@ -156,12 +158,12 @@ export default function BudgetSetting() {
             value={amount.toLocaleString("en-US")}
             onChange={(v) => setAllocAmount(level, id, v)}
           >
-            <Input inputMode="numeric" className="ml-auto w-40 text-right" />
+            <Input inputMode="numeric" className="money ml-auto w-40 text-right" />
           </TextField>
         </TableCell>
-        <TableCell className="text-right text-gray-600">{baht(childTotal)}</TableCell>
+        <TableCell className="money text-right text-[#475569]">{baht(childTotal)}</TableCell>
         <TableCell
-          className={`text-right font-semibold ${left < 0 ? "text-red-600" : "text-[#047857]"}`}
+          className={`money text-right font-semibold ${left < 0 ? "text-[#BE123C]" : "text-[#047857]"}`}
         >
           {baht(left)}
         </TableCell>
@@ -361,90 +363,101 @@ export default function BudgetSetting() {
             aria-label={`ชื่อโครงการ ${p.id}`}
             value={p.name}
             onChange={(v) => patchProject(p.id, (x) => ({ ...x, name: v }))}
-            className="flex-1"
+            className="min-w-60 flex-1"
           >
-            <Input className="font-semibold" />
+            <Input className="font-semibold" placeholder="ชื่อโครงการ" />
           </TextField>
-          <span className="text-sm text-gray-500">
-            รวม {baht(limit)} · ใช้ไป {baht(used)}
+          <span className="money text-sm text-[#64748B]">
+            รวม <strong className="text-[#0F172A]">{baht(limit)}</strong> · ใช้ไป {baht(used)}
           </span>
-          {!projectLocked && (
+          {projectLocked ? (
+            <span
+              className="flex items-center gap-1 text-xs text-[#94A3B8]"
+              title={isSeed ? "โครงการตั้งต้นของระบบ ลบไม่ได้ (ตั้งวงเงินเป็น 0 แทน)" : "มีคำขออ้างอิงโครงการนี้"}
+            >
+              <Locked3 size={14} aria-hidden="true" /> ลบไม่ได้
+            </span>
+          ) : (
             <button
               type="button"
               onClick={() => removeProject(p.id)}
-              className="rounded-lg px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
+              className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm font-semibold text-[#BE123C] hover:bg-[#FFF1F2]"
             >
-              ลบโครงการ
+              <Trash1 size={16} aria-hidden="true" /> ลบโครงการ
             </button>
           )}
         </div>
 
-        <TableRoot className="bg-white">
-          <TableHeader className="bg-[#059669] font-bold text-white">
-            <TableRow>
-              <TableHead>หมวดค่าใช้จ่าย</TableHead>
-              <TableHead className="text-right">วงเงินที่บอร์ดอนุมัติ (บาท)</TableHead>
-              <TableHead className="text-right">ใช้ไป</TableHead>
-              <TableHead className="text-right">คงเหลือ</TableHead>
-              <TableHead className="w-16" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {p.categories.map((c) => {
-              const u = usedOf(c.id);
-              const remaining = c.limit - u;
-              return (
-                <TableRow key={c.id}>
-                  <TableCell>
-                    <TextField
-                      aria-label={`ชื่อหมวด ${c.id}`}
-                      value={c.name}
-                      onChange={(v) => renameCategory(p.id, c.id, v)}
-                    >
-                      <Input placeholder="ชื่อหมวด" />
-                    </TextField>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <TextField
-                      aria-label={`วงเงิน ${p.name} ${c.name}`}
-                      value={c.limit.toLocaleString("en-US")}
-                      onChange={(v) => setLimit(p.id, c.id, v)}
-                    >
-                      <Input inputMode="numeric" className="ml-auto w-40 text-right" />
-                    </TextField>
-                  </TableCell>
-                  <TableCell className="text-right text-gray-600">{baht(u)}</TableCell>
-                  <TableCell
-                    className={`text-right font-semibold ${remaining < 0 ? "text-red-600" : "text-[#047857]"}`}
-                  >
-                    {baht(remaining)}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    {hasRequests(c.id) ? (
-                      <span className="text-xs text-gray-400" title="มีคำขออ้างอิงหมวดนี้">
-                        ใช้งานอยู่
-                      </span>
-                    ) : (
-                      <button
-                        type="button"
-                        aria-label={`ลบหมวด ${c.name}`}
-                        onClick={() => removeCategory(p.id, c.id)}
-                        className="text-gray-400 hover:text-red-600"
+        <div className="overflow-x-auto">
+          <TableRoot className="bg-white">
+            <TableHeader className="bg-[#059669] font-bold text-white">
+              <TableRow>
+                <TableHead>หมวดค่าใช้จ่าย</TableHead>
+                <TableHead className="text-right">วงเงิน (บาท)</TableHead>
+                <TableHead className="text-right">ใช้ไป</TableHead>
+                <TableHead className="text-right">คงเหลือ</TableHead>
+                <TableHead className="w-16">
+                  <span className="sr-only">ลบ</span>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {p.categories.map((c) => {
+                const u = usedOf(c.id);
+                const remaining = c.limit - u;
+                return (
+                  <TableRow key={c.id}>
+                    <TableCell className="min-w-48">
+                      <TextField
+                        aria-label={`ชื่อหมวด ${c.id}`}
+                        value={c.name}
+                        onChange={(v) => renameCategory(p.id, c.id, v)}
                       >
-                        ✕
-                      </button>
-                    )}
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </TableRoot>
+                        <Input placeholder="ชื่อหมวด" />
+                      </TextField>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <TextField
+                        aria-label={`วงเงิน ${p.name} ${c.name}`}
+                        value={c.limit.toLocaleString("en-US")}
+                        onChange={(v) => setLimit(p.id, c.id, v)}
+                      >
+                        <Input inputMode="numeric" className="money ml-auto w-40 text-right" />
+                      </TextField>
+                    </TableCell>
+                    <TableCell className="money text-right text-[#475569]">{baht(u)}</TableCell>
+                    <TableCell
+                      className={`money text-right font-semibold ${remaining < 0 ? "text-[#BE123C]" : "text-[#047857]"}`}
+                    >
+                      {baht(remaining)}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {hasRequests(c.id) ? (
+                        <span className="text-xs text-[#94A3B8]" title="มีคำขออ้างอิงหมวดนี้ ลบไม่ได้">
+                          ใช้งานอยู่
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          aria-label={`ลบหมวด ${c.name || c.id}`}
+                          onClick={() => removeCategory(p.id, c.id)}
+                          className="rounded-lg p-1.5 text-[#94A3B8] hover:bg-[#FFF1F2] hover:text-[#BE123C]"
+                        >
+                          <Close size={16} aria-hidden="true" />
+                        </button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </TableRoot>
+        </div>
 
         <button
           type="button"
           onClick={() => addCategory(p.id)}
-          className="mt-3 text-sm font-semibold text-[#047857] hover:underline"
+          className="mt-3 rounded-lg px-2 py-1 text-sm font-semibold text-[#047857] hover:bg-[#ECFDF5]"
         >
           + เพิ่มหมวด
         </button>
@@ -452,38 +465,68 @@ export default function BudgetSetting() {
     );
   }
 
+  // หัวข้อแต่ละขั้น (เลขขั้น + ชื่อ + คำอธิบาย)
+  const stepTitle = (n: number, title: string, hint: string) => (
+    <div className="mb-6 flex items-start gap-3">
+      <span
+        aria-hidden="true"
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#ECFDF5] text-sm font-bold text-[#047857]"
+      >
+        {n}
+      </span>
+      <div>
+        <h2 className="text-2xl font-bold">
+          <span className="sr-only">ขั้นที่ {n}: </span>
+          {title}
+        </h2>
+        <p className="mt-1 text-sm text-[#64748B]">{hint}</p>
+      </div>
+    </div>
+  );
+
   return (
-    <div>
-      <header className="text-[#111] flex items-center justify-between mb-9">
-        <h1 className="text-[32px] font-bold">ตั้งงบประมาณ</h1>
+    <div className="text-[#0F172A]">
+      <header className="mb-9 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-[32px] font-bold">ตั้งงบประมาณ</h1>
+          <p className="mt-1 text-sm text-[#64748B]">
+            กรอกงบที่บอร์ดอนุมัติ → แบ่งให้สายงาน / ฝ่าย / แผนก → แผนกแบ่งเป็นโครงการและหมวด · กดบันทึกครั้งเดียวด้านล่าง
+          </p>
+        </div>
+        <div className="w-44">
+          <NativeSelect
+            aria-label="ปีงบประมาณ"
+            value={String(year)}
+            onChange={(e) => setYear(Number(e.target.value))}
+          >
+            {years.map((y) => (
+              <NativeSelectOption key={y} value={String(y)}>
+                ปีงบประมาณ {toBE(y)}
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
+        </div>
       </header>
 
       <div className="flex flex-col gap-9">
-        {/* สรุปปีที่เลือก */}
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-4">
+        {/* ===== ขั้นที่ 1: งบรวมที่บอร์ดอนุมัติ + สรุป ===== */}
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
           <div className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl">
-            <p className="mb-2 text-sm text-gray-500">ปีงบประมาณ</p>
-            <NativeSelect
-              aria-label="ปีงบประมาณ"
-              value={String(year)}
-              onChange={(e) => setYear(Number(e.target.value))}
-            >
-              {years.map((y) => (
-                <NativeSelectOption key={y} value={String(y)}>
-                  พ.ศ. {toBE(y)}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
-          </div>
-          {/* ขั้นที่ 1: กรอกงบรวมที่บอร์ดอนุมัติ */}
-          <div className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl">
-            <p className="mb-2 text-sm text-gray-500">งบที่บอร์ดอนุมัติ (บาท)</p>
+            <p className="mb-2 flex items-center gap-2 text-sm text-[#64748B]">
+              <span
+                aria-hidden="true"
+                className="flex h-6 w-6 items-center justify-center rounded-full bg-[#ECFDF5] text-xs font-bold text-[#047857]"
+              >
+                1
+              </span>
+              งบที่บอร์ดอนุมัติ ปี {toBE(year)} (บาท)
+            </p>
             <TextField
               aria-label="งบที่บอร์ดอนุมัติ"
               value={(alloc?.boardTotal ?? 0).toLocaleString("en-US")}
               onChange={setBoardTotal}
             >
-              <Input inputMode="numeric" className="text-right text-xl font-bold" />
+              <Input inputMode="numeric" className="money text-right text-xl font-bold" />
             </TextField>
             {!storedAlloc && (
               <p className="mt-2 text-xs text-[#B45309]">
@@ -492,102 +535,97 @@ export default function BudgetSetting() {
             )}
           </div>
           <div className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl">
-            <p className="text-sm text-gray-500">แบ่งให้สายงานแล้ว</p>
-            <p className="mt-2 text-2xl font-bold text-[#111]">{baht(linesTotal)}</p>
-            <p className={`mt-1 text-sm ${boardTotal - linesTotal < 0 ? "text-red-600" : "text-gray-500"}`}>
-              ยังไม่ได้แบ่ง {baht(boardTotal - linesTotal)}
+            <p className="text-sm text-[#64748B]">แบ่งให้สายงานแล้ว</p>
+            <p className="money mt-2 text-2xl font-bold">{baht(linesTotal)}</p>
+            <p className={`money mt-1 text-sm ${boardTotal - linesTotal < 0 ? "font-semibold text-[#BE123C]" : "text-[#64748B]"}`}>
+              {boardTotal - linesTotal < 0 ? "แบ่งเกินงบบอร์ด " : "ยังไม่ได้แบ่ง "}
+              {baht(Math.abs(boardTotal - linesTotal))}
             </p>
           </div>
           <div className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl">
-            <p className="text-sm text-gray-500">ใช้ไปแล้ว</p>
-            <p className="mt-2 text-2xl font-bold text-[#111]">{baht(totalUsed)}</p>
+            <p className="text-sm text-[#64748B]">ใช้ไปแล้ว</p>
+            <p className="money mt-2 text-2xl font-bold">{baht(totalUsed)}</p>
             <p
-              className={`mt-1 text-sm ${boardTotal - totalUsed < 0 ? "text-red-600" : "text-[#047857]"}`}
+              className={`money mt-1 text-sm ${boardTotal - totalUsed < 0 ? "font-semibold text-[#BE123C]" : "text-[#047857]"}`}
             >
               คงเหลือจากงบบอร์ด {baht(boardTotal - totalUsed)}
             </p>
           </div>
         </div>
 
-        {/* ขั้นที่ 2: แบ่งงบบอร์ด → สายงาน → ฝ่าย → แผนก */}
-        <div className="bg-white p-6 rounded-xl border border-[#E2E8F0] shadow-2xl">
-          <h2 className="text-[#111] text-2xl font-bold mb-2 flex gap-2 items-center">
-            <Wallet2 />
-            แบ่งงบตามสายงาน / ฝ่าย / แผนก ปี {toBE(year)}
-          </h2>
-          <p className="mb-6 text-sm text-gray-500">
-            แต่ละชั้นแบ่งต่อรวมกันได้ไม่เกินวงเงินของตัวเอง · แผนกแบ่งต่อเป็นโครงการด้านล่าง
-          </p>
+        {/* ===== ขั้นที่ 2: แบ่งงบบอร์ด → สายงาน → ฝ่าย → แผนก ===== */}
+        <section className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl">
+          {stepTitle(2, `แบ่งงบตามสายงาน / ฝ่าย / แผนก ปี ${toBE(year)}`, "แต่ละชั้นแบ่งต่อรวมกันได้ไม่เกินวงเงินของตัวเอง · ยอดติดลบสีแดง = แบ่งเกิน")}
 
           {alloc && org && (
-            <TableRoot className="bg-white">
-              <TableHeader className="bg-[#059669] font-bold text-white">
-                <TableRow>
-                  <TableHead>สายงาน / ฝ่าย / แผนก</TableHead>
-                  <TableHead className="text-right">วงเงิน (บาท)</TableHead>
-                  <TableHead className="text-right">แบ่งต่อแล้ว</TableHead>
-                  <TableHead className="text-right">ยังไม่ได้แบ่ง</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {org.linesOfWork.map((l) => {
-                  const divs = org.divisions.filter((v) => v.lineOfWorkId === l.id);
-                  return (
-                    <Fragment key={l.id}>
-                      {allocRow(
-                        "lines",
-                        l.id,
-                        l.name,
-                        0,
-                        divs.reduce((s, v) => s + (alloc.divisions[v.id] ?? 0), 0),
-                      )}
-                      {divs.map((v) => {
-                        const depts = org.departments.filter((d) => d.divisionId === v.id);
-                        return (
-                          <Fragment key={v.id}>
-                            {allocRow(
-                              "divisions",
-                              v.id,
-                              v.name,
-                              1,
-                              depts.reduce((s, d) => s + (alloc.departments[d.id] ?? 0), 0),
-                            )}
-                            {depts.map((d) =>
-                              allocRow(
-                                "departments",
-                                d.id,
-                                d.name,
-                                2,
-                                departmentProjectTotal(draft, d.id, year),
-                              ),
-                            )}
-                          </Fragment>
-                        );
-                      })}
-                    </Fragment>
-                  );
-                })}
-              </TableBody>
-            </TableRoot>
+            <div className="overflow-x-auto">
+              <TableRoot className="bg-white">
+                <TableHeader className="bg-[#059669] font-bold text-white">
+                  <TableRow>
+                    <TableHead>สายงาน / ฝ่าย / แผนก</TableHead>
+                    <TableHead className="text-right">วงเงิน (บาท)</TableHead>
+                    <TableHead className="text-right">แบ่งต่อแล้ว</TableHead>
+                    <TableHead className="text-right">ยังไม่ได้แบ่ง</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {org.linesOfWork.map((l) => {
+                    const divs = org.divisions.filter((v) => v.lineOfWorkId === l.id);
+                    return (
+                      <Fragment key={l.id}>
+                        {allocRow(
+                          "lines",
+                          l.id,
+                          l.name,
+                          0,
+                          divs.reduce((s, v) => s + (alloc.divisions[v.id] ?? 0), 0),
+                        )}
+                        {divs.map((v) => {
+                          const depts = org.departments.filter((d) => d.divisionId === v.id);
+                          return (
+                            <Fragment key={v.id}>
+                              {allocRow(
+                                "divisions",
+                                v.id,
+                                v.name,
+                                1,
+                                depts.reduce((s, d) => s + (alloc.departments[d.id] ?? 0), 0),
+                              )}
+                              {depts.map((d) =>
+                                allocRow(
+                                  "departments",
+                                  d.id,
+                                  d.name,
+                                  2,
+                                  departmentProjectTotal(draft, d.id, year),
+                                ),
+                              )}
+                            </Fragment>
+                          );
+                        })}
+                      </Fragment>
+                    );
+                  })}
+                </TableBody>
+              </TableRoot>
+            </div>
           )}
-        </div>
+        </section>
 
-        {/* รายการงบตามแผนก */}
-        <div className="bg-white p-6 rounded-xl border border-[#E2E8F0] shadow-2xl">
-          <h2 className="text-[#111] text-2xl font-bold mb-6 flex gap-2 items-center">
-            <Wallet2 />
-            วงเงินตามแผนก / โครงการ ปี {toBE(year)}
-          </h2>
+        {/* ===== ขั้นที่ 3: แผนก → โครงการ → หมวด ===== */}
+        <section className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl">
+          {stepTitle(3, `วงเงินตามแผนก / โครงการ ปี ${toBE(year)}`, "แผนกแบ่งงบของตัวเองเป็นโครงการ และแต่ละโครงการแบ่งเป็นหมวดค่าใช้จ่าย")}
 
           {yearProjects.length === 0 && (
-            <div className="mb-6 rounded-xl bg-gray-50 p-6 text-center text-sm text-gray-600">
-              <p>ยังไม่มีงบของปี {toBE(year)}</p>
+            <div className="mb-6 rounded-xl bg-[#F8FAFC] p-6 text-center text-sm text-[#475569]">
+              <p>ยังไม่มีโครงการของปี {toBE(year)} · เพิ่มโครงการด้านล่าง</p>
               {prevYearProjects.length > 0 && (
                 <button
                   type="button"
                   onClick={copyPreviousYear}
-                  className="mt-3 rounded-xl border border-[#059669] px-4 py-2 font-semibold text-[#047857] hover:bg-[#ECFDF5]"
+                  className="mt-3 inline-flex items-center gap-1.5 rounded-xl border border-[#059669] px-4 py-2 font-semibold text-[#047857] hover:bg-[#ECFDF5]"
                 >
+                  <Copy1 size={16} aria-hidden="true" />
                   คัดลอกโครงการจากปี {toBE(year - 1)} ({prevYearProjects.length} โครงการ) มาเป็นตั้งต้น
                 </button>
               )}
@@ -595,85 +633,99 @@ export default function BudgetSetting() {
           )}
 
           <div className="flex flex-col gap-8">
-            {groups.map(({ dept, list }) => (
-              <Fragment key={dept.id}>
-                <section>
-                  <h3 className="mb-3 flex flex-wrap items-baseline gap-3 text-lg font-bold text-[#111]">
+            {groups.map(({ dept, list }) => {
+              const deptAlloc = alloc?.departments[dept.id] ?? 0;
+              const left = deptAlloc - departmentProjectTotal(draft, dept.id, year);
+              return (
+                <section key={dept.id} aria-label={dept.name}>
+                  <h3 className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-lg font-bold">
                     {dept.name}
-                    {(() => {
-                      const deptAlloc = alloc?.departments[dept.id] ?? 0;
-                      const left = deptAlloc - departmentProjectTotal(draft, dept.id, year);
-                      return (
-                        <span className={`text-sm font-normal ${left < 0 ? "text-red-600" : "text-gray-500"}`}>
-                          งบแผนก {baht(deptAlloc)} · เหลือให้แบ่งเป็นโครงการ {baht(left)}
-                        </span>
-                      );
-                    })()}
+                    <span className={`money text-sm font-normal ${left < 0 ? "font-semibold text-[#BE123C]" : "text-[#64748B]"}`}>
+                      งบแผนก {baht(deptAlloc)} ·{" "}
+                      {left < 0 ? `แบ่งเป็นโครงการเกิน ${baht(-left)}` : `เหลือให้แบ่งเป็นโครงการ ${baht(left)}`}
+                    </span>
                   </h3>
                   <div className="flex flex-col gap-4">{list.map(renderProject)}</div>
                 </section>
-              </Fragment>
-            ))}
+              );
+            })}
             {orphans.length > 0 && (
-              <section>
-                <h3 className="mb-3 text-lg font-bold text-[#111]">ไม่พบแผนกในโครงสร้างองค์กร</h3>
+              <section aria-label="ไม่พบแผนก">
+                <h3 className="mb-3 text-lg font-bold">ไม่พบแผนกในโครงสร้างองค์กร</h3>
                 <div className="flex flex-col gap-4">{orphans.map(renderProject)}</div>
               </section>
             )}
           </div>
 
           {/* เพิ่มโครงการ */}
-          <div className="mt-6 flex flex-wrap items-end gap-3 rounded-xl border border-dashed border-[#059669] p-4">
-            <div className="w-72">
-              <NativeSelect
-                aria-label="แผนกของโครงการใหม่"
-                value={newDept}
-                onChange={(e) => setNewDept(e.target.value)}
+          <div className="mt-6 rounded-xl border border-dashed border-[#059669] p-4">
+            <p className="mb-3 text-sm font-semibold">เพิ่มโครงการ</p>
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="w-full sm:w-72">
+                <NativeSelect
+                  aria-label="แผนกของโครงการใหม่"
+                  value={newDept}
+                  onChange={(e) => setNewDept(e.target.value)}
+                >
+                  <NativeSelectOption value="">เลือกแผนก</NativeSelectOption>
+                  {departments.map((d) => (
+                    <NativeSelectOption key={d.id} value={d.id}>
+                      {d.name}
+                    </NativeSelectOption>
+                  ))}
+                </NativeSelect>
+              </div>
+              <TextField
+                aria-label="ชื่อโครงการใหม่"
+                value={newName}
+                onChange={setNewName}
+                className="min-w-60 flex-1"
               >
-                <NativeSelectOption value="">เลือกแผนก</NativeSelectOption>
-                {departments.map((d) => (
-                  <NativeSelectOption key={d.id} value={d.id}>
-                    {d.name}
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
+                <Input
+                  placeholder="ชื่อโครงการ"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") addProject();
+                  }}
+                />
+              </TextField>
+              <button
+                type="button"
+                onClick={addProject}
+                className="rounded-xl bg-[#ECFDF5] px-5 py-2.5 text-sm font-semibold text-[#047857] hover:bg-[#D1FAE5]"
+              >
+                + เพิ่มโครงการ
+              </button>
             </div>
-            <TextField
-              aria-label="ชื่อโครงการใหม่"
-              value={newName}
-              onChange={setNewName}
-              className="flex-1"
-            >
-              <Input placeholder="ชื่อโครงการ" />
-            </TextField>
-            <button
-              type="button"
-              onClick={addProject}
-              className="rounded-xl bg-[#ECFDF5] px-5 py-2.5 text-sm font-semibold text-[#047857] hover:bg-[#D1FAE5]"
-            >
-              + เพิ่มโครงการ
-            </button>
           </div>
+        </section>
 
-          {/* ข้อความผิดพลาด / สำเร็จ */}
+        {/* ===== แถบบันทึก: ติดขอบล่างเมื่อมีการแก้ (แก้ขั้น 1-2 ด้านบนแล้วไม่ต้องเลื่อนลงมาหา) ===== */}
+        <div
+          className={`rounded-xl border bg-white p-4 shadow-2xl ${
+            dirty || errors.length > 0 ? "sticky bottom-4 z-10 border-[#FDE68A]" : "border-[#E2E8F0]"
+          }`}
+        >
           {errors.length > 0 && (
-            <ul className="mt-4 list-disc rounded-xl bg-red-50 py-2 pl-8 pr-3 text-sm text-red-700">
+            <ul role="alert" className="mb-3 max-h-40 list-disc overflow-y-auto rounded-xl bg-[#FFF1F2] py-2.5 pl-8 pr-3 text-sm text-[#9F1239]">
               {errors.map((e) => (
                 <li key={e}>{e}</li>
               ))}
             </ul>
           )}
           {message && (
-            <p className="mt-4 rounded-xl bg-[#ECFDF5] p-3 text-sm text-[#047857]">{message}</p>
+            <p role="status" className="mb-3 rounded-xl bg-[#ECFDF5] p-3 text-sm text-[#047857]">
+              {message}
+            </p>
           )}
-
-          <div className="mt-4 flex items-center justify-end gap-3">
-            {dirty && <span className="text-sm text-[#B45309]">มีการแก้ไขที่ยังไม่บันทึก</span>}
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            <span className={`mr-auto text-sm ${dirty ? "font-semibold text-[#B45309]" : "text-[#64748B]"}`}>
+              {dirty ? "มีการแก้ไขที่ยังไม่บันทึก" : "บันทึกล่าสุดแล้ว"}
+            </span>
             <button
               type="button"
               onClick={handleDiscard}
               disabled={!dirty}
-              className="rounded-xl bg-gray-100 px-5 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-200 disabled:opacity-50"
+              className="rounded-xl bg-[#F1F5F9] px-5 py-2.5 text-sm font-semibold text-[#475569] hover:bg-[#E2E8F0] disabled:opacity-50"
             >
               ยกเลิกการแก้ไข
             </button>
@@ -683,7 +735,7 @@ export default function BudgetSetting() {
               disabled={!dirty}
               className="rounded-xl bg-[#059669] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#047857] disabled:opacity-50"
             >
-              บันทึก
+              บันทึกงบประมาณ
             </button>
           </div>
         </div>

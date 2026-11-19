@@ -5,10 +5,14 @@ import bgCircleR from "@/app/img/bgCircleR.svg";
 import bgCircleL from "@/app/img/bgCircleL.svg";
 import { Button } from "@/components/tailgrids/core/button";
 import { Link } from "@/components/tailgrids/core/link";
-import { ArrowRight, Eye, EyeDisabled } from "@tailgrids/icons";
+import { ArrowRight, Eye, EyeDisabled, InfoCircle } from "@tailgrids/icons";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { login } from "@/data/credential";
+
+// ช่องกรอก: สีในธีม · โฟกัสขอบเขียว
+const FIELD =
+  "mt-2 w-full rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2.5 text-[15px] text-[#0F172A] placeholder:text-sm placeholder:text-[#94A3B8] focus:border-[#059669] focus:outline-none focus:ring-2 focus:ring-[#059669]/20";
 
 export default function Login() {
   const router = useRouter();
@@ -18,19 +22,21 @@ export default function Login() {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const [isFocus, setIsFocus] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = event.target;
     setFormData((previous) => ({ ...previous, [name]: value }));
+    if (errorMessage) setErrorMessage("");
   };
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setErrorMessage("");
+    setSubmitting(true);
 
     try {
-      login(formData.identifier, formData.password);
+      login(formData.identifier.trim(), formData.password);
       const requestedPath = localStorage.getItem("returnPath");
       localStorage.removeItem("returnPath");
       const returnPath =
@@ -39,6 +45,7 @@ export default function Login() {
           : "/";
       router.replace(returnPath);
     } catch (error) {
+      setSubmitting(false);
       setErrorMessage(
         error instanceof Error ? error.message : "เข้าสู่ระบบไม่สำเร็จ",
       );
@@ -46,145 +53,141 @@ export default function Login() {
   };
 
   return (
-    <div className="bg-[#F5F7FA] h-screen overflow-hidden">
-      {/* container */}
-      <div className="grid grid-cols-2">
-        {/* left */}
-        <div className="bg-[#DCFCE7] h-screen relative">
-          {/* bgCircleR */}
-          <div className="absolute right-0">
-            <Image src={bgCircleR} alt="bgCircleR" />
+    <div className="min-h-screen bg-[#F5F7FA] text-[#0F172A]">
+      <div className="grid min-h-screen lg:grid-cols-2">
+        {/* ซ้าย: แนะนำระบบ (จอเล็กซ่อน เหลือแค่ฟอร์ม) */}
+        <div className="relative hidden overflow-hidden bg-[#DCFCE7] lg:block">
+          <div className="pointer-events-none absolute right-0" aria-hidden="true">
+            <Image src={bgCircleR} alt="" />
           </div>
-          {/* bgCircleL */}
-          <div className="absolute bottom-0">
-            <Image src={bgCircleL} alt="bgCircleL" />
+          <div className="pointer-events-none absolute bottom-0" aria-hidden="true">
+            <Image src={bgCircleL} alt="" />
           </div>
-          {/* container */}
-          <div className="max-w-3xl m-16">
-            {/* header */}
-            <div className="text-[1rem] font-semibold capitalize pb-80">
-              <h1>budget approval system</h1>
-            </div>
-            {/* content */}
-            <div className="pb-80">
-              {/* container */}
-              <div>
-                {/* header content */}
-                <div className="mb-4">
-                  <p className="text-5xl font-bold">ระบบอนุมัตงบประมาณ</p>
-                </div>
-                {/* footer content */}
-                <div className="text-balance text-[1rem]">
-                  <p className="text-[#64748B]">
-                    ยื่นคำขอ ติดตามสถานะ และอนุมัติงบประมาณได้ในที่เดียว โปร่งใส
-                    ตรวจสอบได้ทุกขั้นตอน
-                  </p>
-                </div>
-              </div>
-            </div>
-            {/* footer */}
+          <div className="relative flex h-full max-w-3xl flex-col justify-between p-16">
+            <p className="text-base font-semibold capitalize">budget approval system</p>
             <div>
-              <p className="text-[13px]">
-                ©{" "}
-                <span className="text-[#64748B]">
-                  2026 Budget Approval System. สงวนลิขสิทธิ์
-                </span>
+              <p className="mb-4 text-5xl font-bold leading-tight">ระบบอนุมัติงบประมาณ</p>
+              <p className="max-w-md text-balance text-base text-[#475569]">
+                ยื่นคำขอ ติดตามสถานะ และอนุมัติงบประมาณได้ในที่เดียว โปร่งใส
+                ตรวจสอบได้ทุกขั้นตอน
               </p>
             </div>
+            <p className="text-[13px] text-[#64748B]">
+              © 2026 Budget Approval System. สงวนลิขสิทธิ์
+            </p>
           </div>
         </div>
-        {/* right */}
-        <div>
-          {/* container */}
-          <div className="border border-[#E5E9F0] bg-[#FFFFFF] shadow-md max-w-120 mx-auto my-60 rounded-2xl p-10">
-            <div className="mb-6">
-              <h2 className="text-3xl font-bold mb-2 text-[#0F172A]">
-                เข้าสู่ระบบ
-              </h2>
-              <p className="text-[#64748B] text-[14px]">
+
+        {/* ขวา: ฟอร์มเข้าสู่ระบบ */}
+        <main className="flex items-center justify-center px-4 py-12">
+          <div className="w-full max-w-120 rounded-2xl border border-[#E5E9F0] bg-white p-8 shadow-md sm:p-10">
+            <div className="mb-8">
+              {/* ชื่อระบบบนจอเล็ก (แผงซ้ายถูกซ่อน) */}
+              <p className="mb-6 text-sm font-semibold text-[#047857] lg:hidden">
+                ระบบอนุมัติงบประมาณ
+              </p>
+              <h1 className="mb-2 text-3xl font-bold">เข้าสู่ระบบ</h1>
+              <p className="text-sm text-[#64748B]">
                 กรุณากรอกข้อมูลเพื่อเข้าใช้งานระบบอนุมัติงบประมาณ
               </p>
             </div>
-            {/* form */}
+
             <form onSubmit={handleSubmit}>
-              <div className="mb-6">
-                <label className="text-[#0F172A]">
-                  ชื่อผู้ใช้ (username) หรือ อีเมลบริษัท (email){" "}
+              <div className="mb-5">
+                <label htmlFor="identifier" className="text-sm font-medium">
+                  ชื่อผู้ใช้ หรือ อีเมลบริษัท
                 </label>
                 <input
+                  id="identifier"
                   onChange={handleChange}
                   value={formData.identifier}
                   type="text"
                   name="identifier"
+                  autoComplete="username"
+                  autoCapitalize="none"
+                  spellCheck={false}
                   required
+                  autoFocus
+                  aria-invalid={!!errorMessage}
+                  aria-describedby={errorMessage ? "login-error" : undefined}
                   placeholder="กรอกชื่อผู้ใช้ หรือ อีเมลบริษัท"
-                  className="w-full border border-[#E5E9F0] rounded-lg mt-2 focus:outline-none focus:ring-alert-success-title placeholder:text-[14px] placeholder:text-[#64748B]"
+                  className={FIELD}
                 />
               </div>
-              <div className="relative">
-                <label className="text-[#0F172A]">รหัสผ่าน (password)</label>
-                <input
-                  onChange={handleChange}
-                  onFocus={() => setIsFocus(true)}
-                  onBlur={() => setIsFocus(false)}
-                  value={formData.password}
-                  type={showPassword ? "text" : "password"}
-                  name="password"
-                  placeholder="กรอกรหัสผ่าน"
-                  className="w-full border border-[#E5E9F0] rounded-lg mt-2 focus:outline-none focus:ring-alert-success-title placeholder:text-[14px] placeholder:text-[#64748B]"
-                />
-                {(isFocus || formData.password.length > 0) && (
+
+              <div>
+                <label htmlFor="password" className="text-sm font-medium">
+                  รหัสผ่าน
+                </label>
+                <div className="relative">
+                  <input
+                    id="password"
+                    onChange={handleChange}
+                    value={formData.password}
+                    type={showPassword ? "text" : "password"}
+                    name="password"
+                    autoComplete="current-password"
+                    required
+                    aria-invalid={!!errorMessage}
+                    aria-describedby={errorMessage ? "login-error" : undefined}
+                    placeholder="กรอกรหัสผ่าน"
+                    className={`${FIELD} pr-12`}
+                  />
                   <button
-                    className="absolute top-11 right-4 text-[#64748B]"
                     type="button"
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"}
+                    aria-pressed={showPassword}
+                    onClick={() => setShowPassword((v) => !v)}
+                    className="absolute right-2 top-1/2 mt-1 -translate-y-1/2 rounded-lg p-2 text-[#64748B] hover:bg-[#F1F5F9] hover:text-[#0F172A]"
                   >
                     {showPassword ? (
-                      <EyeDisabled size={18} />
+                      <EyeDisabled size={18} aria-hidden="true" />
                     ) : (
-                      <Eye size={18} />
+                      <Eye size={18} aria-hidden="true" />
                     )}
                   </button>
-                )}
+                </div>
               </div>
+
               {errorMessage && (
-                <p className="mt-3 text-sm text-red-600" role="alert">
+                <p
+                  id="login-error"
+                  role="alert"
+                  className="mt-4 flex items-start gap-2 rounded-xl bg-[#FFF1F2] px-3.5 py-2.5 text-sm text-[#9F1239]"
+                >
+                  <InfoCircle size={18} className="mt-0.5 shrink-0" aria-hidden="true" />
                   {errorMessage}
                 </p>
               )}
-              {/* btn login */}
-              <div>
-                <Button
-                  type="submit"
-                  variant={"success"}
-                  className={"my-6 w-full bg-alert-success-title"}
+
+              <Button
+                type="submit"
+                variant={"success"}
+                disabled={submitting}
+                className={"mt-6 w-full bg-alert-success-title"}
+              >
+                {submitting ? "กำลังเข้าสู่ระบบ…" : "เข้าสู่ระบบ"}
+              </Button>
+
+              <div className="my-6 flex items-center gap-4" aria-hidden="true">
+                <div className="w-full border-t border-[#E5E9F0]"></div>
+                <p className="text-sm text-[#94A3B8]">หรือ</p>
+                <div className="w-full border-t border-[#E5E9F0]"></div>
+              </div>
+
+              <p className="flex flex-wrap items-center justify-center gap-2 text-sm">
+                <span>พนักงานใหม่?</span>
+                <Link
+                  href="/register"
+                  className="font-bold text-alert-success-title underline hover:text-alert-success-title/90"
                 >
-                  เข้าสู่ระบบ
-                </Button>
-              </div>
-              <div className="flex items-center gap-4 my-6">
-                <div className="border-t-2 border-[#E5E9F0] max-w-45 w-full"></div>
-                <p className="text-[#64748B]">or</p>
-                <div className="border-t-2 border-[#E5E9F0] max-w-45 w-full"></div>
-              </div>
-              <div>
-                <p className="flex gap-2 justify-center items-center">
-                  <span className="text-[#0F172A]">พนักงานใหม่?</span>
-                  <Link
-                    href="/register"
-                    className="text-alert-success-title underline hover:text-alert-success-title/90 font-bold"
-                  >
-                    ลงทะเบียนเข้าใช้งานระบบ{" "}
-                    <span>
-                      <ArrowRight />
-                    </span>
-                  </Link>
-                </p>
-              </div>
+                  ลงทะเบียนเข้าใช้งานระบบ
+                  <ArrowRight size={16} aria-hidden="true" />
+                </Link>
+              </p>
             </form>
           </div>
-        </div>
+        </main>
       </div>
     </div>
   );

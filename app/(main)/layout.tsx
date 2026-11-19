@@ -47,23 +47,25 @@ type MenuItem = {
   roles?: Role[]
   // true = เฉพาะผู้อนุมัติ (ตำแหน่งในตัว + ที่ฝ่ายบัญชีเพิ่มเอง + บัญชี / การเงิน) ดู isApproverRole
   approverOnly?: boolean
+  // true = เฉพาะผู้ดูแลระบบ (user.isAdmin) ไม่ดู role
+  adminOnly?: boolean
   group: "main" | "approval" | "manage" | "report"
 }
 
 const mainItems: MenuItem[] = [
   { title: "สร้างคำขอ", url: "/request", icon: Plus, group: "main" },
   { title: "คำขอของฉัน", url: "/my-request", icon: FileText, group: "main" },
-  { title: "ประวัติการเบิก", url: "#", icon: ClockThree, group: "main" },
+  { title: "ประวัติการเบิก", url: "/withdraw-history", icon: ClockThree, group: "main" },
 ];
 
 const manageItems: MenuItem[] = [
-  { title: "ตั้งงบประมาณ", url: "/home-account/budget", icon: Plus, roles: ["ACCOUNTANT_ADMIN"], group: "manage" },
-  { title: "จัดการผู้ใช้และสิทธิ์", url: "/home-account/setting", icon: UserMultiple4, roles: ["ACCOUNTANT_ADMIN"], group: "manage" },
+  { title: "ตั้งงบประมาณ", url: "/home-account/budget", icon: Plus, adminOnly: true, group: "manage" },
+  { title: "จัดการผู้ใช้และสิทธิ์", url: "/home-account/setting", icon: UserMultiple4, adminOnly: true, group: "manage" },
 
 ]
 
 const approveItems: MenuItem[] = [
-  { title: "ประวัติการอนุมัติ", url: "#", icon: CheckCircle1, approverOnly: true, group: "approval" },
+  { title: "ประวัติการอนุมัติ", url: "/approval-history", icon: CheckCircle1, approverOnly: true, group: "approval" },
   { title: "คำขอรออนุมัติทั้งหมด", url: "/all-request", icon: FileTextMultiple, approverOnly: true, group: "approval" },
 
 ]
@@ -73,10 +75,11 @@ const reportItems: MenuItem[] = [
 
 ]
 
-// role นี้เห็น / เข้าเมนูนี้ได้ไหม (ใช้ทั้งใน sidebar และ route guard)
-function canAccess(item: MenuItem, role: string) {
-  if (item.approverOnly) return isApproverRole(role)
-  return !item.roles || item.roles.includes(role)
+// ผู้ใช้นี้เห็น / เข้าเมนูนี้ได้ไหม (ใช้ทั้งใน sidebar และ route guard)
+function canAccess(item: MenuItem, user: { role: string; isAdmin?: boolean }) {
+  if (item.adminOnly) return !!user.isAdmin
+  if (item.approverOnly) return isApproverRole(user.role)
+  return !item.roles || item.roles.includes(user.role)
 }
 
 // รวมทุกหมวดเป็นก้อนเดียว: route guard กับ breadcrumb ใช้ค้นหาเมนูจาก pathname
@@ -124,7 +127,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       Object.values(HOME_PATHS).includes(pathname) &&
       pathname !== getHomePath(currentUser.role)
 
-    if (isOtherHome || (menu && !canAccess(menu, currentUser.role))) {
+    if (isOtherHome || (menu && !canAccess(menu, currentUser))) {
       setUser(null)
       router.replace(getHomePath(currentUser.role))
       return
@@ -137,7 +140,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   if(!user) return null 
 
   const visibleItems = items.filter(
-    (item) => canAccess(item, user.role),
+    (item) => canAccess(item, user),
   )
 
   const dashboardItem: MenuItem = {
@@ -259,7 +262,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               {/* เส้นคั่น: แยกปุ่มเมนูออกจาก breadcrumb ให้ชัด */}
               <span className="h-6 w-px bg-[#CBD5E1]" aria-hidden="true" />
 
-              <nav aria-label="breadcrumb" className="flex items-center gap-2 text-lg">
+              <nav aria-label="breadcrumb" className="flex min-w-0 items-center gap-2 whitespace-nowrap text-lg">
                 <Link
                   href={homePath}
                   className={
@@ -311,7 +314,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 </Button>
               </div>
               <div className="shadow-2xl">
-                <Button variant={"success"} onPress={() => router.push("/request")}>
+                <Button variant={"success"} className="whitespace-nowrap" onPress={() => router.push("/request")}>
                   <Plus />
                   สร้างคำขอ
                 </Button>

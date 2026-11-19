@@ -112,15 +112,22 @@ function waitingText(step: SavedStep) {
 function recipientsOf(step: SavedStep, request: SavedRequest, users: UserLite[]): string[] {
   const requesterId = request.requester ? String(request.requester.id) : null;
   if (step.approverId) return step.approverId === requesterId ? [] : [step.approverId];
+
+  const role = step.actingRole ?? step.role; // ทางสำรอง → แจ้ง MD
+  // หัวหน้า/ผอ. โดยตรงของผู้ขอ → แจ้งคนนั้นคนเดียว
+  const direct =
+    role === "HEAD" ? request.requester?.headId : role === "DIRECTOR" ? request.requester?.directorId : null;
+  if (direct) return direct === requesterId ? [] : [direct];
+
   const deptId = request.requester?.departmentId ?? null;
   const org = loadOrganization();
   return users
     .filter(
       (u) =>
-        u.role === step.role &&
+        u.role === role &&
         u.status !== "INACTIVE" &&
         u.id !== requesterId &&
-        (!deptId || isInApproverScope(org, step.role, u, deptId)),
+        (!deptId || isInApproverScope(org, role, u, deptId)),
     )
     .map((u) => u.id);
 }

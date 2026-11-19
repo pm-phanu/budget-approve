@@ -1,25 +1,25 @@
-@import url("https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&display=swap");
 
 @import "tailwindcss";
 @plugin '@tailwindcss/forms';
 
 @theme {
-  --font-sans: "DM Sans", sans-serif;
+  --font-sans: "IBM Plex Sans Thai", "Leelawadee UI", "Tahoma", sans-serif;
 
-  --color-primary-50: #eff3ff;
-  --color-primary-100: #dae2ff;
-  --color-primary-200: #becdff;
-  --color-primary-300: #91aeff;
-  --color-primary-400: #5e84fc;
-  --color-primary-500: #3758f9;
-  --color-primary-600: #2237ee;
-  --color-primary-700: #1a25db;
-  --color-primary-800: #1c20b1;
-  --color-primary-900: #1c228c;
-  --color-primary-950: #161755;
+  --color-primary-50: #ecfdf5;
+  --color-primary-100: #d1fae5;
+  --color-primary-200: #a7f3d0;
+  --color-primary-300: #6ee7b7;
+  --color-primary-400: #34d399;
+  --color-primary-500: #10b981;
+  --color-primary-600: #059669;
+  --color-primary-700: #047857;
+  --color-primary-800: #065f46;
+  --color-primary-900: #064e3b;
+  --color-primary-950: #022c22;
 
   --color-primary-text: white;
-  --color-neutral-brand-color: #465fff;
+  --color-neutral-brand-color: #059669;
 
   /* Text Color */
   --color-text-50: #374151;
@@ -80,10 +80,10 @@
   /* ======== Button Color =========*/
 
   /* Primary */
-  --color-button-primary-background: #3758f9;
-  --color-button-primary-hover-background: #2237ee;
+  --color-button-primary-background: #059669;
+  --color-button-primary-hover-background: #047857;
   --color-button-primary-text: #ffffff;
-  --color-button-primary-focus-ring: rgba(55, 88, 249, 0.2);
+  --color-button-primary-focus-ring: rgba(5, 150, 105, 0.25);
 
   /* Outline */
   --color-button-outline-background: #ffffff;
@@ -140,8 +140,8 @@
 
   /* Button Group Primary */
   --color-button-group-primary-background: #ffffff;
-  --color-button-group-primary-hover-background: #3758f9;
-  --color-button-group-primary-text: #3758f9;
+  --color-button-group-primary-hover-background: #059669;
+  --color-button-group-primary-text: #047857;
   --color-button-group-primary-hover-text: #ffffff;
 
   /* Button Group Secondary */
@@ -156,9 +156,9 @@
   --color-badge-neutral-icon-color: #6b7280;
 
   /* Badge Primary */
-  --color-badge-primary-background: #eff3ff;
-  --color-badge-primary-text: #3758f9;
-  --color-badge-primary-icon-color: #3758f9;
+  --color-badge-primary-background: #ecfdf5;
+  --color-badge-primary-text: #047857;
+  --color-badge-primary-icon-color: #059669;
 
   /* Badge Error */
   --color-badge-error-background: #fef2f2;
@@ -228,14 +228,14 @@
   --color-sidebar-nav-hover-background: #f9fafb;
   --color-sidebar-nav-secondary-hover-background: #f3f4f6;
   --color-sidebar-nav-hover-text: #374151;
-  --color-sidebar-nav-active-text: #3758f9;
-  --color-sidebar-nav-active-background: #eff3ff;
-  --color-sidebar-nav-focused-background: #eff3ff;
+  --color-sidebar-nav-active-text: #047857;
+  --color-sidebar-nav-active-background: #ecfdf5;
+  --color-sidebar-nav-focused-background: #ecfdf5;
   --color-sidebar-nav-default-text: #374151;
   --color-sidebar-nav-icon: #6b7280;
 
   /* Sidebar Badge */
-  --color-sidebar-badge-background: #3758f9;
+  --color-sidebar-badge-background: #059669;
   --color-sidebar-badge-text: #ffffff;
 
   /* Sidebar Footer */
@@ -310,7 +310,7 @@
   --color-input-label-text: #374151;
   --color-input-disabled-text: #d1d5db;
   --color-input-placeholder-text: #9ca3af;
-  --color-input-primary-focus-border: #91aeff;
+  --color-input-primary-focus-border: #10b981;
   --color-input-error-focus-border: #ef4444;
   --color-input-success-focus-border: #22c55e;
   --color-input-error: #ef4444;
@@ -319,12 +319,12 @@
   /* ======== Tab Color =========*/
   --color-tab-background: #f3f4f6;
   --color-tab-active-background: #ffffff;
-  --color-tab-secondary-active-background: #eff3ff;
+  --color-tab-secondary-active-background: #ecfdf5;
 
   /* ======== Checkbox Color =========*/
   --color-checkbox-background: #ffffff;
-  --color-checkbox-checked-border: #3758f9;
-  --color-checkbox-checked-background: #3758f9;
+  --color-checkbox-checked-border: #059669;
+  --color-checkbox-checked-background: #059669;
   --color-checkbox-checked-icon-color: #ffffff;
 
   /* ======== Scrollbar Color =========*/
@@ -332,7 +332,7 @@
 
   /* ======== Datepicker Color =========*/
   --color-datepicker-background: #ffffff;
-  --color-datepicker-selected-background: #3758f9;
+  --color-datepicker-selected-background: #059669;
   --color-datepicker-selected-hover-background: #f9fafb;
 
   /* ======== Dropdowns Color =========*/
@@ -342,8 +342,8 @@
   --color-dropdown-divider: #f3f4f6;
 
   /* ======== Calendar Color =========*/
-  --color-calendar-primary-badge: #3758f9;
-  --color-calendar-primary-background: #eff3ff;
+  --color-calendar-primary-badge: #059669;
+  --color-calendar-primary-background: #ecfdf5;
   --color-calendar-success-badge: #22c55e;
   --color-calendar-success-background: #f0fdf4;
   --color-calendar-warning-badge: #f97316;
@@ -360,21 +360,21 @@
   --color-pricing-active-switcher-background: #ffffff;
   --color-pricing-active-card-background: #1f2937;
   --color-pricing-button-background: #1f2937;
-  --color-pricing-icon-color: #3758f9;
-  --color-pricing-icon-background: #eff3ff;
+  --color-pricing-icon-color: #059669;
+  --color-pricing-icon-background: #ecfdf5;
 
   /* ======== FAQ's Color =========*/
   --color-faq-primary-active-background: #f9fafb;
-  --color-faq-secondary-active-background: #eff3ff;
-  --color-faq-secondary-active-border: #dae2ff;
+  --color-faq-secondary-active-background: #ecfdf5;
+  --color-faq-secondary-active-border: #d1fae5;
   --color-faq-secondary-active-title: #1f2937;
   --color-faq-secondary-active-text: #374151;
 
   /* ======== Chat List Color =========*/
   --color-chat-list-background-primary: #374151;
   --color-chat-list-background-primary-alt: #f3f4f6;
-  --color-chat-list-background-secondary: #3758f9;
-  --color-chat-list-background-secondary-alt: #dae2ff;
+  --color-chat-list-background-secondary: #059669;
+  --color-chat-list-background-secondary-alt: #d1fae5;
 
   /* ======== Tooltip Color =========*/
   --color-tooltip-text: #374151;
@@ -403,8 +403,8 @@
   --color-modal-button-error-background: #dc2626;
 
   /* ======== Section Title Color =========*/
-  --color-section-title-badge: #3758f9;
-  --color-section-title-badge-background: #3758f90d;
+  --color-section-title-badge: #059669;
+  --color-section-title-badge-background: #0596690d;
 
   /* ======== Mobile Nav Menu Button Color =========*/
   --color-mobile-nav-icon: #374151;
@@ -436,7 +436,7 @@
   --color-toggle-default-background: #e5e7eb;
   --color-toggle-disabled-foreground: #ffffff;
   --color-toggle-disabled-background: #f3f4f6;
-  --color-toggle-active-background: #3758f9;
+  --color-toggle-active-background: #059669;
 
   /* ======== Map Color =========*/
   --color-map-fill: #d1d5db;
@@ -482,6 +482,106 @@
   button:not(:disabled),
   [role="button"]:not(:disabled) {
     cursor: pointer;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* ภาษาไทยไม่มีตัวพิมพ์ใหญ่ · line-height สูงกว่าอังกฤษเล็กน้อยกันสระบน/ล่างชนกัน */
+  body {
+    font-family: var(--font-sans);
+    color: #0f172a;
+    line-height: 1.6;
+    /* ตัวเลขกว้างเท่ากัน → ยอดเงินในตาราง/การ์ดตรงแนว */
+    font-variant-numeric: tabular-nums;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3 {
+    line-height: 1.3;
+  }
+
+  /* กรอบโฟกัสเวลาใช้คีย์บอร์ด (เมาส์คลิกไม่ขึ้น) */
+  :focus-visible {
+    outline: 2px solid #059669;
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+
+  ::selection {
+    background: #a7f3d0;
+    color: #064e3b;
+  }
+
+  /* ผู้ใช้ตั้งค่าลดการเคลื่อนไหว → ตัดแอนิเมชัน/transition */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* ════════════════════════════════════════════════════════════
+   ป้ายสถานะคำขอ: ใช้ชุดเดียวกันทุกหน้า
+   <span class="status status-pending">รอหัวหน้าแผนก</span>
+   รอ = amber · อนุมัติแล้ว = emerald · จ่ายแล้ว = emerald เข้ม (ทึบ = จบแล้ว)
+   ตีกลับ = rose · ร่าง = slate
+   ════════════════════════════════════════════════════════════ */
+@layer components {
+  .status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    border-radius: 9999px;
+    padding: 0.125rem 0.625rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.5rem;
+    white-space: nowrap;
+    border: 1px solid transparent;
+  }
+  .status::before {
+    content: "";
+    width: 0.375rem;
+    height: 0.375rem;
+    border-radius: 9999px;
+    background: currentColor;
+  }
+  .status-pending {
+    background: #fffbeb;
+    color: #b45309;
+    border-color: #fde68a;
+  }
+  .status-approved {
+    background: #ecfdf5;
+    color: #047857;
+    border-color: #a7f3d0;
+  }
+  .status-paid {
+    background: #047857;
+    color: #ffffff;
+  }
+  .status-rejected {
+    background: #fff1f2;
+    color: #be123c;
+    border-color: #fecdd3;
+  }
+  .status-draft {
+    background: #f1f5f9;
+    color: #475569;
+    border-color: #e2e8f0;
+  }
+
+  /* ตัวเลขเงิน: ชิดขวา ตัวเลขกว้างเท่ากัน */
+  .money {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
   }
 }
 

@@ -10,12 +10,10 @@ import { loadOrganization } from "@/data/organization";
 import { getCurrentUser } from "@/utils/login";
 import {
   ArrowRight,
-  Bell1,
   Calendar,
   Check,
   CheckCircle1,
   ClockThree,
-  Search1,
   Wallet2,
 } from "@tailgrids/icons";
 
@@ -34,8 +32,9 @@ const ACCOUNTANT_ROLE = "ACCOUNTANT_ADMIN";
 // ความกว้างคอลัมน์ของแถวรายการ (เท่ากับหน้า Home ของหัวหน้า)
 // ใช้ร่วมกันทั้ง "รอคุณตรวจสอบ" และ "อนุมัติล่าสุด" ถ้าจะปรับ แก้ที่นี่ที่เดียว
 // (ชื่อ | ป้ายรอ | ยอดเงิน | ปุ่ม/สถานะ)
+// ชื่อคำขอยืดเต็มที่เหลือ (ตัด … ถ้ายาว) · ป้ายรอ / ยอดเงิน / ปุ่ม กว้างตามเนื้อหา ไม่ตัดบรรทัด
 const ROW_GRID =
-  "grid h-[93px] grid-cols-[260px_90px_110px_1fr] items-center gap-3";
+  "grid min-h-[72px] grid-cols-[minmax(0,1fr)_auto_auto_auto] items-center gap-3 border-b border-[#F1F5F9] py-3 last:border-b-0";
 
 /* ------------------------------------------------------------------
    ชนิดข้อมูล: ใช้ของกลางใน data/ (คำขอ = SavedRequest · ผู้ใช้ = Credential)
@@ -111,22 +110,13 @@ function arrivedAt(r: ExpenseRequest) {
 }
 
 // ป้ายสถานะของคำขอที่บัญชีดำเนินการไปแล้ว
+// ป้ายสถานะ: class ร่วมใน globals.css (status-*)
 function statusBadge(r: ExpenseRequest) {
-  if (r.status === "อนุมัติแล้ว")
-    return {
-      text: "อนุมัติแล้ว",
-      cls: "bg-emerald-50 text-emerald-700 border-emerald-200",
-    };
-  if (r.status === "ตีกลับ")
-    return {
-      text: "ตีกลับ",
-      cls: "bg-rose-50 text-rose-600 border-rose-200",
-    };
+  if (r.status === "จ่ายแล้ว") return { text: "จ่ายแล้ว", cls: "status status-paid" };
+  if (r.status === "อนุมัติแล้ว") return { text: "อนุมัติแล้ว", cls: "status status-approved" };
+  if (r.status === "ตีกลับ") return { text: "ตีกลับ", cls: "status status-rejected" };
   const next = r.approvalSteps[r.currentStep];
-  return {
-    text: next ? `รอ${next.label}` : "กำลังดำเนินการ",
-    cls: "bg-amber-50 text-amber-600 border-amber-200",
-  };
+  return { text: next ? `รอ${next.label}` : "กำลังดำเนินการ", cls: "status status-pending" };
 }
 
 // งบรายแผนกของปีนั้น: วงเงิน = งบที่บัญชีแบ่งให้แผนก (getDepartmentBudget)
@@ -185,12 +175,12 @@ function StatCard({
 }) {
   return (
     <div className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl">
-      <div className="flex items-center gap-2 text-xs text-gray-500">
-        <span className="text-gray-400">{icon}</span>
+      <div className="flex items-center gap-2 text-xs text-[#64748B]">
+        <span className="text-[#64748B]">{icon}</span>
         {label}
       </div>
-      <div className="mt-2 text-3xl font-bold text-gray-900">{value}</div>
-      <div className="mt-1 text-xs text-gray-400">{sub}</div>
+      <div className="mt-2 text-3xl font-bold text-[#0F172A]">{value}</div>
+      <div className="mt-1 text-xs text-[#64748B]">{sub}</div>
     </div>
   );
 }
@@ -306,7 +296,7 @@ export default function AccountantHome() {
             <h1 className="text-[32px] font-bold text-[#111]">
               สวัสดี {me ? me.fullName : "-"}
             </h1>
-            <p className="mt-1 text-sm text-gray-500">{today}</p>
+            <p className="mt-1 text-sm text-[#64748B]">{today}</p>
           </div>
         </header>
 
@@ -349,7 +339,7 @@ export default function AccountantHome() {
           />
         </div>
 
-        {/* ===== ซ้าย: รอคุณตรวจสอบ + อนุมัติล่าสุด / ขวา: การใช้งบแยกตามฝ่าย ===== */}
+        {/* ===== ซ้าย: รอคุณตรวจสอบ + อนุมัติล่าสุด / ขวา: การใช้งบแยกตามแผนก ===== */}
         {/* grid 4 คอลัมน์เหมือนหน้า employee: ซ้าย 2 คอลัมน์ / ขวา 2 คอลัมน์ */}
         <div className="grid grid-cols-4 gap-5">
           {/* ---------- การ์ดซ้าย ---------- */}
@@ -371,7 +361,7 @@ export default function AccountantHome() {
             {/* สูงตามจำนวนรายการ มากสุด PENDING_LIMIT */}
             <div>
               {pending.length === 0 ? (
-                <div className="flex flex-col items-center justify-center gap-2 py-8 text-gray-400">
+                <div className="flex flex-col items-center justify-center gap-2 py-8 text-[#64748B]">
                   <CheckCircle1 />
                   <span className="text-sm">ไม่มีคำขอรอตรวจ</span>
                 </div>
@@ -388,7 +378,7 @@ export default function AccountantHome() {
                         <Avatar name={name} index={i} />
                         <div className="ml-3 flex min-w-0 flex-col">
                           <div className="truncate font-bold">{r.title}</div>
-                          <div className="truncate text-xs text-gray-400">
+                          <div className="truncate text-xs text-[#64748B]">
                             {name} ·{" "}
                             {before
                               ? `${before.label}อนุมัติ${timeAgo(arrived)}`
@@ -412,7 +402,7 @@ export default function AccountantHome() {
 
                       {/* คอลัมน์ 3: ยอดเงิน (ชิดขวา) */}
                       <div className="text-right">
-                        <span className="font-bold tabular-nums">
+                        <span className="money font-bold">
                           {baht(r.total)}
                         </span>
                       </div>
@@ -421,7 +411,7 @@ export default function AccountantHome() {
                       <div className="flex justify-end">
                         <Link
                           href={`${REVIEW_PATH}?id=${encodeURIComponent(r.id)}`}
-                          className="flex items-center gap-1 text-xs font-bold text-green-700 hover:underline"
+                          className="flex items-center gap-1 whitespace-nowrap rounded-lg bg-[#ECFDF5] px-3 py-1.5 text-xs font-bold text-[#047857] hover:bg-[#D1FAE5]"
                         >
                           ตรวจสอบ <ArrowRight size={15} />
                         </Link>
@@ -433,7 +423,7 @@ export default function AccountantHome() {
             </div>
 
             {/* แจ้งเตือน */}
-            <div className="mt-4 flex items-center gap-2 rounded-xl border border-gray-200/60 bg-gray-50 p-3.5 text-xs text-gray-500">
+            <div className="mt-4 flex items-center gap-2 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3.5 text-xs text-[#64748B]">
               <div className="flex h-5 w-5 items-center justify-center rounded-xl">
                 <CheckCircle1 />
               </div>
@@ -455,7 +445,7 @@ export default function AccountantHome() {
             {/* สูงตามจำนวนรายการ มากสุด RECENT_LIMIT */}
             <div>
               {recent.length === 0 ? (
-                <div className="flex flex-col items-center justify-center gap-2 py-8 text-gray-400">
+                <div className="flex flex-col items-center justify-center gap-2 py-8 text-[#64748B]">
                   <CheckCircle1 />
                   <span className="text-sm">ยังไม่มีรายการที่ดำเนินการ</span>
                 </div>
@@ -469,7 +459,7 @@ export default function AccountantHome() {
                         <Avatar name={name} index={i + 1} />
                         <div className="ml-3 flex min-w-0 flex-col">
                           <div className="truncate font-bold">{r.title}</div>
-                          <div className="truncate text-xs text-gray-400">
+                          <div className="truncate text-xs text-[#64748B]">
                             {name} ·{" "}
                             {result === "ตีกลับ" ? "ตีกลับ" : "อนุมัติ"}
                             {timeAgo(at)}
@@ -481,14 +471,14 @@ export default function AccountantHome() {
                       <div />
 
                       <div className="text-right">
-                        <span className="font-bold tabular-nums">
+                        <span className="money font-bold">
                           {baht(r.total)}
                         </span>
                       </div>
 
                       <div className="flex justify-end">
                         <span
-                          className={`whitespace-nowrap rounded-full border px-2.5 py-1 text-xs ${badge.cls}`}
+                          className={badge.cls}
                         >
                           {badge.text}
                         </span>
@@ -500,21 +490,21 @@ export default function AccountantHome() {
             </div>
           </div>
 
-          {/* ---------- การ์ดขวา: การใช้งบแยกตามฝ่าย ---------- */}
-          {/* ฝั่งขวา: การใช้งบแยกตามฝ่าย + คำขอของฉัน เรียงลงมา */}
+          {/* ---------- การ์ดขวา: การใช้งบแยกตามแผนก ---------- */}
+          {/* ฝั่งขวา: การใช้งบแยกตามแผนก + คำขอของฉัน เรียงลงมา */}
           <div className="col-span-2 flex flex-col gap-5 self-start">
           <div className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl">
             <div className="mb-2 flex items-center justify-between">
-              <h2 className="text-base font-bold text-gray-800">
-                การใช้งบแยกตามฝ่าย
+              <h2 className="text-base font-bold text-[#0F172A]">
+                การใช้งบแยกตามแผนก
               </h2>
-              <span className="text-xs text-gray-400">
+              <span className="text-xs text-[#64748B]">
                 {year > 0 ? `ปี ${year + 543}` : ""}
               </span>
             </div>
 
             {depts.length === 0 ? (
-              <div className="flex h-40 flex-col items-center justify-center gap-2 text-gray-400">
+              <div className="flex h-40 flex-col items-center justify-center gap-2 text-[#64748B]">
                 <CheckCircle1 />
                 <span className="text-sm">ยังไม่มีข้อมูลงบประมาณ</span>
               </div>
@@ -525,10 +515,10 @@ export default function AccountantHome() {
                   return (
                     <li
                       key={x.dept}
-                      className={`py-4 ${i > 0 ? "border-t border-gray-100" : ""}`}
+                      className={`py-4 ${i > 0 ? "border-t border-[#F1F5F9]" : ""}`}
                     >
                       <div className="flex items-center justify-between">
-                        <span className="text-sm font-bold text-gray-900">
+                        <span className="text-sm font-bold text-[#0F172A]">
                           {x.dept}
                         </span>
                         <span className={`text-xs font-bold ${c.text}`}>
@@ -537,7 +527,7 @@ export default function AccountantHome() {
                       </div>
 
                       {/* แถบความคืบหน้า (เกิน 100% ก็แสดงเต็มหลอด) */}
-                      <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-gray-100">
+                      <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-[#F1F5F9]">
                         <div
                           className={`h-full rounded-full transition-all duration-500 ${c.bar}`}
                           style={{ width: `${Math.min(100, x.pct)}%` }}
@@ -545,17 +535,17 @@ export default function AccountantHome() {
                       </div>
 
                       <div className="mt-2 text-xs">
-                        <span className="font-bold text-gray-800">
+                        <span className="font-bold text-[#0F172A]">
                           {baht(x.used)}
                         </span>
-                        <span className="text-gray-400">
+                        <span className="text-[#64748B]">
                           {" "}
                           / {baht(x.limit)}
                         </span>
                       </div>
 
                       {x.top.length > 0 && (
-                        <div className="mt-0.5 text-xs text-gray-400">
+                        <div className="mt-0.5 text-xs text-[#64748B]">
                           ใช้มากสุด:{" "}
                           {x.top
                             .map((t) => `${t.name} ${baht(t.used)}`)
@@ -568,8 +558,8 @@ export default function AccountantHome() {
               </ul>
             )}
 
-            <p className="mt-1 border-t border-gray-100 pt-3 text-xs text-gray-400">
-              กดที่ฝ่ายเพื่อดูรายละเอียดในหน้างบประมาณ
+            <p className="mt-1 border-t border-[#F1F5F9] pt-3 text-xs text-[#64748B]">
+              แสดงเฉพาะแผนกที่มีงบหรือมีการใช้จ่ายในปีนี้
             </p>
           </div>
 
@@ -577,7 +567,7 @@ export default function AccountantHome() {
           <div className="flex flex-col justify-between rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl">
             <div>
               <div className="mb-2 flex items-center justify-between">
-                <h2 className="text-base font-bold text-gray-800">คำขอของฉัน</h2>
+                <h2 className="text-base font-bold text-[#0F172A]">คำขอของฉัน</h2>
                 <Link href="/my-request" className="flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:underline">
                   ดูทั้งหมด →
                 </Link>
@@ -588,28 +578,28 @@ export default function AccountantHome() {
                 <div className="space-y-4 py-5 pt-2">
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="text-sm font-bold text-gray-800">ซื้อคอมพิวเตอร์ให้ทีม 2 เครื่อง</div>
-                      <div className="mt-0.5 text-xs text-gray-400">
-                        ส่งเมื่อ 14 ต.ค. <span className="font-bold text-gray-700">฿56,000</span>
+                      <div className="text-sm font-bold text-[#0F172A]">ซื้อคอมพิวเตอร์ให้ทีม 2 เครื่อง</div>
+                      <div className="mt-0.5 text-xs text-[#64748B]">
+                        ส่งเมื่อ 14 ต.ค. <span className="font-bold text-[#334155]">฿56,000</span>
                       </div>
                     </div>
                     <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-600">รออนุมัติ</span>
                   </div>
                   <div className="relative px-2 py-2">
-                    <div className="absolute left-5 right-5 top-5 z-0 h-1 -translate-y-1/2 bg-gray-200"></div>
+                    <div className="absolute left-5 right-5 top-5 z-0 h-1 -translate-y-1/2 bg-[#E2E8F0]"></div>
                     <div className="absolute left-5 right-[50%] top-5 z-0 h-1 -translate-y-1/2 bg-emerald-500"></div>
                     <div className="relative z-10 flex items-center justify-between text-xs">
                       <div className="flex flex-col items-center gap-1">
                         <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500 font-bold text-white">✓</div>
-                        <span className="font-medium text-gray-600">ส่งคำขอ</span>
+                        <span className="font-medium text-[#475569]">ส่งคำขอ</span>
                       </div>
                       <div className="flex flex-col items-center gap-1">
                         <div className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-dashed border-emerald-500 bg-white"></div>
                         <span className="font-bold text-emerald-700">หัวหน้าสายงาน</span>
                       </div>
                       <div className="flex flex-col items-center gap-1">
-                        <div className="flex h-7 w-7 items-center justify-center rounded-full border border-gray-300 bg-white"></div>
-                        <span className="text-gray-400">ฝ่ายบัญชี</span>
+                        <div className="flex h-7 w-7 items-center justify-center rounded-full border border-[#CBD5E1] bg-white"></div>
+                        <span className="text-[#64748B]">ฝ่ายบัญชี</span>
                       </div>
                     </div>
                   </div>
@@ -619,9 +609,9 @@ export default function AccountantHome() {
                 <div className="space-y-4 py-5">
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="text-sm font-bold text-gray-800">ค่าจัดงานเปิดตัวสินค้า</div>
-                      <div className="mt-0.5 text-xs text-gray-400">
-                        ส่งเมื่อ 12 ต.ค. <span className="font-bold text-gray-700">฿48,000</span>
+                      <div className="text-sm font-bold text-[#0F172A]">ค่าจัดงานเปิดตัวสินค้า</div>
+                      <div className="mt-0.5 text-xs text-[#64748B]">
+                        ส่งเมื่อ 12 ต.ค. <span className="font-bold text-[#334155]">฿48,000</span>
                       </div>
                     </div>
                     <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-600">อนุมัติแล้ว</span>
@@ -631,7 +621,7 @@ export default function AccountantHome() {
                     <div className="relative z-10 flex items-center justify-between text-xs">
                       <div className="flex flex-col items-center gap-1">
                         <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500 font-bold text-white">✓</div>
-                        <span className="font-medium text-gray-600">ส่งคำขอ</span>
+                        <span className="font-medium text-[#475569]">ส่งคำขอ</span>
                       </div>
                       <div className="flex flex-col items-center gap-1">
                         <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500 font-bold text-white">✓</div>
@@ -649,28 +639,28 @@ export default function AccountantHome() {
                 <div className="space-y-4 py-5 pb-0">
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="text-sm font-bold text-gray-800">ค่ารับรองลูกค้าองค์กร</div>
-                      <div className="mt-0.5 text-xs text-gray-400">
-                        ส่งเมื่อ 28 ก.ย. <span className="font-bold text-gray-700">฿15,600</span>
+                      <div className="text-sm font-bold text-[#0F172A]">ค่ารับรองลูกค้าองค์กร</div>
+                      <div className="mt-0.5 text-xs text-[#64748B]">
+                        ส่งเมื่อ 28 ก.ย. <span className="font-bold text-[#334155]">฿15,600</span>
                       </div>
                     </div>
                     <span className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-medium text-rose-600">ถูกตีกลับ</span>
                   </div>
                   <div className="relative px-2 py-2">
-                    <div className="absolute left-5 right-5 top-5 z-0 h-1 -translate-y-1/2 bg-gray-200"></div>
+                    <div className="absolute left-5 right-5 top-5 z-0 h-1 -translate-y-1/2 bg-[#E2E8F0]"></div>
                     <div className="absolute left-5 right-[50%] top-5 z-0 h-1 -translate-y-1/2 bg-emerald-500"></div>
                     <div className="relative z-10 flex items-center justify-between text-xs">
                       <div className="flex flex-col items-center gap-1">
                         <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500 font-bold text-white">✓</div>
-                        <span className="font-medium text-gray-600">ส่งคำขอ</span>
+                        <span className="font-medium text-[#475569]">ส่งคำขอ</span>
                       </div>
                       <div className="flex flex-col items-center gap-1">
                         <div className="flex h-7 w-7 items-center justify-center rounded-full bg-rose-500 font-bold text-white">✕</div>
                         <span className="font-bold text-rose-600">หัวหน้าสายงาน</span>
                       </div>
                       <div className="flex flex-col items-center gap-1">
-                        <div className="flex h-7 w-7 items-center justify-center rounded-full border border-gray-300 bg-white"></div>
-                        <span className="text-gray-400">ฝ่ายบัญชี</span>
+                        <div className="flex h-7 w-7 items-center justify-center rounded-full border border-[#CBD5E1] bg-white"></div>
+                        <span className="text-[#64748B]">ฝ่ายบัญชี</span>
                       </div>
                     </div>
                   </div>
@@ -689,7 +679,7 @@ export default function AccountantHome() {
               </div>
             </div>
 
-            <div className="mt-6 flex items-center gap-2.5 rounded-xl border border-gray-200/60 bg-gray-50 p-3.5 text-xs text-gray-500">
+            <div className="mt-6 flex items-center gap-2.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3.5 text-xs text-[#64748B]">
               <span>✓</span>
               <span>คำขอของคุณจะถูกส่งให้หัวหน้าสายงานอนุมัติ</span>
             </div>

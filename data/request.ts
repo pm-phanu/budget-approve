@@ -32,6 +32,8 @@ export type SavedStep = {
   byId?: string | null; // id คนที่กด (ใช้หา "ประวัติการอนุมัติ" · คำขอเก่าไม่มี → เทียบจากชื่อ)
   at: string | null; // เวลาที่กด
   note: string; // เหตุผล (ตอนตีกลับ)
+  // ทางสำรอง (spec §5): role นี้ไม่มีคนอื่นนอกจากผู้ขอ → ให้ role นี้อนุมัติแทน · ไม่มี = role เดียวกับ `role`
+  actingRole?: string | null;
 };
 
 // คำขอ 1 ใบ
