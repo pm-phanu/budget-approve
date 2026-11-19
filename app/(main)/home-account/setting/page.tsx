@@ -9,6 +9,7 @@ import {
   TableRow,
 } from "@/components/tailgrids/core/table";
 import { getUsers, updateUser, type Credential } from "@/data/credential";
+import { getCurrentUser } from "@/utils/login";
 import {
   DEFAULT_ORGANIZATION,
   getDepartment,
@@ -58,8 +59,12 @@ export default function Account() {
   const [error, setError] = useState("");
   const [org, setOrg] = useState<Organization>(DEFAULT_ORGANIZATION);
 
+  // คนที่ login อยู่: แก้ role / สิทธิ์ admin ของตัวเองไม่ได้ (กันตั้งสิทธิ์ให้ตัวเอง / ล็อกตัวเองออก)
+  const [meId, setMeId] = useState("");
+
   useEffect(() => {
     try {
+      setMeId(getCurrentUser()?.id ?? "");
       setUsers(getUsers().map(({ password, ...rest }) => rest));
       setOrg(loadOrganization());
     } catch (e) {
@@ -158,6 +163,14 @@ export default function Account() {
   ];
 
   // เปลี่ยนบทบาทของผู้ใช้ → บันทึกทันที (ใช้มอบตำแหน่งผู้อนุมัติที่เพิ่มเอง)
+  // สิทธิ์ผู้ดูแลระบบ: ต้องเหลือ admin อย่างน้อย 1 คนเสมอ
+  const adminCount = users.filter((u) => u.isAdmin).length;
+  const toggleAdmin = (userId: string, isAdmin: boolean) => {
+    if (!isAdmin && adminCount <= 1) return;
+    updateUser(userId, { isAdmin });
+    setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, isAdmin } : u)));
+  };
+
   const changeRole = (userId: string, role: string) => {
     updateUser(userId, { role });
     setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role } : u)));
@@ -303,19 +316,20 @@ export default function Account() {
                 <TableHead>ผอ.โดยตรง</TableHead>
                 <TableHead>งบร่วม</TableHead>
                 <TableHead>สถานะ</TableHead>
+                <TableHead>ผู้ดูแลระบบ</TableHead>
               </TableRow>
             </TableHeader>
 
             <TableBody>
               {error ? (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-center">
+                  <TableCell colSpan={11} className="text-center">
                     {error}
                   </TableCell>
                 </TableRow>
               ) : users.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-center">
+                  <TableCell colSpan={11} className="text-center">
                     ยังไม่มีข้อมูล
                   </TableCell>
                 </TableRow>
@@ -380,6 +394,7 @@ export default function Account() {
                         aria-label="บทบาท"
                         placeholder="เลือกบทบาท"
                         value={u.role}
+                        disabled={u.id === meId}
                         onChange={(e) => changeRole(u.id, e.target.value)}
                       >
                         {roles.map((r) => (
@@ -435,6 +450,17 @@ export default function Account() {
                           </NativeSelectOption>
                         ))}
                       </NativeSelect>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <input
+                        type="checkbox"
+                        aria-label={`ผู้ดูแลระบบ ${u.fullName}`}
+                        className="h-4 w-4 accent-[#059669]"
+                        checked={!!u.isAdmin}
+                        disabled={u.id === meId || (!!u.isAdmin && adminCount <= 1)}
+                        title={u.id === meId ? "แก้สิทธิ์ของตัวเองไม่ได้" : undefined}
+                        onChange={(e) => toggleAdmin(u.id, e.target.checked)}
+                      />
                     </TableCell>
                   </TableRow>
                   );
