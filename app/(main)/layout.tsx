@@ -47,7 +47,7 @@ type MenuItem = {
   roles?: Role[]
   // true = เฉพาะผู้อนุมัติ (ตำแหน่งในตัว + ที่ฝ่ายบัญชีเพิ่มเอง + บัญชี / การเงิน) ดู isApproverRole
   approverOnly?: boolean
-  group: "main" | "approval" | "manage" | "report" | "budget"
+  group: "main" | "approval" | "manage" | "report"
 }
 
 const mainItems: MenuItem[] = [
@@ -56,24 +56,21 @@ const mainItems: MenuItem[] = [
   { title: "ประวัติการเบิก", url: "#", icon: ClockThree, group: "main" },
 ];
 
+const manageItems: MenuItem[] = [
+  { title: "ตั้งงบประมาณ", url: "/home-account/budget", icon: Plus, roles: ["ACCOUNTANT_ADMIN"], group: "manage" },
+  { title: "จัดการผู้ใช้และสิทธิ์", url: "/home-account/setting", icon: UserMultiple4, roles: ["ACCOUNTANT_ADMIN"], group: "manage" },
+
+]
+
 const approveItems: MenuItem[] = [
   { title: "ประวัติการอนุมัติ", url: "#", icon: CheckCircle1, approverOnly: true, group: "approval" },
   { title: "คำขอรออนุมัติทั้งหมด", url: "/all-request", icon: FileTextMultiple, approverOnly: true, group: "approval" },
 
 ]
 
-const manageItems: MenuItem[] = [
-  { title: "จัดการผู้ใช้และสิทธิ์", url: "/home-account/setting", icon: UserMultiple4, roles: ["ACCOUNTANT_ADMIN"], group: "manage" },
-
-]
-
 const reportItems: MenuItem[] = [
   { title: "รายงานงบประมาณ", url: "/home-account/report", icon: TrendUp2, roles: ["ACCOUNTANT_ADMIN"], group: "report" },
 
-]
-
-const budgetItems: MenuItem[] = [
-  { title: "ตั้งงบประมาณ", url: "/home-account/budget", icon: Plus, roles: ["ACCOUNTANT_ADMIN"], group: "budget" },
 ]
 
 // role นี้เห็น / เข้าเมนูนี้ได้ไหม (ใช้ทั้งใน sidebar และ route guard)
@@ -83,7 +80,7 @@ function canAccess(item: MenuItem, role: string) {
 }
 
 // รวมทุกหมวดเป็นก้อนเดียว: route guard กับ breadcrumb ใช้ค้นหาเมนูจาก pathname
-const items: MenuItem[] = [...mainItems, ...approveItems, ...manageItems, ...reportItems, ...budgetItems]
+const items: MenuItem[] = [...mainItems, ...approveItems, ...manageItems, ...reportItems]
 
 function renderMenuItems(list: MenuItem[]) {
   return list.map((item) => (
@@ -156,7 +153,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const approvalItems = visibleItems.filter((item) => item.group === "approval")
   const manageUserItems = visibleItems.filter((item) => item.group === "manage")
   const report = visibleItems.filter((item) => item.group === "report")
-  const budgetEntry = visibleItems.filter((item) => item.group === "budget")
 
   // breadcrumb บน header: "แดชบอร์ด / ชื่อหน้าปัจจุบัน" (ชื่อหน้าดึงจาก items)
   const homePath = getHomePath(user.role)
@@ -191,6 +187,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </SidebarGroupContent>
             </SidebarGroup>
 
+             {manageUserItems.length > 0 && (
+              <SidebarGroup>
+                <SidebarGroupLabel className="text-[16px] font-bold">
+                  จัดการระบบ
+                </SidebarGroupLabel>
+
+                <SidebarGroupContent>
+                  <SidebarMenu>{renderMenuItems(manageUserItems)}</SidebarMenu>
+                </SidebarGroupContent>
+              </SidebarGroup>
+            )}
+
             {approvalItems.length > 0 && (
               <SidebarGroup>
                 <SidebarGroupLabel className="text-[16px] font-bold">
@@ -199,18 +207,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
                 <SidebarGroupContent>
                   <SidebarMenu>{renderMenuItems(approvalItems)}</SidebarMenu>
-                </SidebarGroupContent>
-              </SidebarGroup>
-            )}
-
-            {manageUserItems.length > 0 && (
-              <SidebarGroup>
-                <SidebarGroupLabel className="text-[16px] font-bold">
-                  จัดการผู้ใช้และสิทธิ์
-                </SidebarGroupLabel>
-
-                <SidebarGroupContent>
-                  <SidebarMenu>{renderMenuItems(manageUserItems)}</SidebarMenu>
                 </SidebarGroupContent>
               </SidebarGroup>
             )}
@@ -227,17 +223,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </SidebarGroup>
             )}
 
-            {budgetEntry.length > 0 && (
-              <SidebarGroup>
-                <SidebarGroupLabel className="text-[16px] font-bold">
-                  งบประมาณ
-                </SidebarGroupLabel>
-
-                <SidebarGroupContent>
-                  <SidebarMenu>{renderMenuItems(budgetEntry)}</SidebarMenu>
-                </SidebarGroupContent>
-              </SidebarGroup>
-            )}
 
             <SidebarGroup>
               <SidebarGroupLabel className="text-[16px] font-bold">
