@@ -45,8 +45,13 @@ export type User = {
 };
 
 // ────────────────────────────────────────────────────────────
-//  ข้อมูลตัวอย่าง: สังกัด (สายงาน / ฝ่าย / แผนก) เริ่มเป็นค่าว่างทุกคน
-//  → ฝ่ายบัญชีกำหนดเองที่หน้า "การตั้งค่า" (ตัวเลือกมาจาก data/organization.ts)
+//  ข้อมูลตัวอย่าง: ใส่สังกัดให้ผู้ใช้ทดสอบไว้แล้ว (แก้ต่อได้ที่หน้า "การตั้งค่า")
+//    ฝ่ายบัญชี DV01: แผนกงบประมาณฯ DP01 = phanu (พนักงาน), head_dcm (หัวหน้า)
+//                    แผนกบัญชีทั่วไป DP02 = accountant_admin, accountant_2
+//                    dir_finance = ผอ.ฝ่ายบัญชี (ไม่สังกัดแผนก · divisionId = DV01)
+//    ฝ่ายการเงิน DV05: แผนกการเงินฯ DP03 = finance_pay
+//    ฝ่ายการตลาด DV03: การตลาด DP05 = head_mkt (หัวหน้า), emp_mkt (พนักงาน) · ยังไม่มี ผอ.
+//    md = กรรมการผู้จัดการ (ทั้งบริษัท · ไม่สังกัด)
 //
 //  รหัสผ่านทุกคน = "pass" (ข้อมูลทดสอบเท่านั้น)
 // ────────────────────────────────────────────────────────────
@@ -58,11 +63,11 @@ export const users: User[] = [
     email: "riampaat@gmail.com",
     password: "pass",
     role: "EMPLOYEE",
-    lineOfWorkId: null,
-    divisionId: null,
-    departmentId: null,
+    lineOfWorkId: "LW01",
+    divisionId: "DV01",
+    departmentId: "DP01",
     bankAccount: { bank: "กสิกรไทย", number: "xxx-x-x4521-x", name: "ภาณุ ศรีบุญเพ็ง" },
-    departmentInfo: { lineOfWork: "", department: "" },
+    departmentInfo: { lineOfWork: "สายงานบัญชีและการเงิน", department: "แผนกงบประมาณและควบคุมต้นทุน" },
     status: "ACTIVE",
   },
   {
@@ -71,10 +76,10 @@ export const users: User[] = [
     fullName: "หัวหน้าแผนกงบประมาณ",
     role: "HEAD",
     password: "pass",
-    lineOfWorkId: null,
-    divisionId: null,
-    departmentId: null,
-    departmentInfo: { lineOfWork: "", department: "" },
+    lineOfWorkId: "LW01",
+    divisionId: "DV01",
+    departmentId: "DP01",
+    departmentInfo: { lineOfWork: "สายงานบัญชีและการเงิน", department: "แผนกงบประมาณและควบคุมต้นทุน" },
     status: "ACTIVE",
   },
   {
@@ -83,10 +88,10 @@ export const users: User[] = [
     fullName: "ผอ.ฝ่ายการเงิน",
     role: "DIRECTOR",
     password: "pass",
-    lineOfWorkId: null,
-    divisionId: null,
+    lineOfWorkId: "LW01",
+    divisionId: "DV01",
     departmentId: null,
-    departmentInfo: { lineOfWork: "", department: "" },
+    departmentInfo: { lineOfWork: "สายงานบัญชีและการเงิน", department: "" },
     status: "ACTIVE",
   },
   {
@@ -95,10 +100,10 @@ export const users: User[] = [
     fullName: "เจ้าหน้าที่บัญชีและแอดมิน",
     password: "pass",
     role: "ACCOUNTANT_ADMIN",
-    lineOfWorkId: null,
-    divisionId: null,
-    departmentId: null,
-    departmentInfo: { lineOfWork: "", department: "" },
+    lineOfWorkId: "LW01",
+    divisionId: "DV01",
+    departmentId: "DP02",
+    departmentInfo: { lineOfWork: "สายงานบัญชีและการเงิน", department: "แผนกบัญชีทั่วไป" },
     status: "ACTIVE",
   },
   {
@@ -107,10 +112,10 @@ export const users: User[] = [
     fullName: "เจ้าหน้าที่การเงิน (ทำจ่าย)",
     role: "FINANCE",
     password: "pass",
-    lineOfWorkId: null,
-    divisionId: null,
-    departmentId: null,
-    departmentInfo: { lineOfWork: "", department: "" },
+    lineOfWorkId: "LW01",
+    divisionId: "DV05",
+    departmentId: "DP03",
+    departmentInfo: { lineOfWork: "สายงานบัญชีและการเงิน", department: "แผนกการเงินและทำจ่าย" },
     status: "ACTIVE",
   },
   {
@@ -131,10 +136,10 @@ export const users: User[] = [
     fullName: "เจ้าหน้าที่บัญชี 2",
     role: "ACCOUNTANT_ADMIN",
     password: "pass",
-    lineOfWorkId: null,
-    divisionId: null,
-    departmentId: null,
-    departmentInfo: { lineOfWork: "", department: "" },
+    lineOfWorkId: "LW01",
+    divisionId: "DV01",
+    departmentId: "DP02",
+    departmentInfo: { lineOfWork: "สายงานบัญชีและการเงิน", department: "แผนกบัญชีทั่วไป" },
     status: "ACTIVE",
   },
   {
@@ -143,10 +148,10 @@ export const users: User[] = [
     fullName: "หัวหน้าแผนกการตลาด",
     role: "HEAD",
     password: "pass",
-    lineOfWorkId: null,
-    divisionId: null,
-    departmentId: null,
-    departmentInfo: { lineOfWork: "", department: "" },
+    lineOfWorkId: "LW02",
+    divisionId: "DV03",
+    departmentId: "DP05",
+    departmentInfo: { lineOfWork: "สายงานธุรกิจและปฏิบัติการ", department: "การตลาด" },
     status: "ACTIVE",
   },
   {
@@ -155,11 +160,11 @@ export const users: User[] = [
     fullName: "พนักงานการตลาด",
     role: "EMPLOYEE",
     password: "pass",
-    lineOfWorkId: null,
-    divisionId: null,
-    departmentId: null,
+    lineOfWorkId: "LW02",
+    divisionId: "DV03",
+    departmentId: "DP05",
     bankAccount: { bank: "ไทยพาณิชย์", number: "xxx-x-x7788-x", name: "พนักงานการตลาด" },
-    departmentInfo: { lineOfWork: "", department: "" },
+    departmentInfo: { lineOfWork: "สายงานธุรกิจและปฏิบัติการ", department: "การตลาด" },
     status: "ACTIVE",
   },
 ];

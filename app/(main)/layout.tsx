@@ -157,11 +157,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   // breadcrumb บน header: "แดชบอร์ด / ชื่อหน้าปัจจุบัน" (ชื่อหน้าดึงจาก items)
   const homePath = getHomePath(user.role)
   const isApprovePage = pathname.endsWith("/approve")
+  // รายละเอียดคำขอของฉัน: แดชบอร์ด / คำขอของฉัน / รหัสคำขอ
+  const isMyRequestDetail = pathname === "/my-request/detail"
   const currentTitle =
     pathname !== homePath
       ? items.find((item) => item.url === pathname)?.title
       : undefined
-  const isHome = !currentTitle && !isApprovePage
+  const isHome = !currentTitle && !isApprovePage && !isMyRequestDetail
 
   const handleLogout = () => doLogout(router)
 
@@ -274,7 +276,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     <span className="font-semibold text-[#047857]">{currentTitle}</span>
                   </>
                 )}
-                {isApprovePage && (
+                {isMyRequestDetail && (
+                  <>
+                    <span className="text-[#64748B]">/</span>
+                    <Link href="/my-request" className="text-[#64748B] hover:text-[#047857] hover:underline">
+                      คำขอของฉัน
+                    </Link>
+                  </>
+                )}
+                {(isApprovePage || isMyRequestDetail) && (
                   <Suspense fallback={null}>
                     <RequestIdCrumb />
                   </Suspense>

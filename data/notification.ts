@@ -37,7 +37,13 @@ export type AppNotification = {
 export type RequestEvent = "submitted" | "approved" | "rejected" | "paid";
 
 // ผู้ใช้ขั้นต่ำที่ต้องรู้ (ส่ง getUsers() มาได้เลย)
-type UserLite = { id: string; role: string; status?: string; departmentId?: string | null };
+type UserLite = {
+  id: string;
+  role: string;
+  status?: string;
+  departmentId?: string | null;
+  divisionId?: string | null;
+};
 
 // ────────────────────────────────────────────────────────────
 //  อ่าน / บันทึก
