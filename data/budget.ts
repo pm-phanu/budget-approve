@@ -26,6 +26,7 @@ export type Project = {
 
 // ────────────────────────────────────────────────────────────
 //  ข้อมูลตัวอย่าง (ยังไม่มี backend) · คงเหลือของหมวด = limit − used
+//  ยอดตั้งต้นเป็น 0 ทั้งหมด → ฝ่ายบัญชีกรอกวงเงินที่บอร์ดอนุมัติเองที่หน้า "ตั้งงบประมาณ"
 // ────────────────────────────────────────────────────────────
 export const projects: Project[] = [
   {
@@ -35,9 +36,9 @@ export const projects: Project[] = [
     dept: "การตลาด",
     year: 2026,
     categories: [
-      { id: "C01", name: "ค่าเดินทาง", limit: 60000, used: 18000 },
-      { id: "C02", name: "ค่าที่พัก", limit: 40000, used: 18000 },
-      { id: "C03", name: "ค่าอาหาร", limit: 20000, used: 4500 },
+      { id: "C01", name: "ค่าเดินทาง", limit: 0, used: 0 },
+      { id: "C02", name: "ค่าที่พัก", limit: 0, used: 0 },
+      { id: "C03", name: "ค่าอาหาร", limit: 0, used: 0 },
     ],
   },
   {
@@ -47,9 +48,9 @@ export const projects: Project[] = [
     dept: "การตลาด",
     year: 2026,
     categories: [
-      { id: "C04", name: "ค่าเช่าสถานที่", limit: 150000, used: 60000 },
-      { id: "C05", name: "ค่าออกแบบสื่อ", limit: 50000, used: 35000 },
-      { id: "C06", name: "ค่าของที่ระลึก", limit: 30000, used: 2400 },
+      { id: "C04", name: "ค่าเช่าสถานที่", limit: 0, used: 0 },
+      { id: "C05", name: "ค่าออกแบบสื่อ", limit: 0, used: 0 },
+      { id: "C06", name: "ค่าของที่ระลึก", limit: 0, used: 0 },
     ],
   },
   {
@@ -59,8 +60,8 @@ export const projects: Project[] = [
     dept: "ไอที",
     year: 2026,
     categories: [
-      { id: "C07", name: "ค่าอุปกรณ์คอมพิวเตอร์", limit: 800000, used: 120000 },
-      { id: "C08", name: "ค่าบริการคลาวด์", limit: 200000, used: 64000 },
+      { id: "C07", name: "ค่าอุปกรณ์คอมพิวเตอร์", limit: 0, used: 0 },
+      { id: "C08", name: "ค่าบริการคลาวด์", limit: 0, used: 0 },
     ],
   },
   {
@@ -71,9 +72,9 @@ export const projects: Project[] = [
     dept: "แผนกงบประมาณและควบคุมต้นทุน",
     year: 2026,
     categories: [
-      { id: "C09", name: "ค่าฝึกอบรม", limit: 80000, used: 12000 },
-      { id: "C10", name: "ค่าซอฟต์แวร์และระบบ", limit: 150000, used: 45000 },
-      { id: "C11", name: "ค่าเดินทางตรวจหน่วยงาน", limit: 50000, used: 6500 },
+      { id: "C09", name: "ค่าฝึกอบรม", limit: 0, used: 0 },
+      { id: "C10", name: "ค่าซอฟต์แวร์และระบบ", limit: 0, used: 0 },
+      { id: "C11", name: "ค่าเดินทางตรวจหน่วยงาน", limit: 0, used: 0 },
     ],
   },
   {
@@ -83,8 +84,8 @@ export const projects: Project[] = [
     dept: "แผนกจัดจำหน่ายตราสารหนี้ (DCM)",
     year: 2026,
     categories: [
-      { id: "C12", name: "ค่ารับรองลูกค้า", limit: 120000, used: 30000 },
-      { id: "C13", name: "ค่าจัดงานนำเสนอ", limit: 200000, used: 50000 },
+      { id: "C12", name: "ค่ารับรองลูกค้า", limit: 0, used: 0 },
+      { id: "C13", name: "ค่าจัดงานนำเสนอ", limit: 0, used: 0 },
     ],
   },
 ];

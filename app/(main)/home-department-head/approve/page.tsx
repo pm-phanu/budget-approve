@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, Check, CheckCircle1 } from "@tailgrids/icons";
 import { addRequestsToBudget } from "@/data/budget";
-import { REQUESTS_KEY, loadRequests } from "@/data/request";
+import { loadRequests, type SavedRequest, type SavedStep } from "@/data/request";
 import { actOnRequest, canApproveStep } from "@/data/approval";
 import { getCurrentUser } from "@/utils/login";
 import type { Credential } from "@/data/credential";
@@ -20,29 +20,9 @@ const REJECT_REASONS = ["เอกสารไม่ครบ", "ยอดเง
 const REJECT_COMMENT_MAX = 300;
 
 /* ------------------------------------------------------------------
-   ชนิดข้อมูล (ตรงกับที่หน้า request/new บันทึกไว้)
-   ใช้ string แทน union ของสถานะ เพื่อไม่ผูกกับค่าใน data/request.ts
+   ชนิดข้อมูล: ใช้ SavedRequest ของกลาง (data/request.ts)
+   + ผลตรวจที่หน้านี้บันทึกเพิ่ม (actOnRequest → extra)
 ------------------------------------------------------------------- */
-interface ReqItem {
-  categoryId: string;
-  categoryName: string;
-  name: string;
-  amount: number;
-  files: string[];
-}
-interface ReqStep {
-  role: string;
-  label: string;
-  status: string; // "รอ" | "อนุมัติ" | "ตีกลับ"
-  by: string | null;
-  at: string | null;
-  note: string;
-}
-interface ReqHistory {
-  action: string;
-  by: string;
-  at: string;
-}
 // ข้อมูลการตีกลับ (key ใหม่ชื่อ reject)
 interface RejectInfo {
   status: string; // ตีกลับเรื่องอะไร เช่น "เอกสารไม่ครบ"
@@ -50,40 +30,15 @@ interface RejectInfo {
   by: string; // ใครตีกลับ
   at: string; // ตีกลับเมื่อไหร่ (ISO)
 }
-interface Req {
-  id: string;
-  createdAt: string;
-  updatedAt: string;
-  status: string; // "ร่าง" | "รออนุมัติ" | "อนุมัติแล้ว" | "ตีกลับ"
-  type: "advance" | "invoice";
-  typeLabel: string;
-  title: string;
-  useDate: string;
-  reason: string;
-  project: { id: string; name: string; dept: string } | null;
-  items: ReqItem[];
-  total: number;
-  fileCount: number;
-  requester: {
-    fullName: string;
-    department: string;
-    lineOfWork: string;
-  } | null;
-  payTo: string;
-  bankAccount: string | null;
-  approvalSteps: ReqStep[];
-  currentStep: number;
-  history: ReqHistory[];
+type Req = SavedRequest & {
   reviewedAt?: string; // ให้หน้า Home ใช้เรียง "อนุมัติล่าสุด"
   reviewComment?: string;
   reject?: RejectInfo; // มีเมื่อคำขอถูกตีกลับ
-}
+};
 
 function loadAll(): Req[] {
   try {
-    const raw = localStorage.getItem(REQUESTS_KEY);
-    const data = raw ? JSON.parse(raw) : [];
-    return Array.isArray(data) ? data : [];
+    return loadRequests() as Req[];
   } catch {
     return [];
   }
@@ -194,7 +149,7 @@ const Dot = ({ status }: { status: StepStatus }) => {
 
 // สถานะของแต่ละขั้นในเส้นทางอนุมัติ
 function stepState(
-  s: ReqStep,
+  s: SavedStep,
   index: number,
   current: number,
   reqStatus: string,
@@ -282,7 +237,7 @@ function ReviewContent() {
   const curStep = r.approvalSteps[r.currentStep];
   // แสดงกล่องอนุมัติเมื่อคนที่ login เป็นผู้อนุมัติของขั้นปัจจุบันจริง (data/approval.ts canApproveStep)
   // ※ ผู้ขออนุมัติคำขอตัวเองไม่ได้ · ขั้นที่ระบุตัวไว้ต้องเป็นคนนั้น · ขั้น "ใครก็ได้" ต้อง role ตรง
-  const canAct = canApproveStep(r as Parameters<typeof canApproveStep>[0], me);
+  const canAct = canApproveStep(r, me);
 
   // บันทึกไม่สำเร็จ (มีคนกดไปก่อน / ไม่มีสิทธิ์) → โหลดสถานะล่าสุดมาแสดง
   const reloadLatest = () => {
