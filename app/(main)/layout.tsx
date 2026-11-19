@@ -55,7 +55,7 @@ type MenuItem = {
 const mainItems: MenuItem[] = [
   { title: "สร้างคำขอ", url: "/request", icon: Plus, group: "main" },
   { title: "คำขอของฉัน", url: "/my-request", icon: FileText, group: "main" },
-  { title: "ประวัติการเบิก", url: "#", icon: ClockThree, group: "main" },
+  { title: "ประวัติการเบิก", url: "/withdraw-history", icon: ClockThree, group: "main" },
 ];
 
 const manageItems: MenuItem[] = [
@@ -65,7 +65,7 @@ const manageItems: MenuItem[] = [
 ]
 
 const approveItems: MenuItem[] = [
-  { title: "ประวัติการอนุมัติ", url: "#", icon: CheckCircle1, approverOnly: true, group: "approval" },
+  { title: "ประวัติการอนุมัติ", url: "/approval-history", icon: CheckCircle1, approverOnly: true, group: "approval" },
   { title: "คำขอรออนุมัติทั้งหมด", url: "/all-request", icon: FileTextMultiple, approverOnly: true, group: "approval" },
 
 ]

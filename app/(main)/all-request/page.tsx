@@ -255,7 +255,7 @@ export default function AllRequestDH() {
               <div className="text-sm text-[#64748B]">รอคุณตรวจสอบ</div>
               <div className="money mt-1 text-3xl font-bold text-[#0F172A]">
                 {pending.length}{" "}
-                <span className="text-base font-normal text-gray-500">
+                <span className="text-base font-normal text-[#64748B]">
                   รายการ
                 </span>
               </div>

@@ -278,7 +278,7 @@ export default function Home() {
             <div className="flex flex-col justify-between rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl xl:col-span-2">
               <div>
                 <div className="mb-2 flex items-center justify-between">
-                  <h2 className="text-base font-bold text-gray-800">แจ้งเตือนล่าสุด</h2>
+                  <h2 className="text-base font-bold text-[#0F172A]">แจ้งเตือนล่าสุด</h2>
                   <Link href="#" className="flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:underline">
                     ดูทั้งหมด →
                   </Link>
@@ -290,11 +290,11 @@ export default function Home() {
                     <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
                       <Check size={18} />
                     </span>
-                    <div className="text-sm text-gray-700">
+                    <div className="text-sm text-[#334155]">
                       <p>
-                        คำขอ <strong className="text-gray-900">ค่าอบรมทีมการตลาด</strong> ได้รับเงินแล้ว
+                        คำขอ <strong className="text-[#0F172A]">ค่าอบรมทีมการตลาด</strong> ได้รับเงินแล้ว
                       </p>
-                      <p className="mt-0.5 text-xs text-gray-400">วันนี้ 09.00 น.</p>
+                      <p className="mt-0.5 text-xs text-[#64748B]">วันนี้ 09.00 น.</p>
                     </div>
                   </li>
 
@@ -303,11 +303,11 @@ export default function Home() {
                     <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
                       <ClockThree size={18} />
                     </span>
-                    <div className="text-sm text-gray-700">
+                    <div className="text-sm text-[#334155]">
                       <p>
-                        <strong className="text-gray-900">ซื้อหมึกพิมพ์สำนักงาน</strong> หัวหน้าแผนกอนุมัติแล้ว รอฝ่ายบัญชีตรวจ
+                        <strong className="text-[#0F172A]">ซื้อหมึกพิมพ์สำนักงาน</strong> หัวหน้าแผนกอนุมัติแล้ว รอฝ่ายบัญชีตรวจ
                       </p>
-                      <p className="mt-0.5 text-xs text-gray-400">12 ต.ค. 10:15</p>
+                      <p className="mt-0.5 text-xs text-[#64748B]">12 ต.ค. 10:15</p>
                     </div>
                   </li>
 
@@ -316,11 +316,11 @@ export default function Home() {
                     <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
                       <Check size={18} />
                     </span>
-                    <div className="text-sm text-gray-700">
+                    <div className="text-sm text-[#334155]">
                       <p>
-                        คำขอ <strong className="text-gray-900">ค่าอบรมทีมการตลาด</strong> ได้รับเงินแล้ว
+                        คำขอ <strong className="text-[#0F172A]">ค่าอบรมทีมการตลาด</strong> ได้รับเงินแล้ว
                       </p>
-                      <p className="mt-0.5 text-xs text-gray-400">วันนี้ 09.00 น.</p>
+                      <p className="mt-0.5 text-xs text-[#64748B]">วันนี้ 09.00 น.</p>
                     </div>
                   </li>
 
@@ -329,17 +329,17 @@ export default function Home() {
                     <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
                       <Check size={18} />
                     </span>
-                    <div className="text-sm text-gray-700">
+                    <div className="text-sm text-[#334155]">
                       <p>
-                        คำขอ <strong className="text-gray-900">ค่าอบรมทีมการตลาด</strong> ได้รับเงินแล้ว
+                        คำขอ <strong className="text-[#0F172A]">ค่าอบรมทีมการตลาด</strong> ได้รับเงินแล้ว
                       </p>
-                      <p className="mt-0.5 text-xs text-gray-400">วันนี้ 09.00 น.</p>
+                      <p className="mt-0.5 text-xs text-[#64748B]">วันนี้ 09.00 น.</p>
                     </div>
                   </li>
                 </ul>
               </div>
 
-              <div className="mt-6 flex items-center gap-2.5 rounded-xl border border-gray-200/60 bg-gray-50 p-3.5 text-xs text-gray-500">
+              <div className="mt-6 flex items-center gap-2.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3.5 text-xs text-[#64748B]">
                 <span>✓</span>
                 <span>ระบบจะแจ้งเตือนทุกครั้งที่สถานะคำขอเปลี่ยน</span>
               </div>
