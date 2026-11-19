@@ -299,8 +299,11 @@ export function canApproveStep(
 
   const deptId = request.requester?.departmentId ?? null;
 
-  // คำขอเก่าที่ไม่มีแผนกของผู้ขอ แต่ระบุตัวผู้อนุมัติไว้ → ต้องเป็นคนนั้น
-  if (!deptId && step.approverId) return step.approverId === user.id;
+  // ขั้นที่ระบุตัวผู้อนุมัติไว้ → ต้องเป็นคนนั้นเท่านั้น
+  //   - ส่งใหม่หลังถูกตีกลับ: ล็อกให้คนที่ตีกลับเป็นคนพิจารณาต่อ (หน้าสร้างคำขอใส่ approverId = byId)
+  //   - คำขอเก่าที่วางเส้นทางแบบระบุตัว
+  //   ※ เส้นทางปกติ approverId = null (planApprovalSteps) → ใช้ขอบเขตสังกัดด้านล่าง
+  if (step.approverId) return step.approverId === user.id;
 
   if (step.role !== user.role) return false;
 
@@ -315,6 +318,80 @@ export function canApproveStep(
         ? request.requester?.directorId
         : null;
   return !owner || owner === user.id;
+}
+
+// ════════════════════════════════════════════════════════════
+//  ล็อก "มีคนกำลังตรวจสอบอยู่" (localStorage "reviewLocks")
+//
+//  ผู้อนุมัติเปิดหน้าตรวจคำขอ → จองคำขอ+ขั้นนั้นไว้ (claimReviewLock)
+//  คนอื่นที่มีสิทธิ์เปิดคำขอเดียวกัน → เห็นว่า "<ชื่อ> กำลังตรวจสอบอยู่" และกดอนุมัติ/ตีกลับไม่ได้
+//  ปลดล็อกเมื่อ: กดอนุมัติ/ตีกลับเสร็จ · ปิด/ออกจากหน้า (releaseReviewLock)
+//                หรือหมดอายุ REVIEW_LOCK_TTL_MS (หน้าค้างไว้จะต่ออายุทุก REVIEW_LOCK_HEARTBEAT_MS)
+//  ※ localStorage อยู่ในเบราว์เซอร์เดียว → ล็อกใช้ได้ระหว่างแท็บ/ผู้ใช้ในเครื่องเดียวกัน
+//    ใช้ข้ามเครื่องได้จริงเมื่อมี backend
+// ════════════════════════════════════════════════════════════
+export const REVIEW_LOCKS_KEY = "reviewLocks";
+export const REVIEW_LOCK_TTL_MS = 2 * 60 * 1000; // ไม่มีการต่ออายุเกิน 2 นาที → ถือว่าปล่อยแล้ว
+export const REVIEW_LOCK_HEARTBEAT_MS = 30 * 1000; // หน้าที่เปิดอยู่ต่ออายุทุก 30 วินาที
+
+export type ReviewLock = {
+  requestId: string;
+  step: number; // ขั้นที่จอง (ขั้นเปลี่ยน = ล็อกเดิมไม่มีผล)
+  userId: string;
+  userName: string;
+  at: string; // ต่ออายุล่าสุดเมื่อ (ISO)
+};
+
+function readLocks(): Record<string, ReviewLock> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = localStorage.getItem(REVIEW_LOCKS_KEY);
+    return raw ? (JSON.parse(raw) as Record<string, ReviewLock>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeLocks(locks: Record<string, ReviewLock>) {
+  localStorage.setItem(REVIEW_LOCKS_KEY, JSON.stringify(locks));
+}
+
+const isLive = (lock: ReviewLock | undefined, step: number) =>
+  !!lock && lock.step === step && Date.now() - new Date(lock.at).getTime() < REVIEW_LOCK_TTL_MS;
+
+// ล็อกของคนอื่นที่ยังไม่หมดอายุ (ไม่มี = null)
+export function getReviewLock(requestId: string, step: number, userId?: string | null) {
+  const lock = readLocks()[requestId];
+  if (!isLive(lock, step) || lock.userId === userId) return null;
+  return lock;
+}
+
+// จอง / ต่ออายุ · มีคนอื่นจองอยู่ → ไม่จอง คืนล็อกของคนนั้น
+export function claimReviewLock(
+  requestId: string,
+  step: number,
+  user: { id: string; fullName: string },
+): { ok: true } | { ok: false; lock: ReviewLock } {
+  const locks = readLocks();
+  const lock = locks[requestId];
+  if (isLive(lock, step) && lock.userId !== user.id) return { ok: false, lock };
+  locks[requestId] = {
+    requestId,
+    step,
+    userId: user.id,
+    userName: user.fullName,
+    at: new Date().toISOString(),
+  };
+  writeLocks(locks);
+  return { ok: true };
+}
+
+// ปล่อยล็อก (เฉพาะของตัวเอง)
+export function releaseReviewLock(requestId: string, userId: string) {
+  const locks = readLocks();
+  if (locks[requestId]?.userId !== userId) return;
+  delete locks[requestId];
+  writeLocks(locks);
 }
 
 // ════════════════════════════════════════════════════════════
@@ -369,6 +446,12 @@ export function actOnRequest(
     return { ok: false, reason: "คุณไม่มีสิทธิ์ดำเนินการขั้นนี้" };
   }
 
+  // มีคนอื่นกำลังตรวจสอบขั้นนี้อยู่ (เปิดหน้าตรวจค้างไว้) → ไม่บันทึก
+  const lock = getReviewLock(latest.id, latest.currentStep, user.id);
+  if (lock) {
+    return { ok: false, reason: `${lock.userName} กำลังตรวจสอบคำขอนี้อยู่ กรุณารอให้ดำเนินการเสร็จก่อน` };
+  }
+
   const now = new Date().toISOString();
   const steps = latest.approvalSteps.map((s) => ({ ...s }));
   const cur = steps[latest.currentStep];
@@ -404,6 +487,9 @@ export function actOnRequest(
 
   // แจ้งเตือนผู้ขอ / ผู้อนุมัติขั้นถัดไป (data/notification.ts)
   const finishedByFinance = action === "approve" && next.status === "อนุมัติแล้ว" && cur.role === "FINANCE";
+  // ขั้นนี้จบแล้ว → ปล่อยล็อก "กำลังตรวจสอบ"
+  releaseReviewLock(latest.id, user.id);
+
   notifyRequestEvent(
     next,
     action === "reject" ? "rejected" : finishedByFinance ? "paid" : "approved",

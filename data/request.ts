@@ -111,18 +111,50 @@ export function getTimeline(request: SavedRequest): HistoryEntry[] {
   return [...request.history].sort((a, b) => a.at.localeCompare(b.at));
 }
 
-// "ประวัติการอนุมัติ" ของผู้ใช้: คำขอที่คนนี้อนุมัติ / ตีกลับไปแล้ว (ใหม่ → เก่า)
-// ดูจาก approvalSteps · มี byId ใช้ byId · คำขอเก่าไม่มี → เทียบชื่อ
+// "ประวัติการอนุมัติ" ของผู้ใช้: ทุกครั้งที่คนนี้อนุมัติ / ตีกลับ (ใหม่ → เก่า)
+// อ่านจาก history (บันทึกต่อท้ายเสมอ ไม่ลบ) ไม่ใช่ approvalSteps
+//   เพราะส่งใหม่หลังถูกตีกลับ ขั้นใน approvalSteps ถูกรีเซ็ตเป็น "รอ" → การตีกลับ / อนุมัติรอบก่อนหายจาก steps
+// มี byId ใช้ byId · ข้อมูลเก่าไม่มี → เทียบชื่อ
+// คำขอเก่ามากที่ history ไม่มีรายการอนุมัติ/ตีกลับเลย → ใช้ approvalSteps แทน
+// step ที่คืน: role = role ของคนทำ · label = ชื่อขั้น (จาก action "อนุมัติ: หัวหน้าแผนก")
 export function getActedRequests(
   requests: SavedRequest[],
   user: { id: string; fullName: string },
 ) {
   const rows: { request: SavedRequest; step: SavedStep }[] = [];
+  const isMine = (byId: string | null | undefined, by: string | null) =>
+    byId ? byId === user.id : by === user.fullName;
+
   for (const request of requests) {
-    for (const step of request.approvalSteps) {
-      if (step.status === "รอ") continue;
-      const isMine = step.byId ? step.byId === user.id : step.by === user.fullName;
-      if (isMine) rows.push({ request, step });
+    const acted = (request.history ?? []).filter((h) => {
+      const t = historyType(h);
+      return t === "อนุมัติ" || t === "ตีกลับ";
+    });
+
+    if (acted.length === 0) {
+      for (const step of request.approvalSteps) {
+        if (step.status !== "รอ" && isMine(step.byId, step.by)) rows.push({ request, step });
+      }
+      continue;
+    }
+
+    for (const h of acted) {
+      if (!isMine(h.byId, h.by)) continue;
+      const status = historyType(h) === "ตีกลับ" ? "ตีกลับ" : "อนุมัติ";
+      // "อนุมัติ: หัวหน้าแผนก (ความเห็น)" → "หัวหน้าแผนก"
+      const label = h.action.replace(/^(อนุมัติ|ตีกลับ)\s*:?\s*/, "").replace(/\s*\(.*\)$/, "") || status;
+      rows.push({
+        request,
+        step: {
+          role: h.role ?? "",
+          label,
+          status,
+          by: h.by,
+          byId: h.byId ?? null,
+          at: h.at,
+          note: h.note ?? "",
+        },
+      });
     }
   }
   return rows.sort((a, b) => (b.step.at ?? "").localeCompare(a.step.at ?? ""));

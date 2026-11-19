@@ -6,7 +6,15 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, Check, CheckCircle1 } from "@tailgrids/icons";
 import { addRequestsToBudget } from "@/data/budget";
 import { loadRequests, type SavedRequest, type SavedStep } from "@/data/request";
-import { actOnRequest, canApproveStep } from "@/data/approval";
+import {
+  actOnRequest,
+  canApproveStep,
+  claimReviewLock,
+  releaseReviewLock,
+  REVIEW_LOCK_HEARTBEAT_MS,
+  REVIEW_LOCKS_KEY,
+  type ReviewLock,
+} from "@/data/approval";
 import { getCurrentUser } from "@/utils/login";
 import type { Credential } from "@/data/credential";
 
@@ -215,6 +223,41 @@ function ReviewContent() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [showReject]);
+
+  // ---- ล็อก "มีคนกำลังตรวจสอบอยู่" (data/approval.ts) ----
+  // คนที่มีสิทธิ์อนุมัติเปิดหน้านี้ → จองคำขอ+ขั้นนี้ไว้ และต่ออายุทุก 30 วินาที
+  // มีคนอื่นจองอยู่ → lockedBy = คนนั้น → ซ่อนปุ่มอนุมัติ/ตีกลับ แสดงว่าใครกำลังตรวจ
+  // ปิด/ออกจากหน้า → ปล่อยล็อก · แท็บอื่นปล่อยล็อก → event "storage" → จองต่อได้ทันที
+  // ※ ต้องอยู่ก่อน return ด้านล่าง (กฎของ hooks)
+  const [lockedBy, setLockedBy] = useState<ReviewLock | null>(null);
+  const lockRequestId = request?.id ?? "";
+  const lockStep = request?.currentStep ?? -1;
+  const mayAct = !!request && canApproveStep(request, me);
+  useEffect(() => {
+    if (!lockRequestId || !me || !mayAct) {
+      /* eslint-disable-next-line react-hooks/set-state-in-effect -- ไม่มีสิทธิ์ = ไม่ต้องจอง */
+      setLockedBy(null);
+      return;
+    }
+    const sync = () => {
+      const res = claimReviewLock(lockRequestId, lockStep, me);
+      setLockedBy(res.ok ? null : res.lock);
+    };
+    const release = () => releaseReviewLock(lockRequestId, me.id);
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === REVIEW_LOCKS_KEY) sync();
+    };
+    sync();
+    const timer = window.setInterval(sync, REVIEW_LOCK_HEARTBEAT_MS);
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("pagehide", release);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("pagehide", release);
+      release();
+    };
+  }, [lockRequestId, lockStep, me, mayAct]);
 
   if (!loaded) return null;
 
@@ -591,8 +634,26 @@ function ReviewContent() {
               </ol>
             </Card>
 
+            {/* มีคนอื่นกำลังตรวจสอบขั้นนี้อยู่ → กดไม่ได้ */}
+            {canAct && lockedBy && (
+              <Card>
+                <div
+                  role="status"
+                  className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700"
+                >
+                  <p className="font-bold">
+                    {lockedBy.userName} กำลังตรวจสอบคำขอนี้อยู่
+                  </p>
+                  <p className="mt-1">
+                    คุณจะกดอนุมัติหรือตีกลับได้เมื่อ {lockedBy.userName} ปิดหน้านี้
+                    หรือไม่มีการใช้งานเกิน 2 นาที (หน้านี้จะอัปเดตให้เอง)
+                  </p>
+                </div>
+              </Card>
+            )}
+
             {/* การอนุมัติของคุณ */}
-            {canAct && (
+            {canAct && !lockedBy && (
               <Card>
                 <h2 className="mb-4 text-lg font-bold text-slate-900">
                   การอนุมัติของคุณ
