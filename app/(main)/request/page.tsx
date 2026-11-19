@@ -1,6 +1,6 @@
 "use client";
 // ════════════════════════════════════════════════════════════
-//  หน้าสร้างคำขอเบิก  (/request/new)
+//  หน้าสร้างคำขอเบิก  (/request)
 // ════════════════════════════════════════════════════════════
 
 //   [1] ชนิดข้อมูล
@@ -11,7 +11,7 @@
 //       [5.1] state + เปิดร่าง (?id=)   [5.2] ค่าที่คำนวณ (ยอดรวม / จำนวนไฟล์)
 //       [5.3] รายการค่าใช้จ่าย    [5.4] แนบหลักฐานรายแถว
 //       [5.5] ตรวจก่อนส่ง        [5.6] บันทึก localStorage
-//       [5.7] ส่ง / บันทึกร่าง / ล้างฟอร์ม
+//       [5.7] ส่ง / บันทึกร่าง
 //   [6] หน้าจอ
 //       [6.1] ข้อมูลคำขอ   [6.2] โครงการ + วันที่   [6.3] เหตุผล
 //       [6.4] ตารางค่าใช้จ่าย + หลักฐาน   [6.5] ยอดรวม
@@ -21,19 +21,33 @@
 // ════════════════════════════════════════════════════════════
 
 import { useEffect, useState } from "react";
-import type { Credential } from "@/data/credential";
+import { useRouter } from "next/navigation";
+import { getUsers, type Credential } from "@/data/credential";
+import { notifyRequestEvent } from "@/data/notification";
+import { getCurrentUser } from "@/utils/login";
 import { projects, addRequestsToBudget, type Project } from "@/data/budget";
 import {
-  APPROVAL_RULES_KEY,
   DEFAULT_RULES,
-  ROLE_LABEL,
+  loadApprovalRules,
+  DEFAULT_POSITIONS,
+  getRoleLabel,
+  loadPositions,
+  type ApproverPosition,
   getApprovalSteps,
+  planApprovalSteps,
   type ApprovalRule,
+  type PlannedStep,
   type StepRole,
 } from "@/data/approval";
 import {
+  DEFAULT_ORGANIZATION,
+  loadOrganization,
+  type Organization,
+} from "@/data/organization";
+import {
   REQUESTS_KEY,
   loadRequests,
+  makeHistory,
   type SavedRequest,
   type RequestStatus,
 } from "@/data/request";
@@ -61,7 +75,7 @@ type Item = {
   files: string[];
 };
 
-// แถวว่าง 1 แถว (ใช้ตอนเปิดหน้า / กดเพิ่มรายการ / ล้างฟอร์ม)
+// แถวว่าง 1 แถว (ใช้ตอนเปิดหน้า / กดเพิ่มรายการ / ลบแถวสุดท้าย)
 function emptyItem(): Item {
   return { categoryId: "", name: "", amount: "", files: [] };
 }
@@ -90,7 +104,7 @@ function money(n: number) {
 }
 
 // บัญชีรับเงินคืนของผู้ขอ (ข้อมูลสมมติ ยังไม่มีในข้อมูลผู้ใช้)
-const BANK_ACCOUNT = "กสิกรไทย ••• 4521";
+const BANK_ACCOUNT = "ยังไม่ได้ตั้งค่าบัญชีรับเงิน"; // ใช้เมื่อผู้ขอยังไม่มี bankAccount
 
 // ════════════════════════════════════════
 //  [5] หน้าหลัก
@@ -104,10 +118,15 @@ export default function NewRequest() {
   const [useDate, setUseDate] = useState("");
   const [reason, setReason] = useState("");
   const [items, setItems] = useState<Item[]>([emptyItem()]);
+  // ลิงก์ดูไฟล์ที่แนบ (ชื่อไฟล์ → ลิงก์ชั่วคราวในเครื่อง) · ใช้ได้จนกว่าจะปิด/รีเฟรชหน้า
+  const [previews, setPreviews] = useState<Record<string, string>>({});
 
   // ข้อความแจ้งผล
   const [errors, setErrors] = useState<string[]>([]);
   const [message, setMessage] = useState("");
+  // ป็อปอัพยืนยันก่อนส่ง: "closed" = ปิด · "confirm" = ถามยืนยัน · "done" = ส่งสำเร็จ กำลังพาไปแดชบอร์ด
+  const [popup, setPopup] = useState<"closed" | "confirm" | "done">("closed");
+  const router = useRouter(); // ใช้เปลี่ยนหน้า
 
   // เลขที่ร่างที่กำลังแก้ (ยังไม่เคยบันทึกร่าง = "")
   // ※ กดบันทึกร่างซ้ำ → ทับใบเดิม ไม่เกิดร่างซ้ำหลายใบ
@@ -116,19 +135,23 @@ export default function NewRequest() {
   // ค่าที่อ่านจาก localStorage
   const [rules, setRules] = useState<ApprovalRule[]>(DEFAULT_RULES); // วงเงินอนุมัติ
   const [user, setUser] = useState<Credential | null>(null); // คนที่ล็อกอินอยู่
+  const [org, setOrg] = useState<Organization>(DEFAULT_ORGANIZATION); // ผังองค์กร (หาผู้อนุมัติ)
+  const [positions, setPositions] = useState<ApproverPosition[]>(DEFAULT_POSITIONS); // ตำแหน่งผู้อนุมัติ (รวมที่เพิ่มเอง)
   const [budget, setBudget] = useState<Project[]>(projects); // งบที่หักคำขอที่ส่งไปแล้ว
 
   // อ่าน localStorage ครั้งเดียวตอนเปิดหน้า ([] ท้ายสุด = ทำครั้งเดียว)
   // ※ ต้องอ่านใน useEffect เพราะ localStorage มีแค่ในเบราว์เซอร์
   useEffect(() => {
-    const savedRules = localStorage.getItem(APPROVAL_RULES_KEY);
-    const savedUser = localStorage.getItem("current_user");
     /* eslint-disable react-hooks/set-state-in-effect -- อ่านได้หลังเปิดหน้าเท่านั้น */
-    if (savedRules) setRules(JSON.parse(savedRules));
-    if (savedUser) setUser(JSON.parse(savedUser));
+    // กฎวงเงิน: ข้อมูลในเครื่องผิดรูปแบบ → ใช้ค่าเริ่มต้น (ดู loadApprovalRules)
+    setRules(loadApprovalRules());
+    // ผู้ใช้: ใช้ข้อมูลล่าสุด (มี departmentId) ไม่ใช่ภาพ ณ ตอน login
+    setUser(getCurrentUser());
+    setOrg(loadOrganization());
+    setPositions(loadPositions());
     setBudget(addRequestsToBudget(loadRequests()));
 
-    // ---------- [5.1] เปิดร่างมาแก้ต่อ: /request/new?id=REQ-xxx ----------
+    // ---------- [5.1] เปิดร่างมาแก้ต่อ: /request?id=REQ-xxx ----------
     const params = new URLSearchParams(window.location.search); // อ่านป้ายท้าย URL
     const openId = params.get("id"); // "REQ-xxx" หรือ null ถ้าไม่มีป้าย
     const draft = loadRequests().find(
@@ -156,28 +179,35 @@ export default function NewRequest() {
   // ---------- [5.2] ค่าที่คำนวณจาก state ----------
   // ※ ไม่ต้องเก็บใน state เพราะคิดใหม่เองทุกครั้งที่ฟอร์มเปลี่ยน
 
-  // ยอดรวม = บวกจำนวนเงินทุกแถว
-  let total = 0;
-  for (const it of items) total += Number(it.amount || 0);
-
-  // จำนวนไฟล์ทั้งหมด / จำนวนแถวที่แนบแล้ว
-  let fileCount = 0;
-  let rowsWithFile = 0;
-  for (const it of items) {
-    fileCount += it.files.length;
-    if (it.files.length > 0) rowsWithFile += 1;
-  }
+  // reduce = บวกทีละแถว (sum = ยอดสะสม เริ่มจาก 0) · ท่าเดียวกับหน้ารายงาน
+  const total = items.reduce((sum, it) => sum + Number(it.amount || 0), 0); // ยอดรวม
+  const fileCount = items.reduce((sum, it) => sum + it.files.length, 0); // ไฟล์ทั้งหมด
+  const rowsWithFile = items.filter((it) => it.files.length > 0).length; // แถวที่แนบแล้ว
 
   // โครงการที่เลือก + หมวดของโครงการนั้น
   const project = budget.find((p) => p.id === projectId); // ไม่ได้เลือก = undefined
   const categories = project ? project.categories : [];
+  const currentYear = user ? new Date().getFullYear() : null
+  const myProjects = budget.filter(
+    (p) => !!user?.departmentId && p.departmentId === user.departmentId && p.year === currentYear
+  )
 
   // งบคงเหลือของโครงการ = รวม (วงเงิน − ใช้ไป) ทุกหมวด
-  let projectRemaining = 0;
-  for (const c of categories) projectRemaining += c.limit - c.used;
+  const projectRemaining = categories.reduce((sum, c) => sum + c.limit - c.used, 0);
 
-  // เส้นทางอนุมัติตามยอดรวม
-  const steps = getApprovalSteps(total, rules);
+  // เส้นทางอนุมัติตามยอดรวม + ผู้อนุมัติแต่ละขั้น (ดู planApprovalSteps ใน data/approval.ts)
+  // ยังไม่รู้ว่าใครล็อกอิน → แสดงตามวงเงินอย่างเดียว
+  const plan: PlannedStep[] = user
+    ? planApprovalSteps(total, user, org, rules, positions)
+    : getApprovalSteps(total, rules).map((role) => ({ role, approverId: null, hasApprover: true }));
+  const steps = plan.map((p) => p.role);
+  // ขั้นที่ยังไม่มีใครอนุมัติได้ (ในแผนก/ฝ่ายของผู้ขอ) → ส่งไม่ได้จนกว่าบัญชีจะกำหนดคน
+  const missingSteps = plan.filter((p) => !p.hasApprover).map((p) => p.role);
+
+  // บัญชีรับเงินคืน: ของผู้ขอ (data/credential.ts) · ยังไม่มีข้อมูล = แสดงข้อความแทน
+  const bankLabel = user?.bankAccount
+    ? `${user.bankAccount.bank} ${user.bankAccount.number}`
+    : BANK_ACCOUNT;
 
   // คำที่เปลี่ยนตามประเภท
   const isAdvance = type === "advance";
@@ -189,20 +219,27 @@ export default function NewRequest() {
   }
 
   function removeItem(index: number) {
+    // เหลือแถวเดียว = ล้างแถวให้ว่าง (คำขอต้องมีอย่างน้อย 1 แถวเสมอ)
+    if (items.length === 1) {
+      setItems([emptyItem()]);
+      return;
+    }
     setItems(items.filter((_, i) => i !== index)); // เก็บทุกแถว ยกเว้นแถวที่กดลบ
   }
 
-  // แก้ 1 ช่อง ของ 1 แถว
+  // แก้ 1 แถว: map เดินดูทีละแถว → แถวที่กด (i === index) เอาของเดิม + ค่าใหม่ทับ · แถวอื่นคืนเดิม
+  // ※ React ต้องได้ลิสต์ใหม่ถึงจะวาดจอใหม่ (map สร้างลิสต์ใหม่ให้)
+  function updateRow(index: number, change: Partial<Item>) {
+    setItems(items.map((it, i) => (i === index ? { ...it, ...change } : it)));
+  }
+
+  // แก้ 1 ช่อง ของ 1 แถว เช่น changeItem(0, "name", "ตั๋วเครื่องบิน")
   function changeItem(
     index: number,
     field: "categoryId" | "name" | "amount",
     value: string,
   ) {
-    const copy = [...items]; // ก๊อปทั้งลิสต์ (React ต้องได้ลิสต์ใหม่ถึงจะวาดจอใหม่)
-    const row = { ...copy[index] }; // ก๊อปแถวที่จะแก้
-    row[field] = value; // เปลี่ยนเฉพาะช่องที่ชื่อ field
-    copy[index] = row; // ใส่แถวที่แก้แล้วกลับเข้าไป
-    setItems(copy);
+    updateRow(index, { [field]: value }); // [field] = ใช้ชื่อช่องที่ส่งมาเป็นชื่อ
   }
 
   // เปลี่ยนโครงการ → ล้างหมวดเดิมทุกแถว (หมวดผูกกับโครงการ)
@@ -217,21 +254,18 @@ export default function NewRequest() {
     if (!picked) return; // ไม่ได้เลือก = ไม่ทำอะไร
 
     const names = Array.from(picked).map((f) => f.name); // เก็บแค่ชื่อไฟล์
-    const copy = [...items];
-    const row = { ...copy[index] };
-    row.files = [...row.files, ...names]; // ไฟล์เดิม + ไฟล์ใหม่
-    copy[index] = row;
-    setItems(copy);
+
+    // ทำลิงก์ดูไฟล์ ไว้กดเปิดดูก่อนส่ง
+    const links = { ...previews };
+    for (const f of Array.from(picked)) links[f.name] = URL.createObjectURL(f);
+    setPreviews(links);
+    updateRow(index, { files: [...items[index].files, ...names] }); // ไฟล์เดิม + ไฟล์ใหม่
 
     e.target.value = ""; // ล้างช่อง จะได้เลือกไฟล์ชื่อเดิมซ้ำได้
   }
 
   function removeFile(index: number, fileIndex: number) {
-    const copy = [...items];
-    const row = { ...copy[index] };
-    row.files = row.files.filter((_, i) => i !== fileIndex);
-    copy[index] = row;
-    setItems(copy);
+    updateRow(index, { files: items[index].files.filter((_, i) => i !== fileIndex) }); // เก็บทุกไฟล์ ยกเว้นไฟล์ที่กด ×
   }
 
   // ---------- [5.5] ตรวจก่อนส่ง ----------
@@ -241,7 +275,11 @@ export default function NewRequest() {
     if (!user) list.push("ไม่พบผู้ใช้ กรุณาเข้าสู่ระบบก่อน");
     if (!title) list.push("กรุณากรอกชื่อคำขอ");
     if (!project) list.push("กรุณาเลือกโครงการ");
+    if (project && !myProjects.some((p) => p.id === project.id)) list.push("โครงการนี้ไม่ใช่ของคุณ หรือไม่ใช่ปีงบประมาณปัจจุบัน")
     if (!useDate) list.push("กรุณาเลือกวันที่ใช้จ่าย");
+    // เส้นทางตาม Approval Matrix ต้องมีผู้อนุมัติครบทุกขั้น (ไม่นับผู้ขอเอง)
+    for (const role of missingSteps)
+      list.push(`ขั้น "${getRoleLabel(role, positions)}" ยังไม่มีผู้อนุมัติในแผนก/ฝ่ายของคุณ กรุณาติดต่อฝ่ายบัญชี`);
 
     // ตรวจทีละแถว
     items.forEach((it, i) => {
@@ -298,13 +336,13 @@ export default function NewRequest() {
         id: user.id,
         fullName: user.fullName,
         role: user.role,
+        departmentId: user.departmentId ?? null,
         department: user.departmentInfo.department,
         lineOfWork: user.departmentInfo.lineOfWork,
         headId: user.hierarchy ? user.hierarchy.headId : null,
         directorId: user.hierarchy ? user.hierarchy.directorId : null,
       };
     }
-    const byName = user ? user.fullName : "-";
 
     const request: SavedRequest = {
       id,
@@ -312,7 +350,9 @@ export default function NewRequest() {
       updatedAt: now,
       status,
       type: isAdvance ? "advance" : "invoice",
-      typeLabel: isAdvance ? "สำรองจ่ายแล้ว (ขอเบิกคืน)" : "ให้บัญชีจ่ายตามใบแจ้งหนี้",
+      typeLabel: isAdvance
+        ? "สำรองจ่ายแล้ว (ขอเบิกคืน)"
+        : "ให้บัญชีจ่ายตามใบแจ้งหนี้",
       title,
       useDate,
       reason,
@@ -324,11 +364,12 @@ export default function NewRequest() {
       fileCount,
       requester,
       payTo: isAdvance ? "โอนคืนเข้าบัญชีผู้ขอ" : "โอนให้ผู้ขายตามใบแจ้งหนี้",
-      bankAccount: isAdvance ? BANK_ACCOUNT : null,
-      // ทุกขั้นเริ่มที่ "รอ" · หน้าอนุมัติเป็นคนเปลี่ยน
-      approvalSteps: steps.map((role) => ({
+      bankAccount: isAdvance && user?.bankAccount ? bankLabel : null,
+      // ทุกขั้นเริ่มที่ "รอ" · หน้าอนุมัติเป็นคนเปลี่ยน · approverId = คนที่ต้องอนุมัติขั้นนั้น
+      approvalSteps: plan.map(({ role, approverId }) => ({
         role,
-        label: ROLE_LABEL[role],
+        approverId,
+        label: getRoleLabel(role, positions),
         status: "รอ",
         by: null,
         at: null,
@@ -337,42 +378,33 @@ export default function NewRequest() {
       currentStep: 0, // ขั้นแรกในลิสต์
       history: [
         ...(old ? old.history : []), // ประวัติเดิมของร่าง
-        {
-          action: status === "ร่าง" ? "บันทึกร่าง" : "ส่งคำขอ",
-          by: byName,
-          at: now,
-        },
+        makeHistory(status === "ร่าง" ? "บันทึกร่าง" : "ส่งคำขอ", user, { at: now }),
       ],
     };
 
     // มีใบเดิม = แทนที่ · ไม่มี = ต่อท้าย
     const others = all.filter((r) => r.id !== id);
     localStorage.setItem(REQUESTS_KEY, JSON.stringify([...others, request]));
+
+    // ส่งจริง (ไม่ใช่ร่าง) → แจ้งเตือนผู้อนุมัติขั้นแรก (data/notification.ts)
+    if (status !== "ร่าง") notifyRequestEvent(request, "submitted", getUsers(), { at: now });
     return id;
   }
 
-  // ---------- [5.7] ส่ง / บันทึกร่าง / ล้างฟอร์ม ----------
-  function resetForm() {
-    setTitle("");
-    setProjectId("");
-    setUseDate("");
-    setReason("");
-    setItems([emptyItem()]);
-    setDraftId("");
-  }
-
+  // ---------- [5.7] ส่ง / บันทึกร่าง ----------
   function submit() {
     const list = validate();
     setErrors(list);
-    if (list.length > 0) {
-      setMessage("");
-      return; // มีข้อผิด → หยุด ไม่บันทึก
-    }
-    const id = saveRequest("รออนุมัติ");
-    // ส่งแล้วล้างฟอร์ม กันกดส่งซ้ำ + อัปเดตงบคงเหลือใหม่
-    resetForm();
-    setBudget(addRequestsToBudget(loadRequests()));
-    setMessage("ส่งคำขอ " + id + " เรียบร้อย ส่งต่อให้" + ROLE_LABEL[steps[0]]);
+    setMessage("");
+    if (list.length > 0) return; // มีข้อผิด → หยุด ไม่บันทึก
+    setPopup("confirm"); // ผ่านแล้ว → ถามยืนยันก่อน ยังไม่บันทึก
+  }
+
+  // กด "ยืนยัน" ในป็อปอัพ → บันทึกจริง → โชว์สำเร็จแป๊บนึง → ไปแดชบอร์ด
+  function confirmSubmit() {
+    saveRequest("รออนุมัติ");
+    setPopup("done");
+    setTimeout(() => router.push("/"), 1200);
   }
 
   // ร่างไม่ต้องตรวจ (ยังกรอกไม่ครบได้) แต่ต้องมีชื่อคำขอ ไว้หาเจอทีหลัง
@@ -429,19 +461,28 @@ export default function NewRequest() {
             <div className="flex-[2]">
               <Label text="โครงการ" />
               <select
-                className={inputClass}
+                className={`${inputClass} cursor-pointer`} // ชี้แล้วเป็นรูปมือ = กดได้
                 value={projectId}
                 onChange={(e) => changeProject(e.target.value)}
               >
-                <option value="">-- เลือกโครงการ --</option>
-                {projects.map((p) => (
+                <option value="">เลือกโครงการ</option>
+                {myProjects.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.dept} › {p.name}
                   </option>
                 ))}
               </select>
+              {/* ไม่มีโครงการให้เลือก: ยังไม่กำหนดแผนก / แผนกยังไม่มีงบปีนี้ */}
+              {user && myProjects.length === 0 && (
+                <p className="mt-1 text-xs text-[#B45309]">
+                  {user.departmentId
+                    ? "แผนกของคุณยังไม่มีโครงการในปีนี้ ติดต่อฝ่ายบัญชีให้ตั้งงบก่อน"
+                    : "บัญชีของคุณยังไม่ได้กำหนดแผนก ติดต่อฝ่ายบัญชี"}
+                </p>
+              )}
               {/* ยังไม่เลือก = บอกว่าต้องเลือกก่อน · เลือกแล้ว = โชว์งบคงเหลือ */}
-              {!project && (
+              {/* ※ ไม่มีโครงการให้เลือก → ใช้ข้อความด้านบนแทน (ไม่ขึ้นซ้อนกัน 2 ข้อความ) */}
+              {!project && myProjects.length > 0 && (
                 <p className="mt-1 text-xs text-[#B45309]">
                   เลือกโครงการก่อน แล้วจึงเลือกหมวดในรายการค่าใช้จ่ายได้
                 </p>
@@ -458,7 +499,7 @@ export default function NewRequest() {
               <Label text="วันที่ใช้จ่าย" />
               <input
                 type="date"
-                className={inputClass}
+                className={`${inputClass} [&::-webkit-calendar-picker-indicator]:cursor-pointer`} // ช่องพิมพ์ = เคอร์เซอร์พิมพ์ · ไอคอนปฏิทิน = รูปมือ
                 value={useDate}
                 onChange={(e) => setUseDate(e.target.value)}
               />
@@ -494,14 +535,12 @@ export default function NewRequest() {
             <div key={i} className="mb-2.5">
               <div className="flex gap-2">
                 <select
-                  className={`${fieldClass} w-36 shrink-0 bg-white px-3`}
+                  className={`${fieldClass} w-36 shrink-0 cursor-pointer bg-white pl-3 pr-8 disabled:cursor-not-allowed`} // กดได้ = รูปมือ · ยังไม่เลือกโครงการ = รูปห้าม
                   value={it.categoryId}
                   onChange={(e) => changeItem(i, "categoryId", e.target.value)}
                   disabled={!project}
                 >
-                  <option value="">
-                    {project ? "-- หมวด --" : "เลือกโครงการก่อน"}
-                  </option>
+                  <option value="">เลือกหมวด</option>
                   {categories.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}
@@ -518,10 +557,21 @@ export default function NewRequest() {
                   <span className="text-sm text-[#94A3B8]">฿</span>
                   <input
                     type="number"
-                    className="w-full border-0 bg-transparent px-1 py-2.5 text-right text-sm font-bold outline-none focus:ring-0"
+                    min={0} // ปุ่มลูกศรลดไม่ต่ำกว่า 0
+                    // ห้ามพิมพ์ - + e (ยอดเงินติดลบ / เลขแปลก ๆ ไม่ได้)
+                    onKeyDown={(e) => {
+                      if (["-", "+", "e", "E"].includes(e.key))
+                        e.preventDefault();
+                    }}
+                    // ซ่อนลูกศรขึ้นลง (ช่องเงินไม่ต้องกดเพิ่มทีละ 1) · เลื่อนเมาส์บนช่องก็ไม่เปลี่ยนเลข
+                    className="w-full border-0 bg-transparent px-1 py-2.5 text-right text-sm font-bold outline-none focus:ring-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                    onWheel={(e) => e.currentTarget.blur()}
+                    inputMode="decimal" // มือถือขึ้นแป้นตัวเลข
                     placeholder="0"
                     value={it.amount}
-                    onChange={(e) => changeItem(i, "amount", e.target.value)}
+                    onChange={(e) =>
+                      changeItem(i, "amount", e.target.value.replace("-", ""))
+                    } // กันวางเลขติดลบ
                   />
                 </div>
                 {/* ปุ่มแนบ: ยังไม่มีไฟล์ = ขอบแดงประ · มีแล้ว = เขียว + จำนวนไฟล์ */}
@@ -544,7 +594,6 @@ export default function NewRequest() {
                 </label>
                 <button
                   onClick={() => removeItem(i)}
-                  disabled={items.length === 1}
                   className="flex w-10 shrink-0 items-center justify-center rounded-xl border border-[#FECACA] bg-[#FEF2F2] text-[#DC2626] hover:bg-[#FECACA] disabled:opacity-30"
                 >
                   <Trash1 size={18} />
@@ -560,7 +609,21 @@ export default function NewRequest() {
                       className="flex items-center gap-1 rounded-lg bg-gray-100 px-2 py-1 text-xs text-[#334155]"
                     >
                       <FileText size={12} className="text-red-600" />
-                      {name}
+                      {/* มีลิงก์ = กดเปิดดูได้ · ไฟล์จากร่างเก่าไม่มีลิงก์ (ยังไม่มีที่เก็บไฟล์จริง) */}
+                      {previews[name] ? (
+                        <a
+                          href={previews[name]}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="underline hover:text-[#047857]"
+                        >
+                          {name}
+                        </a>
+                      ) : (
+                        <span title="ไฟล์จากร่างเก่า ดูไม่ได้ ต้องแนบใหม่">
+                          {name}
+                        </span>
+                      )}
                       <button
                         onClick={() => removeFile(i, f)}
                         className="ml-0.5 text-gray-400 hover:text-red-600"
@@ -612,8 +675,8 @@ export default function NewRequest() {
               {items.length} รายการ · {fileLabel} {fileCount} ไฟล์
             </p>
             <hr className="my-4 border-white/15" />
-            <div className="flex items-center justify-between text-sm text-gray-300">
-              <span className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm text-gray-300">
+              <span className="flex items-center gap-2 whitespace-nowrap">
                 <Calendar size={16} className="text-[#34D399]" />{" "}
                 งบโครงการหลังอนุมัติ
               </span>
@@ -622,7 +685,9 @@ export default function NewRequest() {
                   ฿{money(projectRemaining - total)}
                 </b>
               ) : (
-                <span className="text-xs text-gray-400">เลือกโครงการเพื่อดูงบ</span>
+                <span className="whitespace-nowrap text-xs text-gray-400">
+                  เลือกโครงการเพื่อดูงบ
+                </span>
               )}
             </div>
             <p className="mt-2 rounded-lg bg-white/10 px-3 py-2 text-xs text-[#D1FAE5]">
@@ -646,10 +711,11 @@ export default function NewRequest() {
             {steps.map((role, i) => (
               <Step
                 key={role}
-                avatar={<User2 size={18} className={STEP_STYLE[role].icon} />}
-                color={STEP_STYLE[role].bg}
-                text={ROLE_LABEL[role]}
-                sub={STEP_SUB[role]}
+                avatar={<User2 size={18} className={(STEP_STYLE[role] ?? CUSTOM_STEP_STYLE).icon} />}
+                color={(STEP_STYLE[role] ?? CUSTOM_STEP_STYLE).bg}
+                text={getRoleLabel(role, positions)}
+                sub={STEP_SUB[role] ?? "อนุมัติ"}
+                warning={missingSteps.includes(role) ? "ยังไม่มีผู้อนุมัติ" : undefined}
                 last={i === steps.length - 1}
               />
             ))}
@@ -667,9 +733,12 @@ export default function NewRequest() {
               <>
                 <Label text="โอนเงินคืนเข้าบัญชี" />
                 <div className="mb-4 flex items-center gap-3 rounded-xl border border-gray-200 p-3">
-                  <div className="h-9 w-9 rounded-full bg-[#D1FAE5]" />
+                  {/* วงกลมเขียว + ไอคอนคน (ใช้ User2 ตัวเดียวกับเส้นทางอนุมัติ) */}
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#D1FAE5]">
+                    <User2 size={18} className="text-[#059669]" />
+                  </div>
                   <div className="flex-1">
-                    <p className="text-sm font-bold">{BANK_ACCOUNT}</p>
+                    <p className="text-sm font-bold">{bankLabel}</p>
                     <p className="text-xs text-[#64748B]">
                       {user ? user.fullName : "-"}
                     </p>
@@ -680,7 +749,9 @@ export default function NewRequest() {
               <>
                 <Label text="การจ่ายเงิน" />
                 <p className="mb-4 rounded-xl border border-gray-200 p-3 text-sm text-[#64748B]">
-                  การเงินจะโอนให้ผู้ขายตามใบแจ้งหนี้ที่แนบ
+                  {/* แยก 2 ท่อน ห้ามตัดกลางคำ → ถ้าที่ไม่พอ ท่อนหลังลงบรรทัดใหม่ทั้งก้อน */}
+                  <span className="whitespace-nowrap">การเงินจะโอนให้ผู้ขาย</span>{" "}
+                  <span className="whitespace-nowrap">ตามใบแจ้งหนี้ที่แนบ</span>
                 </p>
               </>
             )}
@@ -713,6 +784,74 @@ export default function NewRequest() {
           </div>
         </section>
       </div>
+
+      {/* ---------- ป็อปอัพยืนยันส่งคำขอ ---------- */}
+      {popup !== "closed" && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            {popup === "confirm" ? (
+              <>
+                <h2 className="text-xl font-bold">ยืนยันส่งคำขอ?</h2>
+                <p className="mt-1 text-sm text-[#64748B]">
+                  แก้ไขได้จนกว่าฝ่ายบัญชีจะเริ่มตรวจ
+                  ถ้าบัญชี/การเงินเริ่มทำเรื่องแล้วจะแก้ไม่ได้
+                </p>
+                <div className="mt-4 space-y-2 rounded-xl bg-[#F8FAFC] p-4 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-[#64748B]">ชื่อคำขอ</span>
+                    <b>{title}</b>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[#64748B]">ยอดรวม</span>
+                    <b className="text-[#059669]">฿{money(total)}</b>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[#64748B]">ส่งต่อให้</span>
+                    <b>{getRoleLabel(steps[0], positions)}</b>
+                  </div>
+                </div>
+                <div className="mt-5 flex gap-2">
+                  <button
+                    onClick={() => setPopup("closed")}
+                    className="flex-1 rounded-xl bg-gray-100 py-3 font-semibold text-gray-600 hover:bg-gray-200"
+                  >
+                    ยกเลิก
+                  </button>
+                  <button
+                    onClick={confirmSubmit}
+                    className="flex-1 rounded-xl bg-[#059669] py-3 font-bold text-white hover:bg-[#047857]"
+                  >
+                    ยืนยัน
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="py-4 text-center">
+                {/* วงกลมเขียวอ่อน + เครื่องหมายถูก (วาดด้วย svg ไม่ต้อง import ไอคอนเพิ่ม) */}
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#ECFDF5]">
+                  <svg
+                    viewBox="0 0 24 24"
+                    className="h-8 w-8"
+                    fill="none"
+                    stroke="#059669"
+                    strokeWidth={2.5}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M5 12l5 5L20 7" />
+                  </svg>
+                </div>
+                <h2 className="mt-4 text-xl font-bold text-[#0F172A]">
+                  ส่งคำขอแล้ว
+                </h2>
+                <p className="mt-1 text-sm text-[#64748B]">
+                  กำลังพาไปแดชบอร์ด…
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -727,7 +866,7 @@ const fieldClass =
 const inputClass = "w-full " + fieldClass;
 
 // สีและคำอธิบายของแต่ละขั้นในเส้นทางอนุมัติ
-// ※ Record<StepRole, ...> = ตารางจับคู่ role แต่ละตัว → ค่าของมัน (ต้องครบทุก role)
+// ※ ตำแหน่งที่ฝ่ายบัญชีเพิ่มเองไม่มีในตารางนี้ → ใช้ CUSTOM_STEP_STYLE / "อนุมัติ"
 const STEP_STYLE: Record<StepRole, { bg: string; icon: string }> = {
   HEAD: { bg: "bg-[#D1FAE5]", icon: "text-[#047857]" },
   DIRECTOR: { bg: "bg-[#FEF3C7]", icon: "text-[#B45309]" },
@@ -735,6 +874,7 @@ const STEP_STYLE: Record<StepRole, { bg: string; icon: string }> = {
   ACCOUNTANT_ADMIN: { bg: "bg-[#E0E7FF]", icon: "text-[#3730A3]" },
   FINANCE: { bg: "bg-[#DBEAFE]", icon: "text-[#1D4ED8]" },
 };
+const CUSTOM_STEP_STYLE = { bg: "bg-[#F1F5F9]", icon: "text-[#475569]" };
 const STEP_SUB: Record<StepRole, string> = {
   HEAD: "อนุมัติ",
   DIRECTOR: "อนุมัติ",
@@ -776,12 +916,14 @@ function Step({
   color,
   text,
   sub,
+  warning,
   last,
 }: {
   avatar: React.ReactNode;
   color: string;
   text: string;
   sub: string;
+  warning?: string; // ขั้นที่ยังไม่มีผู้อนุมัติ → แสดงตัวแดงใต้ชื่อขั้น
   last?: boolean;
 }) {
   return (
@@ -797,6 +939,7 @@ function Step({
       <div className="pb-4">
         <p className="text-sm font-bold">{text}</p>
         <p className="text-xs text-[#64748B]">{sub}</p>
+        {warning && <p className="text-xs font-semibold text-red-600">{warning}</p>}
       </div>
     </div>
   );
