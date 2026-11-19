@@ -168,8 +168,9 @@ export function addRequestsToBudget(
   }));
 }
 
-// งบของแผนก (รวมทุกโครงการของแผนก ในปีที่กำหนด)
-// แผนกไม่มีโครงการ → limit = 0 (ไม่ดึงงบทั้งบริษัทมาแสดงแทน)
+// งบของแผนก ในปีที่กำหนด (ไม่ส่ง year = รวมทุกปี)
+// limit = งบที่แบ่งให้แผนก · ยังไม่แบ่ง = วงเงินโครงการรวม · used = ใช้ไปของทุกโครงการในแผนก
+// แผนกไม่มีทั้งงบที่แบ่งและโครงการ → limit = 0 (ไม่ดึงงบทั้งบริษัทมาแสดงแทน)
 export function getDepartmentBudget(
   departmentId: string | null | undefined,
   saved: SavedRequest[],
@@ -178,7 +179,25 @@ export function getDepartmentBudget(
   const list = addRequestsToBudget(saved).filter(
     (p) => !!departmentId && p.departmentId === departmentId && (year === undefined || p.year === year),
   );
-  const limit = list.reduce((sum, p) => sum + projectLimit(p), 0);
+  // วงเงินของแผนก = งบที่บัญชีแบ่งให้แผนก (budgetAllocations) ของปีนั้น
+  // ปีที่ยังไม่เคยแบ่งงบ → ใช้วงเงินโครงการรวมแทน (แบบเดิม)
+  const allocs = loadAllocations();
+  const years =
+    year !== undefined
+      ? [year]
+      : [
+          ...new Set([
+            ...list.map((p) => p.year),
+            ...allocs.filter((a) => departmentId && a.departments[departmentId] !== undefined).map((a) => a.year),
+          ]),
+        ];
+  const limit = years.reduce((sum, y) => {
+    const allocated = departmentId
+      ? allocs.find((a) => a.year === y)?.departments[departmentId]
+      : undefined;
+    const fromProjects = list.filter((p) => p.year === y).reduce((s, p) => s + projectLimit(p), 0);
+    return sum + (allocated ?? fromProjects);
+  }, 0);
   const used = list.reduce((sum, p) => sum + projectUsed(p), 0);
   return { limit, used, remaining: Math.max(0, limit - used), projects: list };
 }
