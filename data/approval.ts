@@ -228,7 +228,13 @@ function holderOf(role: StepRole, requester: Requester, org: Organization): stri
   return null;
 }
 
-type ScopeCandidate = { id: string; role: string; departmentId?: string | null; status?: string };
+type ScopeCandidate = {
+  id: string;
+  role: string;
+  departmentId?: string | null;
+  divisionId?: string | null;
+  status?: string;
+};
 
 // มีคน (ที่ไม่ใช่ผู้ขอ) อนุมัติขั้นนี้ได้ในขอบเขตสังกัดของผู้ขอไหม
 // = ผู้ใช้ role ตรง + ACTIVE + อยู่ในขอบเขต  หรือ คนที่ผังองค์กรกำหนดไว้ (headId / directorId / MD)

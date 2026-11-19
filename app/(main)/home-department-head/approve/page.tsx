@@ -341,21 +341,32 @@ function ReviewContent() {
           st === "done" || st === "rejected"
             ? `${s.by ?? ""} ${thaiDateTime(s.at)}`
             : st === "current"
-              ? "รอคุณดำเนินการ"
+              ? canAct
+                ? "รอคุณดำเนินการ"
+                : `รอ${s.label}ดำเนินการ`
               : "รอขั้นถัดไป",
         note,
       };
     }),
   ];
 
+  // "รอคุณอนุมัติ" เฉพาะคนที่กดอนุมัติขั้นนี้ได้จริง · คนอื่น (เช่น ผู้ขอดูของตัวเอง) = "รอ<ชื่อขั้น>"
+  const waitingStep = r.approvalSteps[r.currentStep];
   const badge =
-    r.status === "อนุมัติแล้ว"
+    r.status === "จ่ายแล้ว"
+      ? { text: "จ่ายแล้ว", cls: "bg-emerald-100 text-emerald-700" }
+      : r.status === "อนุมัติแล้ว"
       ? { text: "อนุมัติแล้ว", cls: "bg-emerald-100 text-emerald-700" }
       : r.status === "ตีกลับ"
         ? { text: "ตีกลับแล้ว", cls: "bg-red-100 text-red-600" }
         : r.status === "ร่าง"
           ? { text: "ร่าง", cls: "bg-slate-200 text-slate-600" }
-          : { text: "รอคุณอนุมัติ", cls: "bg-amber-100 text-amber-700" };
+          : canAct
+            ? { text: "รอคุณอนุมัติ", cls: "bg-amber-100 text-amber-700" }
+            : {
+                text: waitingStep ? `รอ${waitingStep.label}` : "กำลังดำเนินการ",
+                cls: "bg-amber-100 text-amber-700",
+              };
 
   return (
     <div className="font-sans text-slate-800">

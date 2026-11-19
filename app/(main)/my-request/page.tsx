@@ -11,7 +11,7 @@ import { ArrowRight, Bell1, Plus, Search1 } from "@tailgrids/icons";
    ตั้งค่า
 ------------------------------------------------------------------- */
 const NEW_REQUEST_PATH = "/request"; // หน้าสร้างคำขอ 
-const DETAIL_PATH = "/home-department-head/approve"; // ← หน้าดูรายละเอียดคำขอ 
+const DETAIL_PATH = "/my-request/detail"; // หน้าดูรายละเอียดคำขอของตัวเอง (ทุก role · ไม่ใช่หน้าอนุมัติ)
 
 /* ------------------------------------------------------------------
    ชนิดข้อมูล: ใช้ของกลางใน data/ (คำขอ = SavedRequest · ผู้ใช้ = Credential)
