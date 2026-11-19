@@ -319,7 +319,10 @@ export default function DH() {
                 pending.slice(0, LIST_LIMIT).map((r) => {
                   const name = r.requester?.fullName ?? "-";
                   const sent = sentAt(r); // เวลาส่ง/ส่งใหม่ล่าสุด
-                  const resent = sent !== r.createdAt; // เคยถูกตีกลับแล้วส่งใหม่
+                  // เคยถูกตีกลับแล้วส่งใหม่ = มีประวัติ "ส่งใหม่"
+                  // ※ ห้ามเทียบ sent กับ createdAt: บันทึกร่างไว้ก่อนแล้วค่อยส่ง createdAt = เวลาบันทึกร่าง
+                  //   จะไม่เท่ากับเวลาส่งเสมอ → ติดป้าย "ส่งใหม่" ผิด
+                  const resent = (r.history ?? []).some((h) => historyType(h) === "ส่งใหม่");
                   return (
                     <div key={r.id} className={ROW_GRID}>
                       {/* คอลัมน์ 1: ผู้ขอ + ชื่อคำขอ */}
