@@ -66,7 +66,7 @@ export const getHomePath = (role: Credential["role"]) => {
 export const HOME_PATHS: Record<Credential["role"], string> = {
   EMPLOYEE: "/",
   HEAD: "/home-department-head",
-  DIRECTOR: "#",
+  DIRECTOR: "/home-director",
   MANAGING_DIRECTOR: "#",
   ACCOUNTANT_ADMIN: "/home-account",
   FINANCE: "#",
