@@ -207,24 +207,19 @@ export function getRuleRanges(rules: ApprovalRule[]) {
 }
 
 // ════════════════════════════════════════════════════════════
-//  ใครต้องอนุมัติแต่ละขั้น (ผูกตามสังกัด · ไม่ล็อกตัวคน)
-//
-//  1) ตำแหน่งในตัว (หัวหน้า / ผอ. / กรรมการผู้จัดการ) → ใครก็ได้ใน role นั้นที่อยู่ในขอบเขต
-//     (หัวหน้า = แผนกเดียวกับผู้ขอ · ผอ. = ฝ่ายเดียวกัน · MD = ทั้งบริษัท)
-//     ในขอบเขตไม่มีใครเลยนอกจากผู้ขอ หรือว่าง → ส่งขึ้นไปตำแหน่งในตัวที่สูงกว่า
-//     ถ้าตำแหน่งที่สูงกว่าอยู่ในเส้นทางอยู่แล้ว ก็ตัดขั้นนี้ทิ้ง (ไม่อนุมัติซ้ำ)
-//  2) ตำแหน่งที่เพิ่มเอง: approverId = null → ใครก็ได้ที่มี role นั้น ยกเว้นผู้ขอ
-//  3) ฝ่ายบัญชี / การเงิน: approverId = null เหมือนข้อ 2
+//  เส้นทางอนุมัติของคำขอ = ตรงตาม Approval Matrix เสมอ (ไม่ข้าม · ไม่ส่งขึ้นชั้นบนเอง)
+//    ขั้นตามช่วงวงเงินที่ตั้งไว้ → ต่อท้ายด้วย ฝ่ายบัญชี → การเงิน
+//    ทุกขั้น approverId = null → ใครก็ได้ใน role นั้นที่อยู่ในขอบเขตสังกัด (ยกเว้นผู้ขอ)
+//      หัวหน้า = แผนกเดียวกับผู้ขอ · ผอ. = ฝ่ายเดียวกัน · อื่นๆ = ทั้งบริษัท (canApproveStep)
+//    hasApprover = ขั้นนี้มีคนอนุมัติได้จริงไหม → ไม่มี = หน้าสร้างคำขอไม่ให้ส่ง + แจ้งเหตุผล
+//      (เช่น แผนกยังไม่มีหัวหน้า / หัวหน้ายื่นเองและไม่มีหัวหน้าคนอื่น)
 // ════════════════════════════════════════════════════════════
 
-export type PlannedStep = { role: StepRole; approverId: string | null };
+export type PlannedStep = { role: StepRole; approverId: string | null; hasApprover: boolean };
 
 type Requester = { id: string; departmentId?: string | null };
 
-// ลำดับตำแหน่งในตัวตามสายบังคับบัญชา (ต่ำ → สูง) ใช้ตอนส่งขึ้นไปตำแหน่งที่สูงกว่า
-const CHAIN: StepRole[] = ["HEAD", "DIRECTOR", "MANAGING_DIRECTOR"];
-
-// คนที่ดำรงตำแหน่งในตัวนี้ เหนือผู้ขอ (ไม่มี = null)
+// คนที่ผังองค์กรกำหนดให้ดำรงตำแหน่งในตัวนี้ เหนือผู้ขอ (ไม่มี = null)
 function holderOf(role: StepRole, requester: Requester, org: Organization): string | null {
   const deptId = requester.departmentId ?? null;
   if (role === "HEAD") return deptId ? getHeadId(org, deptId) : null;
@@ -235,7 +230,7 @@ function holderOf(role: StepRole, requester: Requester, org: Organization): stri
 
 type ScopeCandidate = { id: string; role: string; departmentId?: string | null; status?: string };
 
-// มีคน (ที่ไม่ใช่ผู้ขอ) อนุมัติตำแหน่งนี้ได้ในขอบเขตสังกัดของผู้ขอไหม
+// มีคน (ที่ไม่ใช่ผู้ขอ) อนุมัติขั้นนี้ได้ในขอบเขตสังกัดของผู้ขอไหม
 // = ผู้ใช้ role ตรง + ACTIVE + อยู่ในขอบเขต  หรือ คนที่ผังองค์กรกำหนดไว้ (headId / directorId / MD)
 function hasApproverInScope(
   role: StepRole,
@@ -263,37 +258,16 @@ export function planApprovalSteps(
   users: ScopeCandidate[] = typeof window === "undefined" ? [] : getUsers(),
 ): PlannedStep[] {
   const rule = rules.find((r) => r.max === null || total <= r.max);
-  const approvers = rule ? rule.approvers : [];
-  const planned: PlannedStep[] = [];
+  const approvers = (rule ? rule.approvers : []).filter(
+    // ตำแหน่งที่ถูกลบไปแล้ว / ซ้ำ → ข้าม
+    (role, i, list) => positions.some((p) => p.id === role) && list.indexOf(role) === i,
+  );
 
-  for (const role of approvers) {
-    const position = positions.find((p) => p.id === role);
-    if (!position) continue; // ตำแหน่งถูกลบไปแล้ว → ข้าม
-
-    // ตำแหน่งที่เพิ่มเอง → ใครก็ได้ที่มี role นี้
-    if (position.resolve === "ANY_WITH_ROLE") {
-      if (!planned.some((p) => p.role === role)) planned.push({ role, approverId: null });
-      continue;
-    }
-
-    // ตำแหน่งในตัว → ไล่ขึ้นจนเจอตำแหน่งที่มีคนอนุมัติได้ในขอบเขตสังกัด (ไม่นับผู้ขอ)
-    // approverId = null → ใครก็ได้ในขอบเขต (ตรวจตอนกดด้วย canApproveStep)
-    for (let i = CHAIN.indexOf(role); i >= 0 && i < CHAIN.length; i++) {
-      const candidateRole = CHAIN[i];
-      if (!hasApproverInScope(candidateRole, requester, org, users)) continue;
-
-      // ตำแหน่งที่สูงกว่าอยู่ในเส้นทางอยู่แล้ว / เพิ่มไปแล้ว → ไม่ต้องซ้ำ
-      const alreadyPlanned = planned.some((p) => p.role === candidateRole);
-      const laterInRoute = candidateRole !== role && approvers.includes(candidateRole);
-      if (!alreadyPlanned && !laterInRoute) {
-        planned.push({ role: candidateRole, approverId: null });
-      }
-      break;
-    }
-    // ไล่จนสุดแล้วไม่มีใครเลย (เช่น กรรมการผู้จัดการยื่นเอง) → ข้ามขั้นนี้
-  }
-
-  return [...planned, ...FINAL_STEPS.map((role) => ({ role, approverId: null }))];
+  return [...approvers, ...FINAL_STEPS].map((role) => ({
+    role,
+    approverId: null,
+    hasApprover: hasApproverInScope(role, requester, org, users),
+  }));
 }
 
 // ════════════════════════════════════════════════════════════

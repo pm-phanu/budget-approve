@@ -201,8 +201,10 @@ export default function NewRequest() {
   // ยังไม่รู้ว่าใครล็อกอิน → แสดงตามวงเงินอย่างเดียว
   const plan: PlannedStep[] = user
     ? planApprovalSteps(total, user, org, rules, positions)
-    : getApprovalSteps(total, rules).map((role) => ({ role, approverId: null }));
+    : getApprovalSteps(total, rules).map((role) => ({ role, approverId: null, hasApprover: true }));
   const steps = plan.map((p) => p.role);
+  // ขั้นที่ยังไม่มีใครอนุมัติได้ (ในแผนก/ฝ่ายของผู้ขอ) → ส่งไม่ได้จนกว่าบัญชีจะกำหนดคน
+  const missingSteps = plan.filter((p) => !p.hasApprover).map((p) => p.role);
 
   // บัญชีรับเงินคืน: ของผู้ขอ (data/credential.ts) · ยังไม่มีข้อมูล = แสดงข้อความแทน
   const bankLabel = user?.bankAccount
@@ -273,6 +275,9 @@ export default function NewRequest() {
     if (!project) list.push("กรุณาเลือกโครงการ");
     if (project && !myProjects.some((p) => p.id === project.id)) list.push("โครงการนี้ไม่ใช่ของคุณ หรือไม่ใช่ปีงบประมาณปัจจุบัน")
     if (!useDate) list.push("กรุณาเลือกวันที่ใช้จ่าย");
+    // เส้นทางตาม Approval Matrix ต้องมีผู้อนุมัติครบทุกขั้น (ไม่นับผู้ขอเอง)
+    for (const role of missingSteps)
+      list.push(`ขั้น "${getRoleLabel(role, positions)}" ยังไม่มีผู้อนุมัติในแผนก/ฝ่ายของคุณ กรุณาติดต่อฝ่ายบัญชี`);
 
     // ตรวจทีละแถว
     items.forEach((it, i) => {
@@ -690,6 +695,7 @@ export default function NewRequest() {
                 color={(STEP_STYLE[role] ?? CUSTOM_STEP_STYLE).bg}
                 text={getRoleLabel(role, positions)}
                 sub={STEP_SUB[role] ?? "อนุมัติ"}
+                warning={missingSteps.includes(role) ? "ยังไม่มีผู้อนุมัติ" : undefined}
                 last={i === steps.length - 1}
               />
             ))}
@@ -817,12 +823,14 @@ function Step({
   color,
   text,
   sub,
+  warning,
   last,
 }: {
   avatar: React.ReactNode;
   color: string;
   text: string;
   sub: string;
+  warning?: string; // ขั้นที่ยังไม่มีผู้อนุมัติ → แสดงตัวแดงใต้ชื่อขั้น
   last?: boolean;
 }) {
   return (
@@ -838,6 +846,7 @@ function Step({
       <div className="pb-4">
         <p className="text-sm font-bold">{text}</p>
         <p className="text-xs text-[#64748B]">{sub}</p>
+        {warning && <p className="text-xs font-semibold text-red-600">{warning}</p>}
       </div>
     </div>
   );
