@@ -11,6 +11,7 @@
 //  ใช้ร่วมกัน: หน้าสร้างคำขอ, หน้าอนุมัติ, กระดิ่งบน header, การ์ด "แจ้งเตือนล่าสุด"
 // ════════════════════════════════════════════════════════════
 
+import { isInApproverScope, loadOrganization } from "./organization";
 import type { SavedRequest, SavedStep } from "./request";
 
 export const NOTIFICATIONS_KEY = "notifications";
@@ -36,7 +37,7 @@ export type AppNotification = {
 export type RequestEvent = "submitted" | "approved" | "rejected" | "paid";
 
 // ผู้ใช้ขั้นต่ำที่ต้องรู้ (ส่ง getUsers() มาได้เลย)
-type UserLite = { id: string; role: string; status?: string };
+type UserLite = { id: string; role: string; status?: string; departmentId?: string | null };
 
 // ────────────────────────────────────────────────────────────
 //  อ่าน / บันทึก
@@ -101,11 +102,20 @@ function waitingText(step: SavedStep) {
 }
 
 // คนที่ต้องทำขั้นนี้: ระบุตัวไว้ (approverId) → คนนั้น · ไม่ระบุ → ทุกคนใน role นั้น (ยกเว้นผู้ขอ)
+// ที่อยู่ในขอบเขตสังกัดของผู้ขอ (หัวหน้า = แผนกเดียวกัน · ผอ. = ฝ่ายเดียวกัน · isInApproverScope)
 function recipientsOf(step: SavedStep, request: SavedRequest, users: UserLite[]): string[] {
   const requesterId = request.requester ? String(request.requester.id) : null;
   if (step.approverId) return step.approverId === requesterId ? [] : [step.approverId];
+  const deptId = request.requester?.departmentId ?? null;
+  const org = loadOrganization();
   return users
-    .filter((u) => u.role === step.role && u.status !== "INACTIVE" && u.id !== requesterId)
+    .filter(
+      (u) =>
+        u.role === step.role &&
+        u.status !== "INACTIVE" &&
+        u.id !== requesterId &&
+        (!deptId || isInApproverScope(org, step.role, u, deptId)),
+    )
     .map((u) => u.id);
 }
 

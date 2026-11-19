@@ -40,42 +40,60 @@ export type Organization = {
 };
 
 // ────────────────────────────────────────────────────────────
-//  ข้อมูลตัวอย่าง (ยังไม่มี backend)
-//  ※ ชื่อแผนก "การตลาด" / "ไอที" ตั้งให้ตรงกับ dept ใน data/budget.ts
+//  ผังองค์กรตั้งต้น (ยังไม่มี backend) = ตัวเลือกใน dropdown สายงาน / ฝ่าย / แผนก
+//  ※ ยังไม่ผูกคนกับตำแหน่ง (headId / directorId / managingDirectorId = null)
+//    ผู้อนุมัติหาจาก role + สังกัดของผู้ใช้ (isInApproverScope ด้านล่าง)
+//  ※ รหัส DP01–DP06 ผูกกับโครงการใน data/budget.ts · ชื่อ "การตลาด" / "ไอที" ต้องตรงกับ dept ที่นั่น
 // ────────────────────────────────────────────────────────────
 export const DEFAULT_ORGANIZATION: Organization = {
   companyName: "Budget Flow Co., Ltd.",
-  managingDirectorId: "u_06",
+  managingDirectorId: null,
 
   linesOfWork: [
     { id: "LW01", name: "สายงานบัญชีและการเงิน" },
     { id: "LW02", name: "สายงานธุรกิจและปฏิบัติการ" },
+    { id: "LW03", name: "สายงานสนับสนุนองค์กร" },
   ],
 
   divisions: [
     // สายงานบัญชีและการเงิน
-    { id: "DV01", name: "ฝ่ายบัญชีและการเงินองค์กร", lineOfWorkId: "LW01", directorId: "u_03" },
+    { id: "DV01", name: "ฝ่ายบัญชี", lineOfWorkId: "LW01", directorId: null },
+    { id: "DV05", name: "ฝ่ายการเงิน", lineOfWorkId: "LW01", directorId: null },
 
     // สายงานธุรกิจและปฏิบัติการ
     { id: "DV02", name: "ฝ่ายวาณิชธนกิจ", lineOfWorkId: "LW02", directorId: null },
     { id: "DV03", name: "ฝ่ายการตลาด", lineOfWorkId: "LW02", directorId: null },
-    { id: "DV04", name: "ฝ่ายเทคโนโลยีสารสนเทศ", lineOfWorkId: "LW02", directorId: null },
+
+    // สายงานสนับสนุนองค์กร
+    { id: "DV04", name: "ฝ่ายเทคโนโลยีสารสนเทศ", lineOfWorkId: "LW03", directorId: null },
+    { id: "DV06", name: "ฝ่ายทรัพยากรบุคคล", lineOfWorkId: "LW03", directorId: null },
+    { id: "DV07", name: "ฝ่ายบริหารทั่วไป", lineOfWorkId: "LW03", directorId: null },
   ],
 
   departments: [
-    // ฝ่ายบัญชีและการเงินองค์กร (ผอ. = u_03)
-    { id: "DP01", name: "แผนกงบประมาณและควบคุมต้นทุน", divisionId: "DV01", headId: "u_02" },
+    // ฝ่ายบัญชี
+    { id: "DP01", name: "แผนกงบประมาณและควบคุมต้นทุน", divisionId: "DV01", headId: null },
     { id: "DP02", name: "แผนกบัญชีทั่วไป", divisionId: "DV01", headId: null },
-    { id: "DP03", name: "แผนกการเงินและทำจ่าย", divisionId: "DV01", headId: null },
+
+    // ฝ่ายการเงิน
+    { id: "DP03", name: "แผนกการเงินและทำจ่าย", divisionId: "DV05", headId: null },
 
     // ฝ่ายวาณิชธนกิจ
     { id: "DP04", name: "แผนกจัดจำหน่ายตราสารหนี้ (DCM)", divisionId: "DV02", headId: null },
 
     // ฝ่ายการตลาด
-    { id: "DP05", name: "การตลาด", divisionId: "DV03", headId: "u_08" },
+    { id: "DP05", name: "การตลาด", divisionId: "DV03", headId: null },
+    { id: "DP07", name: "แผนกขาย", divisionId: "DV03", headId: null },
 
     // ฝ่ายเทคโนโลยีสารสนเทศ
     { id: "DP06", name: "ไอที", divisionId: "DV04", headId: null },
+
+    // ฝ่ายทรัพยากรบุคคล
+    { id: "DP08", name: "แผนกทรัพยากรบุคคล", divisionId: "DV06", headId: null },
+
+    // ฝ่ายบริหารทั่วไป
+    { id: "DP09", name: "แผนกธุรการ", divisionId: "DV07", headId: null },
+    { id: "DP10", name: "แผนกจัดซื้อ", divisionId: "DV07", headId: null },
   ],
 };
 
@@ -136,4 +154,58 @@ export function getHeadId(org: Organization, departmentId: string) {
 // ผอ.ฝ่าย ที่ดูแลแผนกนี้
 export function getDirectorId(org: Organization, departmentId: string) {
   return getDepartmentPath(org, departmentId).division?.directorId ?? null;
+}
+
+// ────────────────────────────────────────────────────────────
+//  ขอบเขตผู้อนุมัติ (ผูกตามสังกัด)
+//    หัวหน้า (HEAD)        → HEAD ที่อยู่แผนกเดียวกับผู้ขอ (หรือเป็น headId ของแผนก)
+//    ผอ. (DIRECTOR)        → DIRECTOR ที่อยู่ฝ่ายเดียวกับผู้ขอ (หรือเป็น directorId ของฝ่าย)
+//    ตำแหน่งอื่น (MD / บัญชี / การเงิน / ตำแหน่งที่เพิ่มเอง) → ทั้งบริษัท
+//  ※ role ต้องตรงกับขั้นอยู่แล้ว (เช็คที่ canApproveStep) ฟังก์ชันนี้ดูแค่สังกัด
+// ────────────────────────────────────────────────────────────
+type ScopeUser = { id: string; departmentId?: string | null; divisionId?: string | null };
+
+// ฝ่ายของผู้ใช้: สังกัดแผนก → ฝ่ายของแผนกนั้น · ไม่สังกัดแผนก → ฝ่ายที่เลือกไว้ (divisionId) หรือฝ่ายที่ตัวเองเป็น ผอ.
+export function getUserDivisionId(org: Organization, user: ScopeUser) {
+  if (user.departmentId) return getDepartment(org, user.departmentId)?.divisionId ?? null;
+  if (user.divisionId) return user.divisionId;
+  return org.divisions.find((d) => d.directorId === user.id)?.id ?? null;
+}
+
+// สังกัดเต็มของผู้ใช้ (ไล่จากชั้นที่ลึกที่สุดที่กำหนดไว้): แผนก → ฝ่าย → สายงาน
+// ใช้แสดงในหน้าจัดการผู้ใช้ · ยังไม่กำหนด = null
+export function getUserAffiliation(
+  org: Organization,
+  user: ScopeUser & { lineOfWorkId?: string | null },
+) {
+  const department = user.departmentId ? getDepartment(org, user.departmentId) : null;
+  const divisionId = getUserDivisionId(org, user);
+  const division = divisionId ? getDivision(org, divisionId) : null;
+  const lineId = division?.lineOfWorkId ?? user.lineOfWorkId ?? null;
+  const lineOfWork = lineId ? getLineOfWork(org, lineId) : null;
+  return { lineOfWork, division, department };
+}
+
+export function isInApproverScope(
+  org: Organization,
+  role: string,
+  user: ScopeUser,
+  requesterDepartmentId: string | null | undefined,
+): boolean {
+  if (role === "HEAD") {
+    if (!requesterDepartmentId) return false;
+    return (
+      user.departmentId === requesterDepartmentId ||
+      getHeadId(org, requesterDepartmentId) === user.id
+    );
+  }
+  if (role === "DIRECTOR") {
+    if (!requesterDepartmentId) return false;
+    const divisionId = getDepartment(org, requesterDepartmentId)?.divisionId ?? null;
+    return (
+      getDirectorId(org, requesterDepartmentId) === user.id ||
+      (!!divisionId && getUserDivisionId(org, user) === divisionId)
+    );
+  }
+  return true;
 }

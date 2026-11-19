@@ -10,6 +10,18 @@ import {
 } from "@/components/tailgrids/core/table";
 import { getUsers, updateUser, type Credential } from "@/data/credential";
 import {
+  DEFAULT_ORGANIZATION,
+  getDepartment,
+  getDepartmentPath,
+  getDivision,
+  getLineOfWork,
+  getUserAffiliation,
+  getDirectorId,
+  getHeadId,
+  loadOrganization,
+  type Organization,
+} from "@/data/organization";
+import {
   ArrowRight,
   Minus,
   UserMultiple4,
@@ -44,29 +56,71 @@ import {
 export default function Account() {
   const [users, setUsers] = useState<Credential[]>([]);
   const [error, setError] = useState("");
+  const [org, setOrg] = useState<Organization>(DEFAULT_ORGANIZATION);
 
   useEffect(() => {
     try {
       setUsers(getUsers().map(({ password, ...rest }) => rest));
+      setOrg(loadOrganization());
     } catch (e) {
       setError(e instanceof Error ? e.message : "โหลดข้อมูลไม่สำเร็จ");
     }
   }, []);
 
-  // ตัวเลือกทั้งหมดดึงจาก users ที่โหลดมาจาก localStorage
-  const departments = [
-    ...new Set(
-      users.map((u) => u.departmentInfo?.department).filter(Boolean),
-    ),
-  ];
+  // ════════════════════════════════════════
+  //  สังกัดของผู้ใช้: สายงาน → ฝ่าย → แผนก (dropdown กรองต่อกัน · ตัวเลือกจาก data/organization.ts)
+  //  เริ่มต้นเป็นค่าว่าง · ฝ่ายบัญชีกำหนดเอง · เปลี่ยนชั้นบน → ชั้นล่างล้างเป็นค่าว่าง
+  //  ผอ.ฝ่าย เลือกถึงฝ่ายพอ · กรรมการผู้จัดการ เว้นว่างได้ (ระดับบริษัท)
+  // ════════════════════════════════════════
+  const setAffiliation = (
+    userId: string,
+    lineOfWorkId: string | null,
+    divisionId: string | null,
+    departmentId: string | null,
+  ) => {
+    const line = lineOfWorkId ? getLineOfWork(org, lineOfWorkId) : null;
+    const department = departmentId ? getDepartment(org, departmentId) : null;
+    const patch = {
+      lineOfWorkId,
+      divisionId,
+      departmentId,
+      // ฟิลด์เดิมที่หน้าสร้างคำขอยังอ่านอยู่ → อัปเดตให้ตรงกัน
+      departmentInfo: { lineOfWork: line?.name ?? "", department: department?.name ?? "" },
+      hierarchy: departmentId
+        ? { headId: getHeadId(org, departmentId), directorId: getDirectorId(org, departmentId) }
+        : { headId: null, directorId: null },
+    };
+    updateUser(userId, patch);
+    setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, ...patch } : u)));
+  };
+  const changeLine = (u: Credential, lineOfWorkId: string) =>
+    setAffiliation(u.id, lineOfWorkId || null, null, null);
+  const changeDivision = (u: Credential, divisionId: string) => {
+    const lineId = divisionId ? getDivision(org, divisionId)?.lineOfWorkId ?? null : affiliationIds(u).lineId;
+    setAffiliation(u.id, lineId, divisionId || null, null);
+  };
+  const changeDepartment = (u: Credential, departmentId: string) => {
+    if (!departmentId) {
+      const { lineId, divisionId } = affiliationIds(u);
+      setAffiliation(u.id, lineId, divisionId, null);
+      return;
+    }
+    const { division, lineOfWork } = getDepartmentPath(org, departmentId);
+    setAffiliation(u.id, lineOfWork?.id ?? null, division?.id ?? null, departmentId);
+  };
+  // id ของแต่ละชั้นที่ผู้ใช้สังกัดอยู่ตอนนี้ (ไล่จากชั้นลึกสุด)
+  const affiliationIds = (u: Credential) => {
+    const a = getUserAffiliation(org, u);
+    return {
+      lineId: a.lineOfWork?.id ?? null,
+      divisionId: a.division?.id ?? null,
+      departmentId: a.department?.id ?? null,
+    };
+  };
   // บทบาทที่เลือกได้ = role ในตัว + ตำแหน่งผู้อนุมัติที่เพิ่มเอง (data/approval.ts)
   const BUILT_IN_ROLES = ["EMPLOYEE", "HEAD", "DIRECTOR", "MANAGING_DIRECTOR", "ACCOUNTANT_ADMIN", "FINANCE"];
   const roleLabel = (r: string) => (r === "EMPLOYEE" ? "พนักงาน" : getRoleLabel(r, positions));
   const statuses = [...new Set(users.map((u) => u.status))];
-  const approverIds = new Set(
-    users.flatMap((u) => [u.hierarchy?.headId, u.hierarchy?.directorId]),
-  );
-  const approvers = users.filter((u) => approverIds.has(u.id));
 
   // ════════════════════════════════════════
   //  Approval Matrix: อ่าน / แก้ / บันทึกกฎ (data/approval.ts)
@@ -229,9 +283,10 @@ export default function Account() {
               <TableRow>
                 <TableHead>รหัสพนักงาน</TableHead>
                 <TableHead>ชื่อ-นามสกุล</TableHead>
-                <TableHead>สังกัด</TableHead>
+                <TableHead>สายงาน</TableHead>
+                <TableHead>ฝ่าย</TableHead>
+                <TableHead>แผนก</TableHead>
                 <TableHead>บทบาท</TableHead>
-                <TableHead>สายการอนุมัติ</TableHead>
                 <TableHead>งบร่วม</TableHead>
                 <TableHead>สถานะ</TableHead>
               </TableRow>
@@ -240,37 +295,71 @@ export default function Account() {
             <TableBody>
               {error ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center">
+                  <TableCell colSpan={8} className="text-center">
                     {error}
                   </TableCell>
                 </TableRow>
               ) : users.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center">
+                  <TableCell colSpan={8} className="text-center">
                     ยังไม่มีข้อมูล
                   </TableCell>
                 </TableRow>
               ) : (
-                users.map((u) => (
+                users.map((u) => {
+                  const ids = affiliationIds(u);
+                  return (
                   <TableRow key={u.id}>
                     <TableCell>{u.id}</TableCell>
                     <TableCell>{u.fullName}</TableCell>
+                    {/* สายงาน → ฝ่าย (เฉพาะในสายงานที่เลือก) → แผนก (เฉพาะในฝ่ายที่เลือก) */}
                     <TableCell>
-                      {u.departmentInfo?.department ? (
-                        <NativeSelect
-                          aria-label="สังกัด"
-                          placeholder="เลือกสังกัด"
-                          defaultValue={u.departmentInfo.department}
-                        >
-                          {departments.map((d) => (
-                            <NativeSelectOption key={d} value={d}>
-                              {d}
+                      <NativeSelect
+                        aria-label={`สายงานของ ${u.fullName}`}
+                        value={ids.lineId ?? ""}
+                        onChange={(e) => changeLine(u, e.target.value)}
+                      >
+                        <NativeSelectOption value="">- ยังไม่กำหนด -</NativeSelectOption>
+                        {org.linesOfWork.map((l) => (
+                          <NativeSelectOption key={l.id} value={l.id}>
+                            {l.name}
+                          </NativeSelectOption>
+                        ))}
+                      </NativeSelect>
+                    </TableCell>
+                    <TableCell>
+                      <NativeSelect
+                        aria-label={`ฝ่ายของ ${u.fullName}`}
+                        value={ids.divisionId ?? ""}
+                        onChange={(e) => changeDivision(u, e.target.value)}
+                        disabled={!ids.lineId}
+                      >
+                        <NativeSelectOption value="">- ยังไม่กำหนด -</NativeSelectOption>
+                        {org.divisions
+                          .filter((d) => d.lineOfWorkId === ids.lineId)
+                          .map((d) => (
+                            <NativeSelectOption key={d.id} value={d.id}>
+                              {d.name}
                             </NativeSelectOption>
                           ))}
-                        </NativeSelect>
-                      ) : (
-                        "-"
-                      )}
+                      </NativeSelect>
+                    </TableCell>
+                    <TableCell>
+                      <NativeSelect
+                        aria-label={`แผนกของ ${u.fullName}`}
+                        value={ids.departmentId ?? ""}
+                        onChange={(e) => changeDepartment(u, e.target.value)}
+                        disabled={!ids.divisionId}
+                      >
+                        <NativeSelectOption value="">- ยังไม่กำหนด -</NativeSelectOption>
+                        {org.departments
+                          .filter((d) => d.divisionId === ids.divisionId)
+                          .map((d) => (
+                            <NativeSelectOption key={d.id} value={d.id}>
+                              {d.name}
+                            </NativeSelectOption>
+                          ))}
+                      </NativeSelect>
                     </TableCell>
                     <TableCell>
                       <NativeSelect
@@ -282,19 +371,6 @@ export default function Account() {
                         {roles.map((r) => (
                           <NativeSelectOption key={r} value={r}>
                             {roleLabel(r)}
-                          </NativeSelectOption>
-                        ))}
-                      </NativeSelect>
-                    </TableCell>
-                    <TableCell>
-                      <NativeSelect
-                        aria-label="สายการอนุมัติ"
-                        placeholder="เลือกผู้อนุมัติ"
-                        defaultValue={u.hierarchy?.headId ?? undefined}
-                      >
-                        {approvers.map((a) => (
-                          <NativeSelectOption key={a.id} value={a.id}>
-                            {a.fullName}
                           </NativeSelectOption>
                         ))}
                       </NativeSelect>
@@ -315,7 +391,8 @@ export default function Account() {
                       </NativeSelect>
                     </TableCell>
                   </TableRow>
-                ))
+                  );
+                })
               )}
             </TableBody>
           </TableRoot>

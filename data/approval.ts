@@ -10,7 +10,13 @@
 
 import { getUsers } from "./credential";
 import { notifyRequestEvent } from "./notification";
-import { getDirectorId, getHeadId, type Organization } from "./organization";
+import {
+  getDirectorId,
+  getHeadId,
+  isInApproverScope,
+  loadOrganization,
+  type Organization,
+} from "./organization";
 import {
   REQUESTS_KEY,
   loadRequests,
@@ -201,10 +207,11 @@ export function getRuleRanges(rules: ApprovalRule[]) {
 }
 
 // ════════════════════════════════════════════════════════════
-//  ใครต้องอนุมัติแต่ละขั้น (ใส่ approverId ตั้งแต่ตอนสร้างคำขอ)
+//  ใครต้องอนุมัติแต่ละขั้น (ผูกตามสังกัด · ไม่ล็อกตัวคน)
 //
-//  1) ตำแหน่งในตัว (หัวหน้า / ผอ. / กรรมการผู้จัดการ) หาคนจากผังองค์กรของผู้ขอ
-//     ตำแหน่งนั้นเป็นผู้ขอเอง หรือว่าง → ส่งขึ้นไปตำแหน่งในตัวที่สูงกว่า
+//  1) ตำแหน่งในตัว (หัวหน้า / ผอ. / กรรมการผู้จัดการ) → ใครก็ได้ใน role นั้นที่อยู่ในขอบเขต
+//     (หัวหน้า = แผนกเดียวกับผู้ขอ · ผอ. = ฝ่ายเดียวกัน · MD = ทั้งบริษัท)
+//     ในขอบเขตไม่มีใครเลยนอกจากผู้ขอ หรือว่าง → ส่งขึ้นไปตำแหน่งในตัวที่สูงกว่า
 //     ถ้าตำแหน่งที่สูงกว่าอยู่ในเส้นทางอยู่แล้ว ก็ตัดขั้นนี้ทิ้ง (ไม่อนุมัติซ้ำ)
 //  2) ตำแหน่งที่เพิ่มเอง: approverId = null → ใครก็ได้ที่มี role นั้น ยกเว้นผู้ขอ
 //  3) ฝ่ายบัญชี / การเงิน: approverId = null เหมือนข้อ 2
@@ -226,12 +233,34 @@ function holderOf(role: StepRole, requester: Requester, org: Organization): stri
   return null;
 }
 
+type ScopeCandidate = { id: string; role: string; departmentId?: string | null; status?: string };
+
+// มีคน (ที่ไม่ใช่ผู้ขอ) อนุมัติตำแหน่งนี้ได้ในขอบเขตสังกัดของผู้ขอไหม
+// = ผู้ใช้ role ตรง + ACTIVE + อยู่ในขอบเขต  หรือ คนที่ผังองค์กรกำหนดไว้ (headId / directorId / MD)
+function hasApproverInScope(
+  role: StepRole,
+  requester: Requester,
+  org: Organization,
+  users: ScopeCandidate[],
+) {
+  const holder = holderOf(role, requester, org);
+  if (holder && holder !== requester.id) return true;
+  return users.some(
+    (u) =>
+      u.role === role &&
+      u.status !== "INACTIVE" &&
+      u.id !== requester.id &&
+      isInApproverScope(org, role, u, requester.departmentId),
+  );
+}
+
 export function planApprovalSteps(
   total: number,
   requester: Requester,
   org: Organization,
   rules: ApprovalRule[] = DEFAULT_RULES,
   positions: ApproverPosition[] = DEFAULT_POSITIONS,
+  users: ScopeCandidate[] = typeof window === "undefined" ? [] : getUsers(),
 ): PlannedStep[] {
   const rule = rules.find((r) => r.max === null || total <= r.max);
   const approvers = rule ? rule.approvers : [];
@@ -247,17 +276,17 @@ export function planApprovalSteps(
       continue;
     }
 
-    // ตำแหน่งในตัว → ไล่ขึ้นจนเจอคนที่อนุมัติได้ (มีตัวตน และไม่ใช่ผู้ขอ)
+    // ตำแหน่งในตัว → ไล่ขึ้นจนเจอตำแหน่งที่มีคนอนุมัติได้ในขอบเขตสังกัด (ไม่นับผู้ขอ)
+    // approverId = null → ใครก็ได้ในขอบเขต (ตรวจตอนกดด้วย canApproveStep)
     for (let i = CHAIN.indexOf(role); i >= 0 && i < CHAIN.length; i++) {
       const candidateRole = CHAIN[i];
-      const holder = holderOf(candidateRole, requester, org);
-      if (!holder || holder === requester.id) continue;
+      if (!hasApproverInScope(candidateRole, requester, org, users)) continue;
 
       // ตำแหน่งที่สูงกว่าอยู่ในเส้นทางอยู่แล้ว / เพิ่มไปแล้ว → ไม่ต้องซ้ำ
       const alreadyPlanned = planned.some((p) => p.role === candidateRole);
       const laterInRoute = candidateRole !== role && approvers.includes(candidateRole);
       if (!alreadyPlanned && !laterInRoute) {
-        planned.push({ role: candidateRole, approverId: holder });
+        planned.push({ role: candidateRole, approverId: null });
       }
       break;
     }
@@ -271,9 +300,14 @@ export function planApprovalSteps(
 //  ผู้ใช้คนนี้อนุมัติขั้นปัจจุบันของคำขอได้ไหม
 //  ใช้ร่วมกัน: หน้าอนุมัติ (canAct), หน้าคำขอรออนุมัติ (isMyTurn)
 // ════════════════════════════════════════════════════════════
+//  ผูกตามสังกัด: role ต้องตรงกับขั้น + อยู่ในขอบเขต (isInApproverScope ใน organization.ts)
+//    หัวหน้า → แผนกเดียวกับผู้ขอ · ผอ. → ฝ่ายเดียวกับผู้ขอ · อื่นๆ → ทั้งบริษัท
+//    มีหลายคนในขอบเขต → คนไหนก็ได้ (กดซ้อนกันได้คนเดียว ดู actOnRequest)
+//  ห้ามอนุมัติคำขอของตัวเองเสมอ
 export function canApproveStep(
   request: SavedRequest,
-  user: { id: string; role: string } | null,
+  user: { id: string; role: string; departmentId?: string | null } | null,
+  org: Organization = loadOrganization(),
 ): boolean {
   if (!user || request.status !== "รออนุมัติ") return false;
 
@@ -283,13 +317,17 @@ export function canApproveStep(
   // ห้ามอนุมัติคำขอของตัวเอง
   if (request.requester && String(request.requester.id) === String(user.id)) return false;
 
-  // มีผู้อนุมัติที่ระบุตัวไว้แล้ว → ต้องเป็นคนนั้นเท่านั้น
-  if (step.approverId) return step.approverId === user.id;
+  const deptId = request.requester?.departmentId ?? null;
 
-  // ไม่ระบุตัว (ตำแหน่งที่เพิ่มเอง / บัญชี / การเงิน) → role ต้องตรง
+  // คำขอเก่าที่ไม่มีแผนกของผู้ขอ แต่ระบุตัวผู้อนุมัติไว้ → ต้องเป็นคนนั้น
+  if (!deptId && step.approverId) return step.approverId === user.id;
+
   if (step.role !== user.role) return false;
 
-  // คำขอเก่าที่ยังไม่มี approverId: หัวหน้า / ผอ. ต้องเป็นของผู้ขอจริง
+  // มีแผนกของผู้ขอ → ดูขอบเขตตามสังกัด
+  if (deptId) return isInApproverScope(org, step.role, user, deptId);
+
+  // คำขอเก่าที่ไม่มีทั้งแผนกและ approverId: หัวหน้า / ผอ. ต้องเป็นของผู้ขอจริง
   const owner =
     step.role === "HEAD"
       ? request.requester?.headId
