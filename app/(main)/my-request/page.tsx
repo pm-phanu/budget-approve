@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { REQUESTS_KEY } from "@/data/request";
+import { REQUESTS_KEY, loadRequests, type SavedRequest } from "@/data/request";
+import type { Credential } from "@/data/credential";
+import { getCurrentUser } from "@/utils/login";
 import { ArrowRight, Bell1, Plus, Search1 } from "@tailgrids/icons";
 
 /* ------------------------------------------------------------------
@@ -12,58 +14,28 @@ const NEW_REQUEST_PATH = "/request"; // หน้าสร้างคำขอ
 const DETAIL_PATH = "/home-department-head/approve"; // ← หน้าดูรายละเอียดคำขอ 
 
 /* ------------------------------------------------------------------
-   ชนิดข้อมูล
+   ชนิดข้อมูล: ใช้ของกลางใน data/ (คำขอ = SavedRequest · ผู้ใช้ = Credential)
 ------------------------------------------------------------------- */
-interface ApprovalStep {
-  role: string; // "HEAD" | "DIRECTOR" | "MANAGING_DIRECTOR" | "ACCOUNTANT_ADMIN" | "FINANCE"
-  label: string;
-  status: string; // "รอ" | "อนุมัติ" | "ตีกลับ"
-  by: string | null;
-  at: string | null;
-  note?: string;
-}
-interface ExpenseRequest {
-  id: string;
-  createdAt: string;
-  status: string; // "ร่าง" | "รออนุมัติ" | "อนุมัติแล้ว" | "ตีกลับ"
-  title: string;
-  total: number;
-  requester: { id: string | number; fullName: string } | null;
-  approvalSteps: ApprovalStep[];
-  currentStep: number;
+// + ผลตรวจที่หน้าอนุมัติบันทึกเพิ่ม (actOnRequest → extra)
+type ExpenseRequest = SavedRequest & {
   reviewComment?: string;
   reject?: { status: string; comment: string };
-}
-interface CurrentUser {
-  id: string | number;
-  fullName: string;
-  role: string;
-}
+};
+type CurrentUser = Credential;
 
 type Group = "progress" | "done" | "rejected";
 type Filter = "all" | Group;
 type StepState = "done" | "rejected" | "current" | "pending";
 
 /* ------------------------------------------------------------------
-   อ่านข้อมูล
+   อ่านข้อมูลจาก localStorage (ผ่านฟังก์ชันกลางใน data/ และ utils/login)
 ------------------------------------------------------------------- */
-function loadRequests(): ExpenseRequest[] {
+// ข้ามข้อมูลรูปแบบเก่าที่ไม่มีเส้นทางอนุมัติ
+function readRequests(): ExpenseRequest[] {
   try {
-    const raw = localStorage.getItem(REQUESTS_KEY);
-    const data = raw ? JSON.parse(raw) : [];
-    if (!Array.isArray(data)) return [];
-    return data.filter((r) => r && Array.isArray(r.approvalSteps));
+    return (loadRequests() as ExpenseRequest[]).filter((r) => r && Array.isArray(r.approvalSteps));
   } catch {
     return [];
-  }
-}
-
-function loadUser(): CurrentUser | null {
-  try {
-    const raw = localStorage.getItem("current_user");
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
   }
 }
 
@@ -88,7 +60,7 @@ function groupOf(r: ExpenseRequest): Group {
   if (r.status === "ตีกลับ" || r.approvalSteps.some((s) => s.status === "ตีกลับ")) {
     return "rejected";
   }
-  if (r.status === "อนุมัติแล้ว") return "done";
+  if (r.status === "อนุมัติแล้ว" || r.status === "จ่ายแล้ว") return "done";
   return "progress";
 }
 
@@ -212,13 +184,13 @@ export default function MyRequest() {
   // โหลดใน useEffect เท่านั้น (ฝั่งเซิร์ฟเวอร์ไม่มี localStorage)
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect -- อ่านได้หลังเปิดหน้าเท่านั้น */
-    setRequests(loadRequests());
-    setMe(loadUser());
+    setRequests(readRequests());
+    setMe(getCurrentUser());
     /* eslint-enable react-hooks/set-state-in-effect */
 
     const onStorage = (e: StorageEvent) => {
-      if (e.key === REQUESTS_KEY) setRequests(loadRequests());
-      if (e.key === "current_user") setMe(loadUser());
+      if (e.key === REQUESTS_KEY) setRequests(readRequests());
+      if (e.key === "current_user") setMe(getCurrentUser());
     };
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);

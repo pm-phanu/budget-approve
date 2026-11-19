@@ -2,8 +2,12 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { REQUESTS_KEY, loadRequests as loadSaved } from "@/data/request";
-import { addRequestsToBudget } from "@/data/budget";
+import { REQUESTS_KEY, loadRequests, type SavedRequest } from "@/data/request";
+import { getDepartmentBudget } from "@/data/budget";
+import { canApproveStep } from "@/data/approval";
+import type { Credential } from "@/data/credential";
+import { loadOrganization } from "@/data/organization";
+import { getCurrentUser } from "@/utils/login";
 import {
   ArrowRight,
   Bell1,
@@ -35,31 +39,10 @@ const ROW_GRID =
 const ROW_H = 93; // ความสูงแถว (px) ต้องตรงกับ h-[93px] ด้านบน
 
 /* ------------------------------------------------------------------
-   ชนิดข้อมูล
+   ชนิดข้อมูล: ใช้ของกลางใน data/ (คำขอ = SavedRequest · ผู้ใช้ = Credential)
 ------------------------------------------------------------------- */
-interface ApprovalStep {
-  role: string;
-  label: string;
-  status: string; // "รอ" | "อนุมัติ" | "ตีกลับ"
-  by: string | null;
-  at: string | null;
-}
-interface ExpenseRequest {
-  id: string;
-  createdAt: string;
-  status: string; // "ร่าง" | "รออนุมัติ" | "อนุมัติแล้ว" | "ตีกลับ"
-  title: string;
-  total: number;
-  requester: { fullName: string } | null;
-  approvalSteps: ApprovalStep[];
-  currentStep: number;
-}
-interface CurrentUser {
-  id: string | number;
-  fullName: string;
-  role: string;
-}
-type Projects = ReturnType<typeof addRequestsToBudget>;
+type ExpenseRequest = SavedRequest;
+type CurrentUser = Credential;
 
 // งบของ 1 ฝ่าย (รวมทุกโครงการ/หมวดในฝ่ายนั้น)
 interface DeptBudget {
@@ -71,32 +54,17 @@ interface DeptBudget {
 }
 
 /* ------------------------------------------------------------------
-   อ่านข้อมูล
+   อ่านข้อมูลจาก localStorage (ผ่านฟังก์ชันกลางใน data/ และ utils/login)
 ------------------------------------------------------------------- */
-function loadRequests(): ExpenseRequest[] {
+// ข้ามข้อมูลรูปแบบเก่าที่ไม่มีเส้นทางอนุมัติ
+function readRequests(): ExpenseRequest[] {
   try {
-    const raw = localStorage.getItem(REQUESTS_KEY);
-    const data = raw ? JSON.parse(raw) : [];
-    if (!Array.isArray(data)) return [];
-    return data.filter((r) => r && Array.isArray(r.approvalSteps));
+    return loadRequests().filter((r) => r && Array.isArray(r.approvalSteps));
   } catch {
     return [];
   }
 }
 
-function loadUser(): CurrentUser | null {
-  try {
-    const raw = localStorage.getItem("current_user");
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
-// งบทุกโครงการ (หักคำขอที่ส่งแล้ว)
-function loadProjects(): Projects {
-  return addRequestsToBudget(loadSaved());
-}
 
 /* ------------------------------------------------------------------
    ฟังก์ชันช่วย
@@ -136,22 +104,6 @@ function inMonth(iso: string | null, year: number, month: number) {
   return d.getFullYear() === year && d.getMonth() === month;
 }
 
-// คำขอนี้ "ถึงคิวของฝ่ายบัญชี" หรือไม่
-// - คำขอต้องยังรออนุมัติ (ถ้าหัวหน้าตีกลับ สถานะเป็น "ตีกลับ" จะไม่ขึ้นหน้านี้)
-// - ขั้นปัจจุบันต้องเป็นขั้นฝ่ายบัญชีที่ยังเป็น "รอ"
-// - ทุกขั้นก่อนหน้าต้องอนุมัติครบแล้ว
-//   ยอด ≤ 3,000: ไม่มีขั้นก่อนหน้า ส่งมาบัญชีทันที
-//   ยอดเกิน 3,000: หัวหน้า (และผอ. ถ้ามีในกฎ) ต้องกดอนุมัติก่อน
-function isWaitingForAccountant(r: ExpenseRequest) {
-  if (r.status !== "รออนุมัติ") return false;
-  const step = r.approvalSteps[r.currentStep];
-  if (!step || step.role !== ACCOUNTANT_ROLE || step.status !== "รอ") {
-    return false;
-  }
-  return r.approvalSteps
-    .slice(0, r.currentStep)
-    .every((s) => s.status === "อนุมัติ");
-}
 
 // เวลาที่คำขอ "มาถึงบัญชี" = เวลาที่ขั้นก่อนหน้าอนุมัติ (ไม่มีขั้นก่อนหน้า = เวลาที่ส่ง)
 function arrivedAt(r: ExpenseRequest) {
@@ -178,36 +130,28 @@ function statusBadge(r: ExpenseRequest) {
   };
 }
 
-// รวมงบรายโครงการให้เป็นรายฝ่าย (เรียงจากใช้เปอร์เซ็นต์มากไปน้อย)
-function groupByDept(projects: Projects): DeptBudget[] {
-  const map = new Map<
-    string,
-    { limit: number; used: number; cats: Map<string, number> }
-  >();
-
-  for (const p of projects) {
-    const key = p.dept || "ไม่ระบุฝ่าย";
-    const row = map.get(key) ?? { limit: 0, used: 0, cats: new Map() };
-    for (const c of p.categories) {
-      row.limit += c.limit;
-      row.used += c.used;
-      row.cats.set(c.name, (row.cats.get(c.name) ?? 0) + c.used);
-    }
-    map.set(key, row);
-  }
-
-  return Array.from(map.entries())
-    .map(([dept, v]) => ({
-      dept,
-      limit: v.limit,
-      used: v.used,
-      pct: v.limit > 0 ? Math.round((v.used / v.limit) * 100) : 0,
-      top: Array.from(v.cats.entries())
-        .map(([name, used]) => ({ name, used }))
-        .filter((c) => c.used > 0)
-        .sort((a, b) => b.used - a.used)
-        .slice(0, 2),
-    }))
+// งบรายแผนกของปีนั้น: วงเงิน = งบที่บัญชีแบ่งให้แผนก (getDepartmentBudget)
+// เรียงจากใช้เยอะสุด · ซ่อนแผนกที่ไม่มีงบและไม่มีการใช้
+function readDeptBudgets(requests: SavedRequest[], year: number): DeptBudget[] {
+  return loadOrganization()
+    .departments.map((d) => {
+      const b = getDepartmentBudget(d.id, requests, year);
+      const cats = new Map<string, number>();
+      for (const p of b.projects)
+        for (const c of p.categories) cats.set(c.name, (cats.get(c.name) ?? 0) + c.used);
+      return {
+        dept: d.name,
+        limit: b.limit,
+        used: b.used,
+        pct: b.limit > 0 ? Math.round((b.used / b.limit) * 100) : 0,
+        top: Array.from(cats.entries())
+          .map(([name, used]) => ({ name, used }))
+          .filter((c) => c.used > 0)
+          .sort((a, b) => b.used - a.used)
+          .slice(0, 2),
+      };
+    })
+    .filter((x) => x.limit > 0 || x.used > 0)
     .sort((a, b) => b.pct - a.pct);
 }
 
@@ -268,16 +212,14 @@ function Avatar({ name, index }: { name: string; index: number }) {
 export default function AccountantHome() {
   const [requests, setRequests] = useState<ExpenseRequest[]>([]);
   const [me, setMe] = useState<CurrentUser | null>(null);
-  const [projects, setProjects] = useState<Projects>([]);
   // วันที่/เวลาปัจจุบัน: ตั้งค่าใน useEffect เท่านั้น (เลี่ยง new Date() ตอน prerender)
   const [today, setToday] = useState("");
   const [now, setNow] = useState<number | null>(null);
 
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect -- อ่านได้หลังเปิดหน้าเท่านั้น */
-    setRequests(loadRequests());
-    setMe(loadUser());
-    setProjects(loadProjects());
+    setRequests(readRequests());
+    setMe(getCurrentUser());
     setNow(Date.now());
     setToday(
       new Date().toLocaleDateString("th-TH", {
@@ -291,10 +233,9 @@ export default function AccountantHome() {
 
     const onStorage = (e: StorageEvent) => {
       if (e.key === REQUESTS_KEY) {
-        setRequests(loadRequests());
-        setProjects(loadProjects());
-      }
-      if (e.key === "current_user") setMe(loadUser());
+        setRequests(readRequests());
+          }
+      if (e.key === "current_user") setMe(getCurrentUser());
     };
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
@@ -303,7 +244,7 @@ export default function AccountantHome() {
   /* ---------- รอคุณตรวจสอบ: หัวหน้าอนุมัติแล้ว (หรือยอด ≤ 3,000) ถึงคิวบัญชี ---------- */
   // รอนานสุดขึ้นก่อน (นับจากเวลาที่มาถึงบัญชี)
   const pending = requests
-    .filter(isWaitingForAccountant)
+    .filter((r) => canApproveStep(r, me))
     .sort(
       (a, b) =>
         new Date(arrivedAt(a)).getTime() - new Date(arrivedAt(b)).getTime(),
@@ -350,7 +291,7 @@ export default function AccountantHome() {
   const prevTotal = prev ? sumOf(prev.getFullYear(), prev.getMonth()) : 0;
 
   // งบคงเหลือทั้งปี (รวมทุกฝ่าย)
-  const depts = groupByDept(projects);
+  const depts = year > 0 ? readDeptBudgets(requests, year) : [];
   const totalLimit = depts.reduce((s, x) => s + x.limit, 0);
   const totalUsed = depts.reduce((s, x) => s + x.used, 0);
   const remaining = totalLimit - totalUsed;

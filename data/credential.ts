@@ -1,3 +1,12 @@
+// role ที่มีในระบบตั้งแต่ต้น
+export type BuiltInRole =
+  | "EMPLOYEE"
+  | "HEAD"
+  | "DIRECTOR"
+  | "MANAGING_DIRECTOR"
+  | "ACCOUNTANT_ADMIN"
+  | "FINANCE";
+
 // บัญชีธนาคารสำหรับรับเงินคืน (คำขอแบบสำรองจ่าย)
 export type BankAccount = {
   bank: string; // เช่น "กสิกรไทย"
@@ -9,13 +18,18 @@ export type User = {
   id: string;
   username: string;
   fullName: string;
-  role: "EMPLOYEE" | "HEAD" | "DIRECTOR" | "MANAGING_DIRECTOR" | "ACCOUNTANT_ADMIN" | "FINANCE";
+  // role ในตัว หรือ id ของตำแหน่งผู้อนุมัติที่ฝ่ายบัญชีเพิ่มเอง (เช่น "POS_1794...") ดู data/approval.ts
+  role: BuiltInRole | (string & {});
   email?: string;
   password?: string;
   // แผนกที่สังกัด → อ้างถึง departments ใน data/organization.ts
   // null = ไม่สังกัดแผนก (ผอ.ฝ่าย / กรรมการผู้จัดการ / ผู้ลงทะเบียนใหม่ที่ยังไม่ได้กำหนด)
   // ※ optional เพื่อให้ข้อมูลเก่าใน localStorage ยังอ่านได้
   departmentId?: string | null;
+  // ผอ.ฝ่าย / ผู้บริหารสายงาน ที่ไม่สังกัดแผนก → เก็บแค่ฝ่าย หรือสายงาน
+  // มีแผนกแล้ว ฝ่าย/สายงานให้ดูจากผังของแผนก (ฟิลด์นี้เก็บคู่ไว้เพื่อแสดงผล)
+  divisionId?: string | null;
+  lineOfWorkId?: string | null;
   bankAccount?: BankAccount | null;
   // ※ departmentInfo / hierarchy: ของเดิมที่หลายหน้ายังใช้อยู่ เก็บคู่ไปก่อน
   //   ข้อมูลจริงให้ดูจาก departmentId + data/organization.ts
@@ -31,15 +45,8 @@ export type User = {
 };
 
 // ────────────────────────────────────────────────────────────
-//  ข้อมูลตัวอย่าง (ผังองค์กรดู data/organization.ts)
-//
-//  ฝ่ายบัญชีและการเงินองค์กร (ผอ. u_03)
-//    ├─ แผนกงบประมาณฯ   หัวหน้า u_02 · พนักงาน u_01
-//    ├─ แผนกบัญชีทั่วไป   u_04, u_07
-//    └─ แผนกการเงินฯ     u_05
-//  ฝ่ายการตลาด (ยังไม่มี ผอ.)
-//    └─ การตลาด         หัวหน้า u_08 · พนักงาน u_09
-//  กรรมการผู้จัดการ       u_06
+//  ข้อมูลตัวอย่าง: สังกัด (สายงาน / ฝ่าย / แผนก) เริ่มเป็นค่าว่างทุกคน
+//  → ฝ่ายบัญชีกำหนดเองที่หน้า "การตั้งค่า" (ตัวเลือกมาจาก data/organization.ts)
 //
 //  รหัสผ่านทุกคน = "pass" (ข้อมูลทดสอบเท่านั้น)
 // ────────────────────────────────────────────────────────────
@@ -51,16 +58,11 @@ export const users: User[] = [
     email: "riampaat@gmail.com",
     password: "pass",
     role: "EMPLOYEE",
-    departmentId: "DP01",
+    lineOfWorkId: null,
+    divisionId: null,
+    departmentId: null,
     bankAccount: { bank: "กสิกรไทย", number: "xxx-x-x4521-x", name: "ภาณุ ศรีบุญเพ็ง" },
-    departmentInfo: {
-      lineOfWork: "สายงานบัญชีและการเงิน",
-      department: "แผนกงบประมาณและควบคุมต้นทุน",
-    },
-    hierarchy: {
-      headId: "u_02",
-      directorId: "u_03",
-    },
+    departmentInfo: { lineOfWork: "", department: "" },
     status: "ACTIVE",
   },
   {
@@ -69,15 +71,10 @@ export const users: User[] = [
     fullName: "หัวหน้าแผนกงบประมาณ",
     role: "HEAD",
     password: "pass",
-    departmentId: "DP01",
-    departmentInfo: {
-      lineOfWork: "สายงานบัญชีและการเงิน",
-      department: "แผนกงบประมาณและควบคุมต้นทุน",
-    },
-    hierarchy: {
-      headId: null,
-      directorId: "u_03",
-    },
+    lineOfWorkId: null,
+    divisionId: null,
+    departmentId: null,
+    departmentInfo: { lineOfWork: "", department: "" },
     status: "ACTIVE",
   },
   {
@@ -86,15 +83,10 @@ export const users: User[] = [
     fullName: "ผอ.ฝ่ายการเงิน",
     role: "DIRECTOR",
     password: "pass",
-    departmentId: null, // ผอ. ดูแลทั้งฝ่าย DV01 (ดู directorId ใน organization.ts)
-    departmentInfo: {
-      lineOfWork: "สายงานบัญชีและการเงิน",
-      department: "ฝ่ายบัญชีและการเงินองค์กร",
-    },
-    hierarchy: {
-      headId: null,
-      directorId: null,
-    },
+    lineOfWorkId: null,
+    divisionId: null,
+    departmentId: null,
+    departmentInfo: { lineOfWork: "", department: "" },
     status: "ACTIVE",
   },
   {
@@ -103,11 +95,10 @@ export const users: User[] = [
     fullName: "เจ้าหน้าที่บัญชีและแอดมิน",
     password: "pass",
     role: "ACCOUNTANT_ADMIN",
-    departmentId: "DP02",
-    departmentInfo: {
-      lineOfWork: "สายงานบัญชีและการเงิน",
-      department: "แผนกบัญชีทั่วไป",
-    },
+    lineOfWorkId: null,
+    divisionId: null,
+    departmentId: null,
+    departmentInfo: { lineOfWork: "", department: "" },
     status: "ACTIVE",
   },
   {
@@ -116,11 +107,10 @@ export const users: User[] = [
     fullName: "เจ้าหน้าที่การเงิน (ทำจ่าย)",
     role: "FINANCE",
     password: "pass",
-    departmentId: "DP03",
-    departmentInfo: {
-      lineOfWork: "สายงานบัญชีและการเงิน",
-      department: "แผนกการเงินและทำจ่าย",
-    },
+    lineOfWorkId: null,
+    divisionId: null,
+    departmentId: null,
+    departmentInfo: { lineOfWork: "", department: "" },
     status: "ACTIVE",
   },
   {
@@ -129,11 +119,10 @@ export const users: User[] = [
     fullName: "กรรมการผู้จัดการ",
     role: "MANAGING_DIRECTOR",
     password: "pass",
-    departmentId: null, // ระดับบริษัท (managingDirectorId ใน organization.ts)
-    departmentInfo: {
-      lineOfWork: "-",
-      department: "กรรมการผู้จัดการ",
-    },
+    lineOfWorkId: null,
+    divisionId: null,
+    departmentId: null,
+    departmentInfo: { lineOfWork: "", department: "" },
     status: "ACTIVE",
   },
   {
@@ -142,11 +131,10 @@ export const users: User[] = [
     fullName: "เจ้าหน้าที่บัญชี 2",
     role: "ACCOUNTANT_ADMIN",
     password: "pass",
-    departmentId: "DP02",
-    departmentInfo: {
-      lineOfWork: "สายงานบัญชีและการเงิน",
-      department: "แผนกบัญชีทั่วไป",
-    },
+    lineOfWorkId: null,
+    divisionId: null,
+    departmentId: null,
+    departmentInfo: { lineOfWork: "", department: "" },
     status: "ACTIVE",
   },
   {
@@ -155,15 +143,10 @@ export const users: User[] = [
     fullName: "หัวหน้าแผนกการตลาด",
     role: "HEAD",
     password: "pass",
-    departmentId: "DP05",
-    departmentInfo: {
-      lineOfWork: "สายงานธุรกิจและปฏิบัติการ",
-      department: "การตลาด",
-    },
-    hierarchy: {
-      headId: null,
-      directorId: null, // ฝ่ายการตลาดยังไม่มี ผอ.
-    },
+    lineOfWorkId: null,
+    divisionId: null,
+    departmentId: null,
+    departmentInfo: { lineOfWork: "", department: "" },
     status: "ACTIVE",
   },
   {
@@ -172,16 +155,11 @@ export const users: User[] = [
     fullName: "พนักงานการตลาด",
     role: "EMPLOYEE",
     password: "pass",
-    departmentId: "DP05",
+    lineOfWorkId: null,
+    divisionId: null,
+    departmentId: null,
     bankAccount: { bank: "ไทยพาณิชย์", number: "xxx-x-x7788-x", name: "พนักงานการตลาด" },
-    departmentInfo: {
-      lineOfWork: "สายงานธุรกิจและปฏิบัติการ",
-      department: "การตลาด",
-    },
-    hierarchy: {
-      headId: "u_08",
-      directorId: null,
-    },
+    departmentInfo: { lineOfWork: "", department: "" },
     status: "ACTIVE",
   },
 ];
@@ -206,21 +184,14 @@ const isUser = (value: unknown): value is User => {
   }
 
   const department = departmentInfo as Record<string, unknown>;
-  const roles = [
-    "EMPLOYEE",
-    "HEAD",
-    "DIRECTOR",
-    "MANAGING_DIRECTOR",
-    "ACCOUNTANT_ADMIN",
-    "FINANCE",
-  ];
 
   return (
     typeof candidate.id === "string" &&
     typeof candidate.username === "string" &&
     typeof candidate.fullName === "string" &&
+    // role ในตัว หรือตำแหน่งที่เพิ่มเอง → ขอแค่เป็นข้อความไม่ว่าง
     typeof candidate.role === "string" &&
-    roles.includes(candidate.role) &&
+    candidate.role.length > 0 &&
     (candidate.email === undefined || typeof candidate.email === "string") &&
     (candidate.password === undefined ||
       typeof candidate.password === "string") &&
@@ -271,6 +242,11 @@ export const getUsers = (): User[] => {
 
 const saveUsers = (nextUsers: User[]) => {
   localStorage.setItem(USERS_KEY, JSON.stringify(nextUsers));
+};
+
+// แก้ข้อมูลผู้ใช้ 1 คน (เช่น เปลี่ยน role เป็นตำแหน่งผู้อนุมัติที่เพิ่มเอง) · ไม่แตะรหัสผ่าน
+export const updateUser = (id: string, patch: Partial<Omit<User, "id" | "password">>) => {
+  saveUsers(getUsers().map((u) => (u.id === id ? { ...u, ...patch } : u)));
 };
 
 const withoutPassword = (user: User): Credential => {

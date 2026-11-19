@@ -2,8 +2,11 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { REQUESTS_KEY, loadRequests as loadSaved } from "@/data/request";
-import { addRequestsToBudget } from "@/data/budget";
+import { REQUESTS_KEY, getActedRequests, loadRequests, type SavedRequest } from "@/data/request";
+import { getDepartmentBudget } from "@/data/budget";
+import { canApproveStep } from "@/data/approval";
+import type { Credential } from "@/data/credential";
+import { getCurrentUser } from "@/utils/login";
 import {
   ArrowRight,
   Bell1,
@@ -15,40 +18,10 @@ import {
 } from "@tailgrids/icons";
 
 /* ------------------------------------------------------------------
-   ชนิดข้อมูล (ตรงกับที่หน้า request/new บันทึกไว้)
+   ชนิดข้อมูล: ใช้ของกลางใน data/ (คำขอ = SavedRequest · ผู้ใช้ = Credential)
 ------------------------------------------------------------------- */
-interface ApprovalStep {
-  role: string; // "HEAD" | "DIRECTOR" | "MANAGING_DIRECTOR" | "ACCOUNTANT_ADMIN" | "FINANCE"
-  label: string;
-  status: string; // "รอ" | "อนุมัติ" | "ตีกลับ"
-  by: string | null;
-  at: string | null;
-  note: string;
-}
-
-interface ExpenseRequest {
-  id: string; // "REQ-xxxxxxxx"
-  createdAt: string;
-  status: string; // "ร่าง" | "รออนุมัติ" | "อนุมัติแล้ว" | "ตีกลับ"
-  title: string;
-  total: number;
-  requester: {
-    id: string | number;
-    fullName: string;
-    headId: string | number | null;
-    directorId: string | number | null;
-  } | null;
-  approvalSteps: ApprovalStep[];
-  currentStep: number;
-}
-
-// คนที่ล็อกอินอยู่ (หน้าล็อกอินบันทึกไว้ที่ localStorage "current_user")
-interface CurrentUser {
-  id: string | number;
-  fullName: string;
-  role: string;
-  departmentInfo?: { department?: string }; // ใช้เลือกงบของฝ่ายตัวเอง
-}
+type ExpenseRequest = SavedRequest;
+type CurrentUser = Credential;
 
 const APPROVED_PATH = "/home-department-head/approve"; // ← path หน้าตรวจสอบ ต้องตรงกับชื่อโฟลเดอร์
 const ROW_H = 93; // ความสูงแถว (px) ต้องตรงกับ h-[93px] ใน ROW_GRID
@@ -61,48 +34,20 @@ const ROW_GRID =
   "grid h-[93px] grid-cols-[260px_90px_110px_1fr] items-center gap-3";
 
 /* ------------------------------------------------------------------
-   อ่านข้อมูลจาก localStorage
+   อ่านข้อมูลจาก localStorage (ผ่านฟังก์ชันกลางใน data/ และ utils/login)
 ------------------------------------------------------------------- */
-function loadRequests(): ExpenseRequest[] {
+// ข้ามข้อมูลรูปแบบเก่าที่ไม่มีเส้นทางอนุมัติ
+function readRequests(): ExpenseRequest[] {
   try {
-    const raw = localStorage.getItem(REQUESTS_KEY);
-    if (!raw) return [];
-    const data = JSON.parse(raw);
-    if (!Array.isArray(data)) return [];
-    // ข้ามข้อมูลรูปแบบเก่าที่ไม่มีเส้นทางอนุมัติ
-    return data.filter((r) => r && Array.isArray(r.approvalSteps));
+    return loadRequests().filter((r) => r && Array.isArray(r.approvalSteps));
   } catch {
     return [];
   }
 }
 
-function loadUser(): CurrentUser | null {
-  try {
-    const raw = localStorage.getItem("current_user");
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
-// งบรายปี: รวมวงเงิน (limit) และยอดที่ใช้ไป (used) ของทุกหมวด
-// - มีโครงการของฝ่ายผู้ล็อกอิน → รวมเฉพาะฝ่ายนั้น
-// - ไม่มี (หรือยังไม่ได้ล็อกอิน) → รวมทุกฝ่าย
-// ※ used นับรวมคำขอที่ส่งแล้ว ตามที่ addRequestsToBudget คิดไว้
-function loadBudget(user: CurrentUser | null) {
-  const projects = addRequestsToBudget(loadSaved());
-  const dept = user?.departmentInfo?.department;
-  const own = dept ? projects.filter((p) => p.dept === dept) : [];
-  const list = own.length > 0 ? own : projects;
-
-  let limit = 0;
-  let used = 0;
-  for (const p of list) {
-    for (const c of p.categories) {
-      limit += c.limit;
-      used += c.used;
-    }
-  }
+// งบของแผนกตัวเองปีนี้ (งบที่บัญชีแบ่งให้แผนก · data/budget.ts)
+function readBudget(user: CurrentUser | null) {
+  const { limit, used } = getDepartmentBudget(user?.departmentId, readRequests(), new Date().getFullYear());
   return { limit, used };
 }
 
@@ -141,22 +86,6 @@ function waitLabel(iso: string) {
   return `รอ ${Math.floor(hours / 24)} วัน`;
 }
 
-// คำขอนี้ "ถึงคิวของคุณ" หรือไม่
-// - ขั้นปัจจุบันต้องยังเป็น "รอ" และ role ตรงกับของคุณ
-// - หัวหน้า/ผอ.ฝ่าย ต้องเป็นผู้บังคับบัญชาของผู้ขอจริง (ถ้าข้อมูลมี headId / directorId)
-function isMyTurn(r: ExpenseRequest, me: CurrentUser | null) {
-  if (!me || r.status !== "รออนุมัติ") return false;
-  const step = r.approvalSteps[r.currentStep];
-  if (!step || step.status !== "รอ" || step.role !== me.role) return false;
-
-  const owner =
-    step.role === "HEAD"
-      ? r.requester?.headId
-      : step.role === "DIRECTOR"
-        ? r.requester?.directorId
-        : null;
-  return !owner || owner === me.id;
-}
 
 // ป้ายสถานะของคำขอที่คุณอนุมัติไปแล้ว
 function statusBadge(r: ExpenseRequest) {
@@ -191,10 +120,10 @@ export default function DH() {
   // โหลดใน useEffect เท่านั้น (ฝั่งเซิร์ฟเวอร์ไม่มี localStorage)
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect -- อ่านได้หลังเปิดหน้าเท่านั้น */
-    const user = loadUser();
-    setRequests(loadRequests());
+    const user = getCurrentUser();
+    setRequests(readRequests());
     setMe(user);
-    setBudget(loadBudget(user));
+    setBudget(readBudget(user));
     setCurrentYear(new Date().getFullYear());
     setToday(
       new Date().toLocaleDateString("th-TH", {
@@ -209,13 +138,13 @@ export default function DH() {
     // อัปเดตอัตโนมัติถ้าแท็บอื่นแก้ข้อมูล
     const onStorage = (e: StorageEvent) => {
       if (e.key === REQUESTS_KEY) {
-        setRequests(loadRequests());
-        setBudget(loadBudget(loadUser()));
+        setRequests(readRequests());
+        setBudget(readBudget(getCurrentUser()));
       }
       if (e.key === "current_user") {
-        const u = loadUser();
+        const u = getCurrentUser();
         setMe(u);
-        setBudget(loadBudget(u));
+        setBudget(readBudget(u));
       }
     };
     window.addEventListener("storage", onStorage);
@@ -223,21 +152,17 @@ export default function DH() {
   }, []);
 
   // รอคุณตรวจสอบ: คำขอที่ขั้นปัจจุบันเป็นของคุณ
-  const pending = requests.filter((r) => isMyTurn(r, me));
+  const pending = requests.filter((r) => canApproveStep(r, me));
 
   // คำขอที่คุณอนุมัติไปแล้ว (ล่าสุดอยู่บนสุด) พร้อมเวลาที่คุณอนุมัติ
   // ※ ใช้เวลาของขั้นที่คุณอนุมัติเอง ไม่ใช่สถานะรวมของคำขอ
   //   เพราะหัวหน้าอนุมัติแล้ว คำขอยังต้องไปต่อที่ผอ./บัญชี/การเงิน
+  //   (getActedRequests เทียบด้วย id ก่อน · คำขอเก่าไม่มี id → เทียบชื่อ)
   const mine = !me
     ? []
-    : requests
-        .flatMap((r) => {
-          const step = [...r.approvalSteps]
-            .reverse()
-            .find((s) => s.status === "อนุมัติ" && s.by === me.fullName);
-          return step && step.at ? [{ r, at: step.at }] : [];
-        })
-        .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+    : getActedRequests(requests, me).flatMap(({ request, step }) =>
+        step.status === "อนุมัติ" && step.at ? [{ r: request, at: step.at }] : [],
+      );
 
   // อนุมัติล่าสุด: แสดงสูงสุด 5 รายการ (ล่าสุดอยู่บนสุด)
   const recentApproved = mine.slice(0, RECENT_LIMIT);
