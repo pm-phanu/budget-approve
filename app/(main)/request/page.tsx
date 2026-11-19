@@ -22,6 +22,7 @@
 // ════════════════════════════════════════════════════════════
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation"; // ✅ เพิ่ม: ใช้เปลี่ยนหน้าหลังส่งคำขอที่ถูกตีกลับ
 import { getUsers, type Credential } from "@/data/credential";
 import { notifyRequestEvent } from "@/data/notification";
@@ -145,6 +146,10 @@ export default function NewRequest() {
   // ข้อความแจ้งผล
   const [errors, setErrors] = useState<string[]>([]);
   const [message, setMessage] = useState("");
+  // กดส่งแล้วอย่างน้อย 1 ครั้ง → แสดงข้อผิดพลาดใต้ช่อง (ก่อนหน้านั้นไม่เตือน ไม่รบกวนตอนกำลังกรอก)
+  const [tried, setTried] = useState(false);
+  // เลขคำขอที่ส่งสำเร็จล่าสุด → ลิงก์ "ดูคำขอ"
+  const [sentId, setSentId] = useState("");
 
   // เลขที่ใบที่กำลังแก้ (ร่าง หรือ คำขอที่ถูกตีกลับ) · ยังไม่เคยบันทึก = ""
   // ※ กดบันทึกร่างซ้ำ → ทับใบเดิม ไม่เกิดร่างซ้ำหลายใบ
@@ -267,6 +272,29 @@ export default function NewRequest() {
   const steps = plan.map((p) => p.role);
   // ขั้นที่ยังไม่มีใครอนุมัติได้ (ในแผนก/ฝ่ายของผู้ขอ) → ส่งไม่ได้จนกว่าบัญชีจะกำหนดคน
   const missingSteps = plan.filter((p) => !p.hasApprover).map((p) => p.role);
+
+  // ข้อผิดพลาดรายช่อง: ขึ้นหลังกดส่งครั้งแรก แล้วหายเองเมื่อแก้ (ไม่ต้องกดส่งซ้ำ)
+  const fieldError = {
+    title: tried && !title ? "กรอกชื่อคำขอ" : "",
+    project: tried && !project ? "เลือกโครงการ" : "",
+    useDate: tried && !useDate ? "เลือกวันที่ใช้จ่าย" : "",
+  };
+  const rowError = (it: Item) => {
+    const e = {
+      category: tried && !it.categoryId,
+      name: tried && !it.name,
+      amount: tried && Number(it.amount || 0) <= 0,
+      files: tried && it.files.length === 0,
+    };
+    return { ...e, any: e.category || e.name || e.amount || e.files };
+  };
+  // งบคงเหลือรายหมวด + ยอดที่ขอในฟอร์มนี้ (หลายแถวใช้หมวดเดียวกันได้ → รวมก่อนเทียบ)
+  const categoryLeft = new Map(categories.map((c) => [c.id, c.limit - c.used]));
+  const categoryAsked = new Map<string, number>();
+  for (const it of items) {
+    if (it.categoryId)
+      categoryAsked.set(it.categoryId, (categoryAsked.get(it.categoryId) ?? 0) + Number(it.amount || 0));
+  }
 
   // ส่งกลับไปหาคนที่ตีกลับได้หรือไม่:
   // เส้นทางตามยอดใหม่ต้องเหมือนเส้นทางเดิม (ถ้าแก้ยอดจนเส้นทางเปลี่ยน → เริ่มอนุมัติใหม่ตั้งแต่ขั้นแรก)
@@ -520,11 +548,14 @@ export default function NewRequest() {
     setItems([emptyItem()]);
     setDraftId("");
     setResubmit(null);
+    setTried(false);
   }
 
   function submit() {
     const list = validate();
     setErrors(list);
+    setTried(true);
+    setSentId("");
     if (list.length > 0) {
       setMessage("");
       return; // มีข้อผิด → หยุด ไม่บันทึก
@@ -541,7 +572,8 @@ export default function NewRequest() {
     // ส่งแล้วล้างฟอร์ม กันกดส่งซ้ำ + อัปเดตงบคงเหลือใหม่
     resetForm();
     setBudget(addRequestsToBudget(loadRequests()));
-    setMessage("ส่งคำขอ " + id + " เรียบร้อย ส่งต่อให้" + targetLabel); // ✅ แก้: เหลือเฉพาะข้อความของคำขอใหม่
+    setSentId(id);
+    setMessage("ส่งคำขอแล้ว ส่งต่อให้" + targetLabel);
   }
 
   // ร่างไม่ต้องตรวจ (ยังกรอกไม่ครบได้) แต่ต้องมีชื่อคำขอ ไว้หาเจอทีหลัง
@@ -554,6 +586,7 @@ export default function NewRequest() {
     const id = saveRequest("ร่าง");
     setDraftId(id); // กดบันทึกร่างอีกครั้ง → ทับใบนี้
     setErrors([]);
+    setSentId("");
     setMessage("บันทึกร่าง " + id + " แล้ว");
   }
 
@@ -563,16 +596,17 @@ export default function NewRequest() {
   return (
     <div className="text-[#0F172A]">
       {/* breadcrumb ย้ายไปอยู่บน header ของ layout แล้ว */}
-      <h1 className="mb-9 text-[32px] font-bold text-[#111]">
+      <h1 className="mb-9 text-[32px] font-bold text-[#0F172A]">
         {resubmit ? "แก้ไขคำขอที่ถูกตีกลับ" : "สร้างคำขอเบิก"}
       </h1>
 
-      <div className="grid grid-cols-4 gap-5">
+      {/* จอกว้าง (≥1280px) = ฟอร์ม 3 : สรุป 1 เหมือนเดิม · จอแคบ = สรุปต่อท้ายฟอร์ม */}
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-4">
         {/* ===== คอลัมน์ซ้าย: ฟอร์ม ===== */}
-        <section className="col-span-3 rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl">
+        <section className="min-w-0 rounded-xl xl:col-span-3 border border-[#E2E8F0] bg-white p-6 shadow-2xl">
           {/* ---------- กล่องแจ้ง: คำขอนี้ถูกตีกลับ ---------- */}
           {resubmit && (
-            <div className="mb-5 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+            <div role="note" className="mb-6 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
               <p className="font-bold">
                 คำขอ {resubmit.id} ถูกตีกลับโดย {resubmit.label}
                 {resubmit.by !== "-" ? ` (${resubmit.by})` : ""}
@@ -590,8 +624,15 @@ export default function NewRequest() {
 
           {/* ---------- [6.1] ข้อมูลคำขอ ---------- */}
           <h2 className="text-lg font-bold">ข้อมูลคำขอ</h2>
-          <Label text="ประเภทคำขอ" />
-          <div className="mb-4 flex gap-2 rounded-xl bg-gray-100 p-1">
+
+          <p id="type-label" className="mb-1.5 mt-4 text-sm font-semibold">
+            ประเภทคำขอ
+          </p>
+          <div
+            role="group"
+            aria-labelledby="type-label"
+            className="flex gap-1 rounded-xl bg-[#F1F5F9] p-1"
+          >
             <TypeButton
               active={type === "invoice"}
               onClick={() => setType("invoice")}
@@ -601,263 +642,349 @@ export default function NewRequest() {
             <TypeButton
               active={type === "advance"}
               onClick={() => setType("advance")}
+              icon={<Wallet2 size={16} />}
               text="สำรองจ่ายแล้ว (ขอเบิกคืน)"
             />
           </div>
 
-          <Label text="ชื่อคำขอ" />
+          <Label htmlFor="req-title" text="ชื่อคำขอ" />
           <input
-            className={`${inputClass} mb-4`}
+            id="req-title"
+            className={`w-full ${fieldClassFor(!!fieldError.title)}`}
             placeholder="เช่น ค่าเดินทางสัมมนา เชียงใหม่"
             value={title}
+            aria-invalid={!!fieldError.title}
+            aria-describedby={fieldError.title ? "req-title-error" : undefined}
             onChange={(e) => setTitle(e.target.value)}
           />
+          <FieldError id="req-title-error" text={fieldError.title} />
 
           {/* ---------- [6.2] โครงการ + วันที่ ---------- */}
-          <div className="mb-4 flex gap-4">
-            <div className="flex-[2]">
-              <Label text="โครงการ" />
+          <div className="flex gap-4">
+            <div className="min-w-0 flex-[2]">
+              <Label htmlFor="req-project" text="โครงการ" />
               <select
-                className={inputClass}
+                id="req-project"
+                className={`w-full ${fieldClassFor(!!fieldError.project)}`}
                 value={projectId}
+                aria-invalid={!!fieldError.project}
+                aria-describedby="req-project-hint"
                 onChange={(e) => changeProject(e.target.value)}
               >
-                <option value="">-- เลือกโครงการ --</option>
+                <option value="">เลือกโครงการ</option>
                 {myProjects.map((p) => (
                   <option key={p.id} value={p.id}>
-                    {p.dept} › {p.name}
+                    {p.name}
                   </option>
                 ))}
               </select>
-              {/* ไม่มีโครงการให้เลือก: ยังไม่กำหนดแผนก / แผนกยังไม่มีงบปีนี้ */}
-              {user && myProjects.length === 0 && (
-                <p className="mt-1 text-xs text-[#B45309]">
-                  {user.departmentId
-                    ? "แผนกของคุณยังไม่มีโครงการในปีนี้ ติดต่อฝ่ายบัญชีให้ตั้งงบก่อน"
-                    : "บัญชีของคุณยังไม่ได้กำหนดแผนก ติดต่อฝ่ายบัญชี"}
-                </p>
-              )}
-              {/* ยังไม่เลือก = บอกว่าต้องเลือกก่อน · เลือกแล้ว = โชว์งบคงเหลือ */}
-              {/* ※ ไม่มีโครงการให้เลือก → ใช้ข้อความด้านบนแทน (ไม่ขึ้นซ้อนกัน 2 ข้อความ) */}
-              {!project && myProjects.length > 0 && (
-                <p className="mt-1 text-xs text-[#B45309]">
-                  เลือกโครงการก่อน แล้วจึงเลือกหมวดในรายการค่าใช้จ่ายได้
-                </p>
-              )}
-              {project && (
-                <p className="mt-1 text-xs text-[#64748B]">
-                  งบโครงการคงเหลือ{" "}
-                  <b className="text-[#047857]">฿{money(projectRemaining)}</b> ·{" "}
-                  {categories.length} หมวด
-                </p>
-              )}
+              <div id="req-project-hint">
+                <FieldError text={fieldError.project} />
+                {/* ไม่มีโครงการให้เลือก: ยังไม่กำหนดแผนก / แผนกยังไม่มีงบปีนี้ */}
+                {user && myProjects.length === 0 && (
+                  <p className="mt-1.5 text-xs text-[#B45309]">
+                    {user.departmentId
+                      ? "แผนกของคุณยังไม่มีโครงการในปีนี้ ติดต่อฝ่ายบัญชีให้ตั้งงบก่อน"
+                      : "บัญชีของคุณยังไม่ได้กำหนดแผนก ติดต่อฝ่ายบัญชี"}
+                  </p>
+                )}
+                {project && (
+                  <p className="mt-1.5 text-xs text-[#64748B]">
+                    งบโครงการคงเหลือ{" "}
+                    <b className="money text-[#047857]">฿{money(projectRemaining)}</b>{" "}
+                    จาก {categories.length} หมวด
+                  </p>
+                )}
+              </div>
             </div>
             <div className="flex-1">
-              <Label text="วันที่ใช้จ่าย" />
+              <Label htmlFor="req-date" text="วันที่ใช้จ่าย" />
               <input
+                id="req-date"
                 type="date"
-                className={inputClass}
+                className={`w-full ${fieldClassFor(!!fieldError.useDate)}`}
                 value={useDate}
+                aria-invalid={!!fieldError.useDate}
                 onChange={(e) => setUseDate(e.target.value)}
               />
+              <FieldError text={fieldError.useDate} />
             </div>
           </div>
 
           {/* ---------- [6.3] เหตุผล ---------- */}
-          <Label text="เหตุผลการเบิก" />
+          <Label htmlFor="req-reason" text="เหตุผลการเบิก" optional />
           <textarea
-            className={`${inputClass} mb-6 h-20`}
+            id="req-reason"
+            className={`w-full ${fieldClassFor(false)} h-20 resize-y`}
             placeholder="เช่น เดินทางไปสัมมนาที่เชียงใหม่ ใช้เงินส่วนตัวสำรองจ่ายไปก่อน"
             value={reason}
             onChange={(e) => setReason(e.target.value)}
           />
 
           {/* ---------- [6.4] ตารางค่าใช้จ่าย + หลักฐานรายแถว ---------- */}
-          <div className="mb-3 flex items-center justify-between border-t border-gray-100 pt-4">
-            <h2 className="text-base font-bold">รายการค่าใช้จ่าย</h2>
-            <span className="rounded-full bg-gray-100 px-3 py-0.5 text-xs text-[#64748B]">
-              {items.length} รายการ
+          <div className="mb-3 mt-8 flex items-baseline justify-between border-t border-[#E2E8F0] pt-6">
+            <h2 className="text-lg font-bold">รายการค่าใช้จ่าย</h2>
+            <span className="text-sm text-[#64748B]">
+              แนบ{fileLabel}ทุกรายการ อย่างน้อยรายการละ 1 ไฟล์
             </span>
           </div>
 
-          <div className="mb-1.5 flex gap-2 px-1 text-xs font-semibold text-[#64748B]">
-            <span className="w-36">หมวด</span>
+          <div className="mb-1.5 flex gap-2 px-1 text-xs font-semibold text-[#64748B]" aria-hidden="true">
+            <span className="w-40">หมวด</span>
             <span className="flex-1">รายละเอียด</span>
-            <span className="w-32">จำนวนเงิน</span>
+            <span className="w-36 text-right">จำนวนเงิน</span>
             <span className="w-28 text-center">{fileLabel}</span>
             <span className="w-10" />
           </div>
 
-          {items.map((it, i) => (
-            <div key={i} className="mb-2.5">
-              <div className="flex gap-2">
-                <select
-                  className={`${fieldClass} w-36 shrink-0 bg-white px-3`}
-                  value={it.categoryId}
-                  onChange={(e) => changeItem(i, "categoryId", e.target.value)}
-                  disabled={!project}
-                >
-                  <option value="">
-                    {project ? "-- หมวด --" : "เลือกโครงการก่อน"}
-                  </option>
-                  {categories.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  className={`${fieldClass} min-w-0 flex-1 bg-white`}
-                  placeholder="เช่น ตั๋วเครื่องบินไป-กลับ"
-                  value={it.name}
-                  onChange={(e) => changeItem(i, "name", e.target.value)}
-                />
-                <div className="flex w-32 shrink-0 items-center rounded-xl border border-gray-200 bg-white px-3 focus-within:border-[#059669]">
-                  <span className="text-sm text-[#94A3B8]">฿</span>
-                  <input
-                    type="number"
-                    className="w-full border-0 bg-transparent px-1 py-2.5 text-right text-sm font-bold outline-none focus:ring-0"
-                    placeholder="0"
-                    value={it.amount}
-                    onChange={(e) => changeItem(i, "amount", e.target.value)}
-                  />
-                </div>
-                {/* ปุ่มแนบ: ยังไม่มีไฟล์ = ขอบแดงประ · มีแล้ว = เขียว + จำนวนไฟล์ */}
-                <label
-                  className={`flex w-28 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-xl text-sm font-semibold ${
-                    it.files.length > 0
-                      ? "border border-[#A7F3D0] bg-[#ECFDF5] text-[#047857]"
-                      : "border border-dashed border-[#FDA4AF] bg-[#FFF1F2] text-[#BE123C]"
-                  }`}
-                >
-                  <Upload1 size={16} />
-                  {it.files.length > 0 ? `${it.files.length} ไฟล์` : "แนบไฟล์"}
-                  <input
-                    type="file"
-                    multiple
-                    accept=".pdf,.jpg,.jpeg,.png"
-                    className="hidden"
-                    onChange={(e) => addFiles(i, e)}
-                  />
-                </label>
-                <button
-                  onClick={() => removeItem(i)}
-                  disabled={items.length === 1}
-                  className="flex w-10 shrink-0 items-center justify-center rounded-xl border border-[#FECACA] bg-[#FEF2F2] text-[#DC2626] hover:bg-[#FECACA] disabled:opacity-30"
-                >
-                  <Trash1 size={18} />
-                </button>
-              </div>
-
-              {/* รายชื่อไฟล์ของแถวนี้ */}
-              {it.files.length > 0 && (
-                <div className="mt-1.5 flex flex-wrap gap-1.5 pl-[9.5rem]">
-                  {it.files.map((name, f) => (
-                    <span
-                      key={f}
-                      className="flex items-center gap-1 rounded-lg bg-gray-100 px-2 py-1 text-xs text-[#334155]"
+          <ul className="flex flex-col gap-3">
+            {items.map((it, i) => {
+              const row = i + 1;
+              const err = rowError(it);
+              const left = it.categoryId ? categoryLeft.get(it.categoryId) : undefined;
+              const asked = it.categoryId ? (categoryAsked.get(it.categoryId) ?? 0) : 0;
+              const over = left !== undefined && asked > left;
+              return (
+                <li key={i} className="rounded-xl border border-[#E2E8F0] p-2">
+                  <div className="flex gap-2">
+                    <select
+                      aria-label={`หมวด รายการที่ ${row}`}
+                      className={`${fieldClassFor(err.category || over)} w-40 shrink-0 px-3`}
+                      value={it.categoryId}
+                      aria-invalid={err.category || over}
+                      onChange={(e) => changeItem(i, "categoryId", e.target.value)}
+                      disabled={!project}
                     >
-                      <FileText size={12} className="text-red-600" />
-                      {name}
-                      <button
-                        onClick={() => removeFile(i, f)}
-                        className="ml-0.5 text-gray-400 hover:text-red-600"
-                      >
-                        ×
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
+                      <option value="">{project ? "เลือกหมวด" : "เลือกโครงการก่อน"}</option>
+                      {categories.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      aria-label={`รายละเอียด รายการที่ ${row}`}
+                      className={`${fieldClassFor(err.name)} min-w-0 flex-1`}
+                      placeholder="เช่น ตั๋วเครื่องบินไป-กลับ"
+                      value={it.name}
+                      aria-invalid={err.name}
+                      onChange={(e) => changeItem(i, "name", e.target.value)}
+                    />
+                    <div
+                      className={`flex w-36 shrink-0 items-center rounded-xl border bg-white px-3 focus-within:border-[#059669] ${
+                        err.amount || over ? "border-[#FDA4AF]" : "border-[#E2E8F0]"
+                      }`}
+                    >
+                      <span className="text-sm text-[#94A3B8]" aria-hidden="true">
+                        ฿
+                      </span>
+                      <input
+                        type="number"
+                        min={0}
+                        inputMode="decimal"
+                        aria-label={`จำนวนเงิน รายการที่ ${row}`}
+                        aria-invalid={err.amount || over}
+                        className="money w-full border-0 bg-transparent px-1 py-2.5 text-right text-sm font-semibold outline-none focus:ring-0"
+                        placeholder="0"
+                        value={it.amount}
+                        onChange={(e) => changeItem(i, "amount", e.target.value)}
+                      />
+                    </div>
+                    {/* ปุ่มแนบ: ยังไม่มีไฟล์ = ขอบประ · มีแล้ว = เขียว + จำนวนไฟล์ */}
+                    <label
+                      className={`flex w-28 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-xl text-sm font-semibold focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[#059669] ${
+                        it.files.length > 0
+                          ? "border border-[#A7F3D0] bg-[#ECFDF5] text-[#047857]"
+                          : err.files
+                            ? "border border-dashed border-[#FDA4AF] bg-[#FFF1F2] text-[#BE123C]"
+                            : "border border-dashed border-[#CBD5E1] bg-white text-[#475569] hover:border-[#059669] hover:text-[#047857]"
+                      }`}
+                    >
+                      <Upload1 size={16} aria-hidden="true" />
+                      {it.files.length > 0 ? `${it.files.length} ไฟล์` : "แนบไฟล์"}
+                      <input
+                        type="file"
+                        multiple
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        aria-label={`แนบ${fileLabel} รายการที่ ${row}`}
+                        className="sr-only"
+                        onChange={(e) => addFiles(i, e)}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => removeItem(i)}
+                      disabled={items.length === 1}
+                      aria-label={`ลบรายการที่ ${row}`}
+                      title={items.length === 1 ? "ต้องมีอย่างน้อย 1 รายการ" : `ลบรายการที่ ${row}`}
+                      className="flex w-10 shrink-0 items-center justify-center rounded-xl text-[#94A3B8] hover:bg-[#FEF2F2] hover:text-[#DC2626] disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
+                    >
+                      <Trash1 size={18} />
+                    </button>
+                  </div>
+
+                  {/* แถวล่าง: งบคงเหลือของหมวด · ไฟล์ที่แนบ · ข้อผิดพลาดของแถว */}
+                  {(left !== undefined || it.files.length > 0 || err.any) && (
+                    <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 px-1 text-xs">
+                      {left !== undefined && (
+                        <span className={over ? "font-semibold text-[#BE123C]" : "text-[#64748B]"}>
+                          {over
+                            ? `เกินงบหมวดนี้ ฿${money(asked - left)} (เหลือ ฿${money(left)})`
+                            : `งบหมวดนี้เหลือ ฿${money(left - asked)} หลังรายการนี้`}
+                        </span>
+                      )}
+                      {it.files.map((name, f) => (
+                        <span
+                          key={f}
+                          className="flex items-center gap-1 rounded-lg bg-[#F1F5F9] py-0.5 pl-2 pr-1 text-[#334155]"
+                        >
+                          <FileText size={12} className="text-[#64748B]" aria-hidden="true" />
+                          {name}
+                          <button
+                            type="button"
+                            onClick={() => removeFile(i, f)}
+                            aria-label={`ลบไฟล์ ${name}`}
+                            className="rounded px-1 text-[#94A3B8] hover:text-[#DC2626]"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                      {err.any && (
+                        <span className="font-semibold text-[#BE123C]">
+                          {[
+                            err.category && "เลือกหมวด",
+                            err.name && "กรอกรายละเอียด",
+                            err.amount && "กรอกจำนวนเงิน",
+                            err.files && `แนบ${fileLabel}`,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
 
           <button
+            type="button"
             onClick={addItem}
-            className="flex w-full items-center justify-center gap-1 rounded-xl border border-dashed border-[#059669] py-2.5 text-sm font-semibold text-[#047857] hover:bg-[#ECFDF5]"
+            className="mt-3 flex w-full items-center justify-center gap-1 rounded-xl border border-dashed border-[#059669] py-2.5 text-sm font-semibold text-[#047857] hover:bg-[#ECFDF5]"
           >
-            <Plus size={16} /> เพิ่มรายการ
+            <Plus size={16} aria-hidden="true" /> เพิ่มรายการ
           </button>
 
           {/* ---------- [6.5] ยอดรวม + สถานะหลักฐาน ---------- */}
-          <div className="mt-3 flex items-center justify-between rounded-xl bg-[#ECFDF5] px-4 py-3.5">
+          <div className="mt-4 flex items-center justify-between border-t border-[#E2E8F0] px-1 pt-4">
             <span
-              className={`text-sm ${rowsWithFile < items.length ? "text-[#BE123C]" : "text-[#047857]"}`}
+              className={`text-sm ${rowsWithFile < items.length ? "text-[#B45309]" : "text-[#047857]"}`}
             >
               แนบ{fileLabel}แล้ว{" "}
-              <b>
-                {rowsWithFile}/{items.length}
+              <b className="money">
+                {rowsWithFile} จาก {items.length}
               </b>{" "}
               รายการ
             </span>
-            <span className="text-[#047857]">
-              <span className="mr-2 text-sm">ยอดรวม</span>
-              <b className="text-2xl">฿{money(total)}</b>
+            <span className="flex items-baseline gap-3">
+              <span className="text-sm text-[#64748B]">ยอดรวม</span>
+              <b className="money text-2xl text-[#0F172A]">฿{money(total)}</b>
             </span>
           </div>
         </section>
 
         {/* ===== คอลัมน์ขวา: สรุป ===== */}
-        <section className="col-span-1 flex flex-col gap-5">
-          {/* ---------- [6.6] การ์ดสรุป ---------- */}
-          {/* ตัวเลข total / fileCount / projectRemaining คิดไว้ที่ [5.2] */}
+        <section className="flex min-w-0 flex-col gap-5 xl:col-span-1">
+          {/* ---------- [6.6] การ์ดสรุป: ยอดขอ + ผลต่องบโครงการ ---------- */}
           <div className="rounded-xl bg-gradient-to-br from-[#0F172A] via-[#0F172A] to-[#047857] p-6 text-white shadow-2xl">
-            <p className="flex items-center gap-2 text-sm text-gray-300">
-              <Wallet2 size={18} className="text-[#34D399]" /> ยอดรวมที่ขอเบิก
+            <p className="flex items-center gap-2 text-sm text-[#CBD5E1]">
+              <Wallet2 size={18} className="shrink-0 text-[#34D399]" aria-hidden="true" />
+              ยอดที่ขอเบิก
             </p>
-            <p className="my-1 text-4xl font-bold">฿{money(total)}</p>
+            <p className="money my-1 text-[clamp(1.75rem,2.6vw,2.25rem)] font-bold leading-tight">฿{money(total)}</p>
             <p className="text-sm text-[#A7F3D0]">
-              {items.length} รายการ · {fileLabel} {fileCount} ไฟล์
+              {items.length} รายการ, {fileLabel} {fileCount} ไฟล์
             </p>
-            <hr className="my-4 border-white/15" />
-            <div className="flex items-center justify-between text-sm text-gray-300">
-              <span className="flex items-center gap-2">
-                <Calendar size={16} className="text-[#34D399]" />{" "}
+
+            <div className="mt-5 border-t border-white/15 pt-4">
+              <p className="flex items-center gap-2 text-sm text-[#CBD5E1]">
+                <Calendar size={16} className="shrink-0 text-[#34D399]" aria-hidden="true" />
                 งบโครงการหลังอนุมัติ
-              </span>
+              </p>
               {project ? (
-                <b className="text-lg text-white">
-                  ฿{money(projectRemaining - total)}
-                </b>
+                <>
+                  <p
+                    className={`money mt-1 text-xl font-bold ${projectRemaining - total < 0 ? "text-[#FDA4AF]" : "text-white"}`}
+                  >
+                    ฿{money(projectRemaining - total)}
+                  </p>
+                  {/* แถบ: ส่วนที่คำขอนี้จะใช้จากงบคงเหลือของโครงการ */}
+                  <div
+                    className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/15"
+                    role="img"
+                    aria-label={`คำขอนี้ใช้ ${projectRemaining > 0 ? Math.min(100, Math.round((total / projectRemaining) * 100)) : 0}% ของงบโครงการที่เหลือ`}
+                  >
+                    <div
+                      className={`h-full rounded-full ${projectRemaining - total < 0 ? "bg-[#FB7185]" : "bg-[#34D399]"}`}
+                      style={{
+                        width: `${projectRemaining > 0 ? Math.min(100, (total / projectRemaining) * 100) : 0}%`,
+                      }}
+                    />
+                  </div>
+                  <p className="mt-1.5 text-xs text-[#CBD5E1]">
+                    จากที่เหลืออยู่ <span className="money">฿{money(projectRemaining)}</span>
+                  </p>
+                </>
               ) : (
-                <span className="text-xs text-gray-400">เลือกโครงการเพื่อดูงบ</span>
+                <p className="mt-1 text-xs text-[#94A3B8]">เลือกโครงการเพื่อดูงบ</p>
               )}
             </div>
-            <p className="mt-2 rounded-lg bg-white/10 px-3 py-2 text-xs text-[#D1FAE5]">
-              {isAdvance
-                ? "ได้รับเงินคืนเมื่อการเงินทำจ่าย"
-                : "การเงินโอนให้ผู้ขายตามใบแจ้งหนี้"}
+
+            <p className="mt-4 rounded-lg bg-white/10 px-3 py-2 text-xs text-[#D1FAE5]">
+              {isAdvance ? "ได้รับเงินคืนเมื่อการเงินทำจ่าย" : "การเงินโอนให้ผู้ขายตามใบแจ้งหนี้"}
             </p>
           </div>
 
           {/* ---------- [6.7] เส้นทางอนุมัติ (เปลี่ยนตามยอดเงิน) ---------- */}
           <div className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl">
-            <h2 className="mb-4 text-lg font-bold">เส้นทางการอนุมัติ</h2>
-            <Step
-              avatar={
-                <span className="text-xs font-bold text-[#0F172A]">คุณ</span>
-              }
-              color="bg-[#34D399]"
-              text={user ? user.fullName : "คุณ (ผู้ขอ)"}
-              sub="ส่งคำขอ"
-            />
-            {steps.map((role, i) => (
+            <h2 className="mb-1 text-lg font-bold">เส้นทางการอนุมัติ</h2>
+            <p className="mb-4 text-xs text-[#64748B]">เปลี่ยนตามยอดรวมที่ขอ</p>
+            <ol>
               <Step
-                key={role}
-                avatar={<User2 size={18} className={(STEP_STYLE[role] ?? CUSTOM_STEP_STYLE).icon} />}
-                color={(STEP_STYLE[role] ?? CUSTOM_STEP_STYLE).bg}
-                text={getRoleLabel(role, positions)}
-                sub={STEP_SUB[role] ?? "อนุมัติ"}
-                warning={
-                  missingSteps.includes(role)
-                    ? "ยังไม่มีผู้อนุมัติ"
-                    : resubmit && sameRoute && i === resubmit.stepIndex
-                      ? "ตีกลับ — จะส่งกลับมาที่ขั้นนี้"
-                      : undefined
-                }
-                last={i === steps.length - 1}
+                marker={<User2 size={16} aria-hidden="true" />}
+                tone="self"
+                text={user ? user.fullName : "คุณ (ผู้ขอ)"}
+                sub="ส่งคำขอ"
               />
-            ))}
+              {steps.map((role, i) => {
+                const acting = plan[i]?.actingRole;
+                const missing = missingSteps.includes(role);
+                const backHere = !!resubmit && sameRoute && i === resubmit.stepIndex;
+                return (
+                  <Step
+                    key={role}
+                    marker={i + 1}
+                    tone={missing ? "missing" : backHere ? "back" : "next"}
+                    text={
+                      acting
+                        ? `${getRoleLabel(acting, positions)} (แทน${getRoleLabel(role, positions)})`
+                        : getRoleLabel(role, positions)
+                    }
+                    sub={STEP_SUB[role] ?? "อนุมัติ"}
+                    warning={
+                      missing
+                        ? "ยังไม่มีผู้อนุมัติในแผนก/ฝ่ายของคุณ"
+                        : backHere
+                          ? "ส่งใหม่แล้วจะกลับมาที่ขั้นนี้"
+                          : undefined
+                    }
+                    last={i === steps.length - 1}
+                  />
+                );
+              })}
+            </ol>
             {total > 0 && steps[0] === "ACCOUNTANT_ADMIN" && (
               <p className="mt-1 rounded-lg bg-[#ECFDF5] px-3 py-2 text-xs text-[#047857]">
                 ยอดไม่เกิน ฿{money(rules[0].max ?? 0)} ไม่ต้องผ่านหัวหน้า
@@ -870,51 +997,64 @@ export default function NewRequest() {
             {/* สำรองจ่าย = โอนคืนเข้าบัญชีผู้ขอ · ใบแจ้งหนี้ = โอนให้ผู้ขาย */}
             {isAdvance ? (
               <>
-                <Label text="โอนเงินคืนเข้าบัญชี" />
-                <div className="mb-4 flex items-center gap-3 rounded-xl border border-gray-200 p-3">
-                  <div className="h-9 w-9 rounded-full bg-[#D1FAE5]" />
-                  <div className="flex-1">
-                    <p className="text-sm font-bold">{bankLabel}</p>
-                    <p className="text-xs text-[#64748B]">
-                      {user ? user.fullName : "-"}
-                    </p>
-                  </div>
+                <p className="mb-1.5 text-sm font-semibold">โอนเงินคืนเข้าบัญชี</p>
+                <div className="mb-5 rounded-xl border border-[#E2E8F0] p-3">
+                  <p className={`text-sm font-semibold ${user?.bankAccount ? "" : "text-[#B45309]"}`}>
+                    {bankLabel}
+                  </p>
+                  <p className="text-xs text-[#64748B]">{user ? user.fullName : "-"}</p>
                 </div>
               </>
             ) : (
               <>
-                <Label text="การจ่ายเงิน" />
-                <p className="mb-4 rounded-xl border border-gray-200 p-3 text-sm text-[#64748B]">
+                <p className="mb-1.5 text-sm font-semibold">การจ่ายเงิน</p>
+                <p className="mb-5 rounded-xl border border-[#E2E8F0] p-3 text-sm text-[#64748B]">
                   การเงินจะโอนให้ผู้ขายตามใบแจ้งหนี้ที่แนบ
                 </p>
               </>
             )}
 
-            {errors.length > 0 && (
-              <ul className="mb-3 list-disc rounded-xl bg-red-50 py-2 pl-8 pr-3 text-sm text-red-700">
-                {errors.map((e) => (
-                  <li key={e}>{e}</li>
-                ))}
-              </ul>
-            )}
-            {message && (
-              <p className="mb-3 rounded-xl bg-[#ECFDF5] p-3 text-sm text-[#047857]">
-                {message}
-              </p>
-            )}
+            {/* ข้อผิดพลาดรวม: บอกจำนวน + สิ่งที่ต้องแก้ (รายช่องขึ้นใต้ช่องแล้ว) */}
+            <div aria-live="polite">
+              {errors.length > 0 && (
+                <div role="alert" className="mb-3 rounded-xl border border-[#FECDD3] bg-[#FFF1F2] p-3 text-sm text-[#9F1239]">
+                  <p className="font-semibold">ยังส่งไม่ได้ ต้องแก้ {errors.length} จุด</p>
+                  <ul className="mt-1.5 list-disc space-y-0.5 pl-5 text-xs">
+                    {errors.map((e) => (
+                      <li key={e}>{e}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {message && (
+                <div className="mb-3 rounded-xl border border-[#A7F3D0] bg-[#ECFDF5] p-3 text-sm text-[#047857]">
+                  <p>{message}</p>
+                  {sentId && (
+                    <Link
+                      href={`/my-request/detail?id=${encodeURIComponent(sentId)}`}
+                      className="mt-1 inline-block font-semibold underline underline-offset-2"
+                    >
+                      ดูคำขอ {sentId}
+                    </Link>
+                  )}
+                </div>
+              )}
+            </div>
 
             <button
+              type="button"
               onClick={submit}
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#059669] py-3 font-bold text-white hover:bg-[#047857]"
             >
-              <Send1 size={18} />{" "}
+              <Send1 size={18} aria-hidden="true" />
               {resubmit ? "แก้ไขแล้วส่งใหม่" : "ส่งคำขอ"}
             </button>
             {/* คำขอที่ถูกตีกลับ แปลงกลับเป็นร่างไม่ได้ (จะหลุดจากสถานะตีกลับ) จึงซ่อนปุ่มนี้ */}
             {!resubmit && (
               <button
+                type="button"
                 onClick={saveDraft}
-                className="mt-2 w-full rounded-xl bg-gray-100 py-3 font-semibold text-gray-600 hover:bg-gray-200"
+                className="mt-2 w-full rounded-xl border border-[#E2E8F0] bg-white py-3 font-semibold text-[#475569] hover:bg-[#F8FAFC]"
               >
                 บันทึกร่าง
               </button>
@@ -930,21 +1070,13 @@ export default function NewRequest() {
 //  [7] ชิ้นส่วนที่ใช้ซ้ำ
 // ════════════════════════════════════════
 
-// fieldClass = หน้าตาช่องกรอก · inputClass = แบบเต็มความกว้าง
-const fieldClass =
-  "rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm outline-none focus:border-[#059669] focus:bg-white focus:ring-0";
-const inputClass = "w-full " + fieldClass;
+// หน้าตาช่องกรอก · ผิด = ขอบแดง
+function fieldClassFor(invalid: boolean) {
+  return `rounded-xl border bg-white px-4 py-2.5 text-sm outline-none focus:border-[#059669] focus:ring-2 focus:ring-[#059669]/15 disabled:cursor-not-allowed disabled:bg-[#F8FAFC] disabled:text-[#94A3B8] ${
+    invalid ? "border-[#FDA4AF]" : "border-[#E2E8F0]"
+  }`;
+}
 
-// สีและคำอธิบายของแต่ละขั้นในเส้นทางอนุมัติ
-// ※ ตำแหน่งที่ฝ่ายบัญชีเพิ่มเองไม่มีในตารางนี้ → ใช้ CUSTOM_STEP_STYLE / "อนุมัติ"
-const STEP_STYLE: Record<StepRole, { bg: string; icon: string }> = {
-  HEAD: { bg: "bg-[#D1FAE5]", icon: "text-[#047857]" },
-  DIRECTOR: { bg: "bg-[#FEF3C7]", icon: "text-[#B45309]" },
-  MANAGING_DIRECTOR: { bg: "bg-[#FCE7F3]", icon: "text-[#BE185D]" },
-  ACCOUNTANT_ADMIN: { bg: "bg-[#E0E7FF]", icon: "text-[#3730A3]" },
-  FINANCE: { bg: "bg-[#DBEAFE]", icon: "text-[#1D4ED8]" },
-};
-const CUSTOM_STEP_STYLE = { bg: "bg-[#F1F5F9]", icon: "text-[#475569]" };
 const STEP_SUB: Record<StepRole, string> = {
   HEAD: "อนุมัติ",
   DIRECTOR: "อนุมัติ",
@@ -953,9 +1085,24 @@ const STEP_SUB: Record<StepRole, string> = {
   FINANCE: "ทำจ่าย",
 };
 
-// [7.1] หัวข้อช่องกรอก
-function Label({ text }: { text: string }) {
-  return <p className="mb-1.5 mt-3 text-sm font-semibold">{text}</p>;
+// [7.1] หัวข้อช่องกรอก (ผูกกับช่องด้วย htmlFor → คลิกหัวข้อแล้วโฟกัสช่อง / โปรแกรมอ่านจออ่านถูก)
+function Label({ htmlFor, text, optional }: { htmlFor: string; text: string; optional?: boolean }) {
+  return (
+    <label htmlFor={htmlFor} className="mb-1.5 mt-4 block text-sm font-semibold">
+      {text}
+      {optional && <span className="ml-1.5 font-normal text-[#94A3B8]">ไม่บังคับ</span>}
+    </label>
+  );
+}
+
+// [7.1b] ข้อความผิดใต้ช่อง
+function FieldError({ id, text }: { id?: string; text: string }) {
+  if (!text) return null;
+  return (
+    <p id={id} className="mt-1.5 text-xs font-semibold text-[#BE123C]">
+      {text}
+    </p>
+  );
 }
 
 // [7.2] ปุ่มเลือกประเภทคำขอ
@@ -972,45 +1119,62 @@ function TypeButton({
 }) {
   return (
     <button
+      type="button"
+      aria-pressed={active}
       onClick={onClick}
-      className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-sm font-semibold ${active ? "border-2 border-[#059669] bg-white text-[#047857]" : "text-[#64748B]"}`}
+      className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold ${
+        active
+          ? "bg-white text-[#047857] shadow-sm ring-1 ring-[#A7F3D0]"
+          : "text-[#64748B] hover:text-[#0F172A]"
+      }`}
     >
-      {icon} {text}
+      <span aria-hidden="true">{icon}</span>
+      {text}
     </button>
   );
 }
 
-// [7.3] 1 ขั้นในเส้นทางอนุมัติ
+// [7.3] 1 ขั้นในเส้นทางอนุมัติ (ลำดับจริง → ใช้ <li> ใน <ol>)
+const STEP_TONE = {
+  self: "bg-[#059669] text-white",
+  next: "border border-[#CBD5E1] bg-white text-[#475569]",
+  missing: "border border-dashed border-[#FDA4AF] bg-[#FFF1F2] text-[#BE123C]",
+  back: "border border-[#FDE68A] bg-[#FFFBEB] text-[#B45309]",
+};
 function Step({
-  avatar,
-  color,
+  marker,
+  tone,
   text,
   sub,
   warning,
   last,
 }: {
-  avatar: React.ReactNode;
-  color: string;
+  marker: React.ReactNode;
+  tone: keyof typeof STEP_TONE;
   text: string;
   sub: string;
-  warning?: string; // ข้อความตัวแดงใต้ชื่อขั้น (ขั้นที่ยังไม่มีผู้อนุมัติ / ขั้นที่ตีกลับ)
+  warning?: string; // ขั้นที่ยังไม่มีผู้อนุมัติ / ขั้นที่ตีกลับ
   last?: boolean;
 }) {
   return (
-    <div className="flex gap-3">
+    <li className="flex gap-3">
       <div className="flex flex-col items-center">
-        <div
-          className={`flex h-9 w-9 items-center justify-center rounded-full ${color}`}
+        <span
+          className={`money flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${STEP_TONE[tone]}`}
         >
-          {avatar}
-        </div>
-        {!last && <div className="my-1 w-0.5 flex-1 bg-gray-300" />}
+          {marker}
+        </span>
+        {!last && <span className="my-1 w-px flex-1 bg-[#E2E8F0]" aria-hidden="true" />}
       </div>
-      <div className="pb-4">
-        <p className="text-sm font-bold">{text}</p>
+      <div className="min-w-0 pb-4">
+        <p className="text-sm font-semibold">{text}</p>
         <p className="text-xs text-[#64748B]">{sub}</p>
-        {warning && <p className="text-xs font-semibold text-red-600">{warning}</p>}
+        {warning && (
+          <p className={`mt-0.5 text-xs font-semibold ${tone === "back" ? "text-[#B45309]" : "text-[#BE123C]"}`}>
+            {warning}
+          </p>
+        )}
       </div>
-    </div>
+    </li>
   );
 }

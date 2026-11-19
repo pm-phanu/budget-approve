@@ -262,7 +262,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               {/* เส้นคั่น: แยกปุ่มเมนูออกจาก breadcrumb ให้ชัด */}
               <span className="h-6 w-px bg-[#CBD5E1]" aria-hidden="true" />
 
-              <nav aria-label="breadcrumb" className="flex items-center gap-2 text-lg">
+              <nav aria-label="breadcrumb" className="flex min-w-0 items-center gap-2 whitespace-nowrap text-lg">
                 <Link
                   href={homePath}
                   className={
@@ -314,7 +314,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 </Button>
               </div>
               <div className="shadow-2xl">
-                <Button variant={"success"} onPress={() => router.push("/request")}>
+                <Button variant={"success"} className="whitespace-nowrap" onPress={() => router.push("/request")}>
                   <Plus />
                   สร้างคำขอ
                 </Button>
