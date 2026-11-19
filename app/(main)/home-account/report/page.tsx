@@ -276,7 +276,7 @@ export default function Report() {
           <div className="h-1.5 rounded-full bg-white/15">
             <div
               className="h-1.5 rounded-full bg-[#34D399]"
-              style={{ width: `${100 - usedPercent}%` }} // ความยาวหลอด = % งบที่เหลือ
+              style={{ width: `${boardTotal > 0 ? 100 - usedPercent : 0}%` }} // ความยาวหลอด = % งบที่เหลือ · ยังไม่ตั้งงบ = หลอดว่าง
             />
           </div>
         </div>
