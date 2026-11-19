@@ -73,7 +73,7 @@ const reportItems: MenuItem[] = [
 ]
 
 const budgetItems: MenuItem[] = [
-  { title: "ตั้งงบประมาณ", url: "#", icon: Plus, roles: ["ACCOUNTANT_ADMIN"], group: "budget" },
+  { title: "ตั้งงบประมาณ", url: "/home-account/budget", icon: Plus, roles: ["ACCOUNTANT_ADMIN"], group: "budget" },
 ]
 
 // role นี้เห็น / เข้าเมนูนี้ได้ไหม (ใช้ทั้งใน sidebar และ route guard)

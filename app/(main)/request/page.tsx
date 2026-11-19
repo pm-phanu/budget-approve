@@ -460,7 +460,7 @@ export default function NewRequest() {
                 onChange={(e) => changeProject(e.target.value)}
               >
                 <option value="">-- เลือกโครงการ --</option>
-                {projects.map((p) => (
+                {budget.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.dept} › {p.name}
                   </option>

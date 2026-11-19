@@ -6,6 +6,7 @@
 //  → อย่าแก้ used ตอนอนุมัติคำขอ ให้คำนวณผ่าน addRequestsToBudget()
 // ════════════════════════════════════════════════════════════
 
+import type { Organization } from "./organization";
 import type { SavedRequest } from "./request";
 
 export type Category = {
@@ -180,4 +181,109 @@ export function getDepartmentBudget(
   const limit = list.reduce((sum, p) => sum + projectLimit(p), 0);
   const used = list.reduce((sum, p) => sum + projectUsed(p), 0);
   return { limit, used, remaining: Math.max(0, limit - used), projects: list };
+}
+
+// ════════════════════════════════════════════════════════════
+//  การแบ่งงบจากบอร์ด (localStorage "budgetAllocations" · 1 รายการต่อปี)
+//  งบบอร์ด → สายงาน → ฝ่าย → แผนก → โครงการ/หมวด (Project ด้านบน)
+//  ชั้นล่างรวมกันต้องไม่เกินชั้นบน (validateAllocation) · ไม่ผ่าน = ห้ามบันทึก
+// ════════════════════════════════════════════════════════════
+export type BudgetAllocation = {
+  year: number; // ปีงบประมาณ (ค.ศ.)
+  boardTotal: number; // งบรวมที่บอร์ดอนุมัติ
+  lines: Record<string, number>; // lineOfWorkId → วงเงิน
+  divisions: Record<string, number>; // divisionId → วงเงิน
+  departments: Record<string, number>; // departmentId → วงเงิน
+};
+
+export const ALLOCATIONS_KEY = "budgetAllocations";
+
+export function loadAllocations(): BudgetAllocation[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const stored = localStorage.getItem(ALLOCATIONS_KEY);
+    return stored ? (JSON.parse(stored) as BudgetAllocation[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveAllocations(list: BudgetAllocation[]) {
+  localStorage.setItem(ALLOCATIONS_KEY, JSON.stringify(list));
+}
+
+// ผลรวมวงเงินโครงการของแผนกในปีนั้น
+export function departmentProjectTotal(list: Project[], departmentId: string, year: number) {
+  return list
+    .filter((p) => p.departmentId === departmentId && p.year === year)
+    .reduce((sum, p) => sum + projectLimit(p), 0);
+}
+
+// ปีที่ยังไม่เคยแบ่งงบ → ตั้งต้นจากวงเงินโครงการที่มีอยู่ แล้วรวมขึ้นไปทีละชั้น
+export function allocationFromProjects(
+  year: number,
+  list: Project[],
+  org: Organization,
+): BudgetAllocation {
+  const departments: Record<string, number> = {};
+  for (const d of org.departments) departments[d.id] = departmentProjectTotal(list, d.id, year);
+
+  const divisions: Record<string, number> = {};
+  for (const v of org.divisions) {
+    divisions[v.id] = org.departments
+      .filter((d) => d.divisionId === v.id)
+      .reduce((sum, d) => sum + departments[d.id], 0);
+  }
+
+  const lines: Record<string, number> = {};
+  for (const l of org.linesOfWork) {
+    lines[l.id] = org.divisions
+      .filter((v) => v.lineOfWorkId === l.id)
+      .reduce((sum, v) => sum + divisions[v.id], 0);
+  }
+
+  const boardTotal = Object.values(lines).reduce((sum, n) => sum + n, 0);
+  return { year, boardTotal, lines, divisions, departments };
+}
+
+// ตรวจว่าแต่ละชั้นแบ่งไม่เกินชั้นบน · คืนรายการข้อผิดพลาด (ว่าง = ผ่าน)
+export function validateAllocation(
+  a: BudgetAllocation,
+  org: Organization,
+  list: Project[],
+): string[] {
+  const errs: string[] = [];
+  const money = (n: number) => n.toLocaleString("en-US");
+  const val = (rec: Record<string, number>, id: string) => rec[id] ?? 0;
+
+  const all = [a.boardTotal, ...Object.values(a.lines), ...Object.values(a.divisions), ...Object.values(a.departments)];
+  if (all.some((n) => !Number.isInteger(n) || n < 0)) errs.push("วงเงินทุกช่องต้องเป็นจำนวนเต็มตั้งแต่ 0");
+
+  const linesSum = org.linesOfWork.reduce((s, l) => s + val(a.lines, l.id), 0);
+  if (linesSum > a.boardTotal)
+    errs.push(`แบ่งให้สายงานรวม ${money(linesSum)} เกินงบบอร์ด ${money(a.boardTotal)}`);
+
+  for (const l of org.linesOfWork) {
+    const sum = org.divisions
+      .filter((v) => v.lineOfWorkId === l.id)
+      .reduce((s, v) => s + val(a.divisions, v.id), 0);
+    if (sum > val(a.lines, l.id))
+      errs.push(`${l.name}: แบ่งให้ฝ่ายรวม ${money(sum)} เกินงบสายงาน ${money(val(a.lines, l.id))}`);
+  }
+
+  for (const v of org.divisions) {
+    const sum = org.departments
+      .filter((d) => d.divisionId === v.id)
+      .reduce((s, d) => s + val(a.departments, d.id), 0);
+    if (sum > val(a.divisions, v.id))
+      errs.push(`${v.name}: แบ่งให้แผนกรวม ${money(sum)} เกินงบฝ่าย ${money(val(a.divisions, v.id))}`);
+  }
+
+  for (const d of org.departments) {
+    const sum = departmentProjectTotal(list, d.id, a.year);
+    if (sum > val(a.departments, d.id))
+      errs.push(`${d.name}: วงเงินโครงการรวม ${money(sum)} เกินงบแผนก ${money(val(a.departments, d.id))}`);
+  }
+
+  return errs;
 }
