@@ -291,9 +291,9 @@ export default function DH() {
                 </span>
               </div>
               <div>
-                <button className="text-green-700 font-bold flex text-xs items-center gap-1">
-                  ดูทั้งหมด <ArrowRight size={15} />
-                </button>
+                <Link href="/all-request" className="flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:underline">
+                  ดูทั้งหมด →
+                </Link>
               </div>
             </div>
 
