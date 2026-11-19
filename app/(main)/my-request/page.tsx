@@ -5,7 +5,7 @@ import Link from "next/link";
 import { REQUESTS_KEY, loadRequests, type SavedRequest } from "@/data/request";
 import type { Credential } from "@/data/credential";
 import { getCurrentUser } from "@/utils/login";
-import { ArrowRight, Bell1, Plus, Search1 } from "@tailgrids/icons";
+import { ArrowRight, InfoCircle, Plus, Search1 } from "@tailgrids/icons";
 
 /* ------------------------------------------------------------------
    ตั้งค่า
@@ -64,20 +64,14 @@ function groupOf(r: ExpenseRequest): Group {
   return "progress";
 }
 
-// ป้ายสถานะ (ตามขั้นที่กำลังรออยู่)
+// ป้ายสถานะ: class ร่วมใน globals.css (status-*) · ข้อความเหมือนหน้าอื่น
 function badgeOf(r: ExpenseRequest) {
   const g = groupOf(r);
-  if (g === "rejected")
-    return { text: "ถูกตีกลับ", cls: "bg-rose-100 text-rose-600" };
-  if (g === "done")
-    return { text: "จ่ายเงินแล้ว", cls: "bg-emerald-100 text-emerald-700" };
-
-  const role = r.approvalSteps[r.currentStep]?.role;
-  if (role === "ACCOUNTANT_ADMIN")
-    return { text: "รอบัญชีตรวจ", cls: "bg-blue-100 text-blue-700" };
-  if (role === "FINANCE")
-    return { text: "รอการเงิน", cls: "bg-indigo-100 text-indigo-700" };
-  return { text: "รออนุมัติ", cls: "bg-amber-100 text-amber-700" };
+  if (g === "rejected") return { text: "ถูกตีกลับ", cls: "status-rejected" };
+  if (r.status === "จ่ายแล้ว") return { text: "จ่ายแล้ว", cls: "status-paid" };
+  if (g === "done") return { text: "อนุมัติแล้ว", cls: "status-approved" };
+  const step = r.approvalSteps[r.currentStep];
+  return { text: step ? `รอ${step.label}` : "กำลังดำเนินการ", cls: "status-pending" };
 }
 
 // สถานะของแต่ละขั้นใน stepper
@@ -127,14 +121,14 @@ function Stepper({ r }: { r: ExpenseRequest }) {
               {i > 0 && (
                 <span
                   className={`absolute left-0 right-1/2 top-1/2 h-0.5 -translate-y-1/2 ${
-                    leftGreen ? "bg-emerald-600" : "bg-gray-200"
+                    leftGreen ? "bg-[#059669]" : "bg-[#E2E8F0]"
                   }`}
                 />
               )}
               {i < n - 1 && (
                 <span
                   className={`absolute left-1/2 right-0 top-1/2 h-0.5 -translate-y-1/2 ${
-                    rightGreen ? "bg-emerald-600" : "bg-gray-200"
+                    rightGreen ? "bg-[#059669]" : "bg-[#E2E8F0]"
                   }`}
                 />
               )}
@@ -142,12 +136,12 @@ function Stepper({ r }: { r: ExpenseRequest }) {
               <span
                 className={`relative z-10 flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold ${
                   node.state === "done"
-                    ? "bg-emerald-600 text-white"
+                    ? "bg-[#059669] text-white"
                     : node.state === "rejected"
-                      ? "border-2 border-red-500 bg-white text-red-500"
+                      ? "bg-[#BE123C] text-white"
                       : node.state === "current"
-                        ? "border-2 border-dashed border-emerald-500 bg-white"
-                        : "border-2 border-gray-300 bg-white"
+                        ? "border-2 border-[#059669] bg-[#ECFDF5]"
+                        : "border border-[#CBD5E1] bg-white"
                 }`}
               >
                 {node.state === "done" && "✓"}
@@ -157,10 +151,10 @@ function Stepper({ r }: { r: ExpenseRequest }) {
             <span
               className={`mt-1 text-center text-xs ${
                 node.state === "current"
-                  ? "font-bold text-slate-800"
+                  ? "font-semibold text-[#047857]"
                   : node.state === "rejected"
-                    ? "font-bold text-red-600"
-                    : "text-gray-400"
+                    ? "font-semibold text-[#BE123C]"
+                    : "text-[#64748B]"
               }`}
             >
               {node.label}
@@ -234,129 +228,152 @@ export default function MyRequest() {
   const tabs: { key: Filter; label: string }[] = [
     { key: "all", label: "ทั้งหมด" },
     { key: "progress", label: "กำลังดำเนินการ" },
-    { key: "done", label: "จ่ายเงินแล้ว" },
+    { key: "done", label: "อนุมัติ/จ่ายแล้ว" },
     { key: "rejected", label: "ถูกตีกลับ" },
   ];
 
   return (
-    <div className="text-slate-800">
-      <div>
-        {/* ===== หัวหน้า ===== */}
-        <header className="mb-9 flex flex-wrap items-center justify-between gap-4">
-          <h1 className="text-[32px] font-bold text-[#111]">คำขอของฉัน</h1>
-        </header>
+    <div className="text-[#0F172A]">
+      <header className="mb-9 flex flex-wrap items-center justify-between gap-4">
+        <h1 className="text-[32px] font-bold">คำขอของฉัน</h1>
+        <Link
+          href={NEW_REQUEST_PATH}
+          className="flex items-center gap-1.5 rounded-xl bg-[#059669] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#047857]"
+        >
+          <Plus size={16} aria-hidden="true" /> สร้างคำขอ
+        </Link>
+      </header>
 
-        {/* ===== การ์ดสรุป 4 ใบ ===== */}
-        <div className="grid grid-cols-2 gap-5 lg:grid-cols-4">
-          {[
-            { label: "ทั้งหมด", value: counts.all, color: "text-slate-900" },
-            { label: "กำลังดำเนินการ", value: counts.progress, color: "text-orange-500" },
-            { label: "จ่ายเงินแล้ว", value: counts.done, color: "text-emerald-600" },
-            { label: "ถูกตีกลับ", value: counts.rejected, color: "text-red-700" },
-          ].map((c) => (
-            <div
-              key={c.label}
-              className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl"
+      {/* การ์ดสรุป = ตัวกรอง (กดแล้วกรองรายการด้านล่าง · การ์ดที่เลือกมีขอบเขียว) */}
+      <div className="grid grid-cols-2 gap-5 lg:grid-cols-4" role="group" aria-label="กรองตามสถานะ">
+        {tabs.map((t) => {
+          const active = filter === t.key;
+          const tone =
+            t.key === "progress"
+              ? "text-[#B45309]"
+              : t.key === "done"
+                ? "text-[#047857]"
+                : t.key === "rejected"
+                  ? "text-[#BE123C]"
+                  : "text-[#0F172A]";
+          return (
+            <button
+              key={t.key}
+              type="button"
+              aria-pressed={active}
+              onClick={() => setFilter(t.key)}
+              className={`rounded-xl border bg-white p-6 text-left shadow-2xl ${
+                active ? "border-[#059669] ring-1 ring-[#059669]" : "border-[#E2E8F0] hover:border-[#A7F3D0]"
+              }`}
             >
-              <div className="text-sm text-gray-500">{c.label}</div>
-              <div className={`mt-1 text-3xl font-bold ${c.color}`}>
-                {c.value}
-              </div>
-            </div>
-          ))}
+              <span className="block text-sm text-[#64748B]">{t.label}</span>
+              <span className={`money mt-1 block text-3xl font-bold ${tone}`}>{counts[t.key]}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* รายการคำขอ */}
+      <section
+        aria-labelledby="list-title"
+        className="mt-9 rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl"
+      >
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
+          <h2 id="list-title" className="text-lg font-bold">
+            {tabs.find((t) => t.key === filter)?.label}{" "}
+            <span className="text-sm font-normal text-[#64748B]">{shown.length} รายการ</span>
+          </h2>
+          <label className="flex w-full items-center gap-2 rounded-xl border border-[#E2E8F0] px-3 py-2 focus-within:border-[#059669] sm:w-72">
+            <Search1 size={18} className="shrink-0 text-[#94A3B8]" aria-hidden="true" />
+            <span className="sr-only">ค้นหาคำขอ</span>
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="ค้นหาชื่อคำขอหรือเลขที่"
+              className="w-full border-0 bg-transparent p-0 text-sm outline-none focus:ring-0"
+            />
+          </label>
         </div>
 
-        {/* ===== รายการคำขอ ===== */}
-        <section className="mt-9 rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl">
-          {/* แท็บกรอง */}
-          <div className="mb-2 flex flex-wrap gap-2">
-            {tabs.map((t) => (
-              <button
-                key={t.key}
-                type="button"
-                onClick={() => setFilter(t.key)}
-                className={`rounded-full px-4 py-1.5 text-sm font-semibold transition ${
-                  filter === t.key
-                    ? "bg-slate-900 text-white"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                }`}
-              >
-                {t.label}
-              </button>
-            ))}
+        {shown.length === 0 ? (
+          <div className="flex h-56 flex-col items-center justify-center gap-3 text-center text-sm text-[#64748B]">
+            {!me ? (
+              "กรุณาเข้าสู่ระบบ"
+            ) : q ? (
+              <>
+                <p>ไม่พบคำขอที่ตรงกับ “{query.trim()}”</p>
+                <button type="button" onClick={() => setQuery("")} className="font-semibold text-[#047857] hover:underline">
+                  ล้างคำค้นหา
+                </button>
+              </>
+            ) : mine.length === 0 ? (
+              <>
+                <p>ยังไม่มีคำขอเบิก</p>
+                <Link href={NEW_REQUEST_PATH} className="font-semibold text-[#047857] hover:underline">
+                  สร้างคำขอแรก
+                </Link>
+              </>
+            ) : (
+              "ไม่มีคำขอในสถานะนี้"
+            )}
           </div>
-
-          {shown.length === 0 ? (
-            <div className="flex h-56 items-center justify-center text-sm text-gray-400">
-              {me ? "ไม่มีคำขอ" : "กรุณาเข้าสู่ระบบ"}
-            </div>
-          ) : (
-            shown.map((r, i) => {
+        ) : (
+          <ul className="divide-y divide-[#E2E8F0]">
+            {shown.map((r) => {
               const badge = badgeOf(r);
               const rejected = groupOf(r) === "rejected";
+              const detail = `${DETAIL_PATH}?id=${encodeURIComponent(r.id)}`;
               return (
-                <div
-                  key={r.id}
-                  className={`py-5 ${i > 0 ? "border-t border-gray-100" : ""}`}
-                >
+                <li key={r.id} className="py-5">
                   <div className="flex flex-wrap items-start justify-between gap-4">
-                    {/* ซ้าย: ชื่อ + รหัส + stepper */}
+                    {/* ซ้าย: ชื่อ (กดดูรายละเอียด) + เลขที่ + stepper */}
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-base font-bold text-slate-900">
+                      <Link href={detail} className="block truncate font-semibold hover:text-[#047857] hover:underline">
                         {r.title}
-                      </div>
-                      <div className="text-xs text-gray-400">
-                        {r.id} · ส่งเมื่อ {thaiDate(r.createdAt)}
-                      </div>
+                      </Link>
+                      <p className="text-xs text-[#64748B]">
+                        {r.id}, ส่งเมื่อ {thaiDate(r.createdAt)}
+                      </p>
                       <Stepper r={r} />
                     </div>
 
-                    {/* ขวา: ยอดเงิน + สถานะ + ดูรายละเอียด */}
-                    <div className="flex flex-col items-end gap-3">
-                      <div className="flex items-center gap-4">
-                        <span className="text-xl font-bold tabular-nums text-slate-900">
-                          {baht(r.total)}
-                        </span>
-                        <span
-                          className={`whitespace-nowrap rounded-full px-4 py-1 text-xs font-bold ${badge.cls}`}
-                        >
-                          {badge.text}
-                        </span>
-                      </div>
+                    {/* ขวา: ยอดเงิน + สถานะ */}
+                    <div className="flex flex-col items-end gap-2">
+                      <span className="money text-xl font-bold">{baht(r.total)}</span>
+                      <span className={`status ${badge.cls}`}>{badge.text}</span>
                       <Link
-                        href={`${DETAIL_PATH}?id=${encodeURIComponent(r.id)}`}
-                        className="flex items-center gap-1 text-xs font-bold text-green-700 hover:underline"
+                        href={detail}
+                        className="flex items-center gap-1 text-xs font-semibold text-[#047857] hover:underline"
                       >
-                        ดูรายละเอียด <ArrowRight size={15} />
+                        ดูรายละเอียด <ArrowRight size={14} aria-hidden="true" />
                       </Link>
                     </div>
                   </div>
 
-                  {/* เหตุผลที่ถูกตีกลับ */}
+                  {/* เหตุผลที่ถูกตีกลับ + ทางแก้ */}
                   {rejected && (
-                    <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-xs">
-                      <div className="flex min-w-0 items-center gap-2.5 text-rose-700">
-                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-rose-400 text-[10px] font-bold">
-                          i
-                        </span>
-                        <span className="truncate">
+                    <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-[#FFF1F2] px-3.5 py-2.5 text-sm">
+                      <p className="flex min-w-0 items-start gap-2 text-[#9F1239]">
+                        <InfoCircle size={18} className="mt-0.5 shrink-0" aria-hidden="true" />
+                        <span>
                           <strong>เหตุผล:</strong> {rejectReason(r)}
                         </span>
-                      </div>
+                      </p>
                       <Link
                         href={`${NEW_REQUEST_PATH}?id=${encodeURIComponent(r.id)}`}
-                        className="flex shrink-0 items-center gap-1 font-bold text-rose-700 hover:underline"
+                        className="flex shrink-0 items-center gap-1 rounded-lg bg-white px-3 py-1.5 text-xs font-bold text-[#BE123C] hover:bg-[#FFE4E6]"
                       >
-                        แก้ไขแล้วส่งใหม่ <ArrowRight size={14} />
+                        แก้ไขแล้วส่งใหม่ <ArrowRight size={14} aria-hidden="true" />
                       </Link>
                     </div>
                   )}
-                </div>
+                </li>
               );
-            })
-          )}
-        </section>
-      </div>
+            })}
+          </ul>
+        )}
+      </section>
     </div>
   );
 }
