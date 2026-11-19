@@ -23,6 +23,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+// component จาก TailGrids (https://tailgrids.com/docs/components)
+import { Button } from "@/components/tailgrids/core/button";
+import { TextArea } from "@/components/tailgrids/core/text-area";
 import { useRouter } from "next/navigation"; // ✅ เพิ่ม: ใช้เปลี่ยนหน้าหลังส่งคำขอที่ถูกตีกลับ
 import { getUsers, type Credential } from "@/data/credential";
 import { notifyRequestEvent } from "@/data/notification";
@@ -713,9 +716,11 @@ export default function NewRequest() {
 
           {/* ---------- [6.3] เหตุผล ---------- */}
           <Label htmlFor="req-reason" text="เหตุผลการเบิก" optional />
-          <textarea
+          {/* TailGrids TextArea */}
+          <TextArea
             id="req-reason"
-            className={`w-full ${fieldClassFor(false)} h-20 resize-y`}
+            rows={3}
+            className="resize-y rounded-xl text-sm"
             placeholder="เช่น เดินทางไปสัมมนาที่เชียงใหม่ ใช้เงินส่วนตัวสำรองจ่ายไปก่อน"
             value={reason}
             onChange={(e) => setReason(e.target.value)}
@@ -1041,23 +1046,16 @@ export default function NewRequest() {
               )}
             </div>
 
-            <button
-              type="button"
-              onClick={submit}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#059669] py-3 font-bold text-white hover:bg-[#047857]"
-            >
+            {/* TailGrids Button: ส่ง = primary · บันทึกร่าง = outline */}
+            <Button variant="primary" size="lg" className="w-full font-bold" onPress={submit}>
               <Send1 size={18} aria-hidden="true" />
               {resubmit ? "แก้ไขแล้วส่งใหม่" : "ส่งคำขอ"}
-            </button>
+            </Button>
             {/* คำขอที่ถูกตีกลับ แปลงกลับเป็นร่างไม่ได้ (จะหลุดจากสถานะตีกลับ) จึงซ่อนปุ่มนี้ */}
             {!resubmit && (
-              <button
-                type="button"
-                onClick={saveDraft}
-                className="mt-2 w-full rounded-xl border border-[#E2E8F0] bg-white py-3 font-semibold text-[#475569] hover:bg-[#F8FAFC]"
-              >
+              <Button variant="primary" appearance="outline" size="lg" className="mt-2 w-full" onPress={saveDraft}>
                 บันทึกร่าง
-              </button>
+              </Button>
             )}
           </div>
         </section>

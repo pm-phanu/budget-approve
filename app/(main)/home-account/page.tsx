@@ -10,12 +10,10 @@ import { loadOrganization } from "@/data/organization";
 import { getCurrentUser } from "@/utils/login";
 import {
   ArrowRight,
-  Bell1,
   Calendar,
   Check,
   CheckCircle1,
   ClockThree,
-  Search1,
   Wallet2,
 } from "@tailgrids/icons";
 
@@ -34,8 +32,9 @@ const ACCOUNTANT_ROLE = "ACCOUNTANT_ADMIN";
 // ความกว้างคอลัมน์ของแถวรายการ (เท่ากับหน้า Home ของหัวหน้า)
 // ใช้ร่วมกันทั้ง "รอคุณตรวจสอบ" และ "อนุมัติล่าสุด" ถ้าจะปรับ แก้ที่นี่ที่เดียว
 // (ชื่อ | ป้ายรอ | ยอดเงิน | ปุ่ม/สถานะ)
+// ชื่อคำขอยืดเต็มที่เหลือ (ตัด … ถ้ายาว) · ป้ายรอ / ยอดเงิน / ปุ่ม กว้างตามเนื้อหา ไม่ตัดบรรทัด
 const ROW_GRID =
-  "grid h-[93px] grid-cols-[260px_90px_110px_1fr] items-center gap-3";
+  "grid min-h-[72px] grid-cols-[minmax(0,1fr)_auto_auto_auto] items-center gap-3 border-b border-[#F1F5F9] py-3 last:border-b-0";
 
 /* ------------------------------------------------------------------
    ชนิดข้อมูล: ใช้ของกลางใน data/ (คำขอ = SavedRequest · ผู้ใช้ = Credential)
@@ -111,22 +110,13 @@ function arrivedAt(r: ExpenseRequest) {
 }
 
 // ป้ายสถานะของคำขอที่บัญชีดำเนินการไปแล้ว
+// ป้ายสถานะ: class ร่วมใน globals.css (status-*)
 function statusBadge(r: ExpenseRequest) {
-  if (r.status === "อนุมัติแล้ว")
-    return {
-      text: "อนุมัติแล้ว",
-      cls: "bg-emerald-50 text-emerald-700 border-emerald-200",
-    };
-  if (r.status === "ตีกลับ")
-    return {
-      text: "ตีกลับ",
-      cls: "bg-rose-50 text-rose-600 border-rose-200",
-    };
+  if (r.status === "จ่ายแล้ว") return { text: "จ่ายแล้ว", cls: "status status-paid" };
+  if (r.status === "อนุมัติแล้ว") return { text: "อนุมัติแล้ว", cls: "status status-approved" };
+  if (r.status === "ตีกลับ") return { text: "ตีกลับ", cls: "status status-rejected" };
   const next = r.approvalSteps[r.currentStep];
-  return {
-    text: next ? `รอ${next.label}` : "กำลังดำเนินการ",
-    cls: "bg-amber-50 text-amber-600 border-amber-200",
-  };
+  return { text: next ? `รอ${next.label}` : "กำลังดำเนินการ", cls: "status status-pending" };
 }
 
 // งบรายแผนกของปีนั้น: วงเงิน = งบที่บัญชีแบ่งให้แผนก (getDepartmentBudget)
@@ -349,7 +339,7 @@ export default function AccountantHome() {
           />
         </div>
 
-        {/* ===== ซ้าย: รอคุณตรวจสอบ + อนุมัติล่าสุด / ขวา: การใช้งบแยกตามฝ่าย ===== */}
+        {/* ===== ซ้าย: รอคุณตรวจสอบ + อนุมัติล่าสุด / ขวา: การใช้งบแยกตามแผนก ===== */}
         {/* grid 4 คอลัมน์เหมือนหน้า employee: ซ้าย 2 คอลัมน์ / ขวา 2 คอลัมน์ */}
         <div className="grid grid-cols-4 gap-5">
           {/* ---------- การ์ดซ้าย ---------- */}
@@ -412,7 +402,7 @@ export default function AccountantHome() {
 
                       {/* คอลัมน์ 3: ยอดเงิน (ชิดขวา) */}
                       <div className="text-right">
-                        <span className="font-bold tabular-nums">
+                        <span className="money font-bold">
                           {baht(r.total)}
                         </span>
                       </div>
@@ -421,7 +411,7 @@ export default function AccountantHome() {
                       <div className="flex justify-end">
                         <Link
                           href={`${REVIEW_PATH}?id=${encodeURIComponent(r.id)}`}
-                          className="flex items-center gap-1 text-xs font-bold text-green-700 hover:underline"
+                          className="flex items-center gap-1 whitespace-nowrap rounded-lg bg-[#ECFDF5] px-3 py-1.5 text-xs font-bold text-[#047857] hover:bg-[#D1FAE5]"
                         >
                           ตรวจสอบ <ArrowRight size={15} />
                         </Link>
@@ -481,14 +471,14 @@ export default function AccountantHome() {
                       <div />
 
                       <div className="text-right">
-                        <span className="font-bold tabular-nums">
+                        <span className="money font-bold">
                           {baht(r.total)}
                         </span>
                       </div>
 
                       <div className="flex justify-end">
                         <span
-                          className={`whitespace-nowrap rounded-full border px-2.5 py-1 text-xs ${badge.cls}`}
+                          className={badge.cls}
                         >
                           {badge.text}
                         </span>
@@ -500,13 +490,13 @@ export default function AccountantHome() {
             </div>
           </div>
 
-          {/* ---------- การ์ดขวา: การใช้งบแยกตามฝ่าย ---------- */}
-          {/* ฝั่งขวา: การใช้งบแยกตามฝ่าย + คำขอของฉัน เรียงลงมา */}
+          {/* ---------- การ์ดขวา: การใช้งบแยกตามแผนก ---------- */}
+          {/* ฝั่งขวา: การใช้งบแยกตามแผนก + คำขอของฉัน เรียงลงมา */}
           <div className="col-span-2 flex flex-col gap-5 self-start">
           <div className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl">
             <div className="mb-2 flex items-center justify-between">
               <h2 className="text-base font-bold text-gray-800">
-                การใช้งบแยกตามฝ่าย
+                การใช้งบแยกตามแผนก
               </h2>
               <span className="text-xs text-gray-400">
                 {year > 0 ? `ปี ${year + 543}` : ""}
@@ -569,7 +559,7 @@ export default function AccountantHome() {
             )}
 
             <p className="mt-1 border-t border-gray-100 pt-3 text-xs text-gray-400">
-              กดที่ฝ่ายเพื่อดูรายละเอียดในหน้างบประมาณ
+              แสดงเฉพาะแผนกที่มีงบหรือมีการใช้จ่ายในปีนี้
             </p>
           </div>
 

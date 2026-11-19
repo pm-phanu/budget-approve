@@ -15,12 +15,9 @@ import type { Credential } from "@/data/credential";
 import { getCurrentUser } from "@/utils/login";
 import {
   ArrowRight,
-  Bell1,
   Check,
   CheckCircle1,
   ClockThree,
-  Plus,
-  Search1,
 } from "@tailgrids/icons";
 
 /* ------------------------------------------------------------------
@@ -36,8 +33,9 @@ const LIST_LIMIT = 5;
 
 // ความกว้างคอลัมน์ของแถวรายการ ใช้ร่วมกันทั้ง "รอคุณตรวจสอบ" และ "อนุมัติล่าสุด"
 // (ชื่อ | ป้ายรอ | ยอดเงิน | ปุ่ม/สถานะ) ถ้าจะปรับความกว้าง แก้ที่นี่ที่เดียว
+// ชื่อคำขอยืดเต็มที่เหลือ (ตัด … ถ้ายาว) · ป้ายรอ / ยอดเงิน / ปุ่ม กว้างตามเนื้อหา ไม่ตัดบรรทัด
 const ROW_GRID =
-  "grid h-[93px] grid-cols-[260px_90px_110px_1fr] items-center gap-3";
+  "grid min-h-[72px] grid-cols-[minmax(0,1fr)_auto_auto_auto] items-center gap-3 border-b border-[#F1F5F9] py-3 last:border-b-0";
 
 /* ------------------------------------------------------------------
    อ่านข้อมูลจาก localStorage (ผ่านฟังก์ชันกลางใน data/ และ utils/login)
@@ -106,22 +104,13 @@ function sentAt(r: ExpenseRequest) {
 }
 
 // ป้ายสถานะของคำขอที่คุณอนุมัติไปแล้ว
+// ป้ายสถานะ: class ร่วมใน globals.css (status-*)
 function statusBadge(r: ExpenseRequest) {
-  if (r.status === "อนุมัติแล้ว")
-    return {
-      text: "อนุมัติแล้ว",
-      cls: "bg-emerald-50 text-emerald-700 border-emerald-200",
-    };
-  if (r.status === "ตีกลับ")
-    return {
-      text: "ถูกตีกลับ",
-      cls: "bg-rose-50 text-rose-600 border-rose-200",
-    };
+  if (r.status === "จ่ายแล้ว") return { text: "จ่ายแล้ว", cls: "status status-paid" };
+  if (r.status === "อนุมัติแล้ว") return { text: "อนุมัติแล้ว", cls: "status status-approved" };
+  if (r.status === "ตีกลับ") return { text: "ตีกลับ", cls: "status status-rejected" };
   const next = r.approvalSteps[r.currentStep];
-  return {
-    text: next ? `รอ${next.label}` : "กำลังดำเนินการ",
-    cls: "bg-amber-50 text-amber-600 border-amber-200",
-  };
+  return { text: next ? `รอ${next.label}` : "กำลังดำเนินการ", cls: "status status-pending" };
 }
 
 /* ------------------------------------------------------------------
@@ -348,7 +337,7 @@ export default function DH() {
 
                       {/* คอลัมน์ 3: ยอดเงิน (ชิดขวา) */}
                       <div className="text-right">
-                        <span className="font-bold tabular-nums">
+                        <span className="money font-bold">
                           {baht(r.total)}
                         </span>
                       </div>
@@ -357,7 +346,7 @@ export default function DH() {
                       <div className="flex justify-end">
                         <Link
                           href={`${APPROVED_PATH}?id=${encodeURIComponent(r.id)}`}
-                          className="text-green-700 font-bold flex text-xs items-center gap-1 hover:underline"
+                          className="flex items-center gap-1 whitespace-nowrap rounded-lg bg-[#ECFDF5] px-3 py-1.5 text-xs font-bold text-[#047857] hover:bg-[#D1FAE5]"
                         >
                           ตรวจสอบ <ArrowRight size={15} />
                         </Link>
@@ -423,14 +412,14 @@ export default function DH() {
                       <div />
 
                       <div className="text-right">
-                        <span className="font-bold tabular-nums">
+                        <span className="money font-bold">
                           {baht(r.total)}
                         </span>
                       </div>
 
                       <div className="flex justify-end">
                         <span
-                          className={`whitespace-nowrap text-xs px-2.5 py-1 rounded-full border ${badge.cls}`}
+                          className={badge.cls}
                         >
                           {badge.text}
                         </span>

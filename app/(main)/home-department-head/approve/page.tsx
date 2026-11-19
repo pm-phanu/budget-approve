@@ -3,7 +3,21 @@
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight, Check, CheckCircle1 } from "@tailgrids/icons";
+// ไอคอนทั้งหมดจาก @tailgrids/icons (https://tailgrids.com/icons)
+import { ArrowRight, Check, Close, Eye, FileText } from "@tailgrids/icons";
+// component จาก TailGrids (https://tailgrids.com/docs/components)
+import { ModalOverlay } from "react-aria-components";
+import { Button } from "@/components/tailgrids/core/button";
+import { Checkbox } from "@/components/tailgrids/core/checkbox";
+import {
+  Dialog,
+  DialogBody,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/tailgrids/core/dialog";
+import { TextArea } from "@/components/tailgrids/core/text-area";
 import { addRequestsToBudget } from "@/data/budget";
 import { loadRequests, type SavedRequest, type SavedStep } from "@/data/request";
 import {
@@ -81,45 +95,6 @@ function thaiDateTime(iso?: string | null) {
 }
 
 /* ------------------------------------------------------------------
-   ไอคอนที่ไม่แน่ใจชื่อใน @tailgrids/icons จึงเขียนเป็น SVG เอง
-------------------------------------------------------------------- */
-type IconProps = React.SVGProps<SVGSVGElement>;
-const svgBase = (p: IconProps) => ({
-  width: 20,
-  height: 20,
-  viewBox: "0 0 20 20",
-  fill: "none",
-  stroke: "currentColor",
-  strokeWidth: 1.5,
-  strokeLinecap: "round" as const,
-  strokeLinejoin: "round" as const,
-  ...p,
-});
-const CloseIcon = (p: IconProps) => (
-  <svg {...svgBase(p)}>
-    <path d="m5 5 10 10M15 5 5 15" />
-  </svg>
-);
-const EyeIcon = (p: IconProps) => (
-  <svg {...svgBase(p)}>
-    <path d="M1.5 10S4.5 4.5 10 4.5 18.5 10 18.5 10 15.5 15.5 10 15.5 1.5 10 1.5 10Z" />
-    <circle cx="10" cy="10" r="2.5" />
-  </svg>
-);
-const FileIcon = (p: IconProps) => (
-  <svg {...svgBase(p)}>
-    <path d="M11.5 2.5H6a1.5 1.5 0 0 0-1.5 1.5v12A1.5 1.5 0 0 0 6 17.5h8a1.5 1.5 0 0 0 1.5-1.5V6.5l-4-4Z" />
-    <path d="M11.5 2.5v4h4" />
-  </svg>
-);
-const InfoIcon = (p: IconProps) => (
-  <svg {...svgBase(p)}>
-    <circle cx="10" cy="10" r="7.5" />
-    <path d="M10 9v4.5M10 6.5v.01" />
-  </svg>
-);
-
-/* ------------------------------------------------------------------
    ชิ้นส่วนเล็ก
 ------------------------------------------------------------------- */
 const Card = ({
@@ -140,17 +115,17 @@ type StepStatus = "done" | "rejected" | "current" | "pending";
 
 const Dot = ({ status }: { status: StepStatus }) => {
   const styles: Record<StepStatus, string> = {
-    done: "bg-emerald-600 text-white",
-    rejected: "border-2 border-red-500 bg-white text-red-500",
-    current: "border-2 border-dashed border-emerald-500 bg-white",
-    pending: "border border-slate-200 bg-white",
+    done: "bg-[#059669] text-white",
+    rejected: "bg-[#BE123C] text-white",
+    current: "border-2 border-[#059669] bg-[#ECFDF5]",
+    pending: "border border-[#CBD5E1] bg-white",
   };
   return (
     <span
       className={`relative z-10 flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${styles[status]}`}
     >
       {status === "done" && <Check className="h-3 w-3" />}
-      {status === "rejected" && <CloseIcon className="h-3 w-3" />}
+      {status === "rejected" && <Close className="h-3 w-3" />}
     </span>
   );
 };
@@ -213,16 +188,6 @@ function ReviewContent() {
     setLoaded(true);
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [id]);
-
-  // กด Esc เพื่อปิดป๊อบอัพ (ต้องอยู่ก่อน return ด้านล่าง)
-  useEffect(() => {
-    if (!showReject) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setShowReject(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [showReject]);
 
   // ---- ล็อก "มีคนกำลังตรวจสอบอยู่" (data/approval.ts) ----
   // คนที่มีสิทธิ์อนุมัติเปิดหน้านี้ → จองคำขอ+ขั้นนี้ไว้ และต่ออายุทุก 30 วินาที
@@ -288,11 +253,6 @@ function ReviewContent() {
     setRequest(latest);
     if (latest) setOpenedStep(latest.currentStep);
   };
-
-  // ไฟล์ทั้งหมด (แนบรายแถว → รวมเป็นลิสต์เดียว พร้อมบอกว่ามาจากรายการไหน)
-  const allFiles = r.items.flatMap((it) =>
-    it.files.map((f) => ({ file: f, from: it.name })),
-  );
 
   // ---- อนุมัติ ----
   const approve = () => {
@@ -393,429 +353,356 @@ function ReviewContent() {
     }),
   ];
 
+  // ป้ายสถานะ (class ร่วมใน globals.css)
   // "รอคุณอนุมัติ" เฉพาะคนที่กดอนุมัติขั้นนี้ได้จริง · คนอื่น (เช่น ผู้ขอดูของตัวเอง) = "รอ<ชื่อขั้น>"
   const waitingStep = r.approvalSteps[r.currentStep];
   const badge =
     r.status === "จ่ายแล้ว"
-      ? { text: "จ่ายแล้ว", cls: "bg-emerald-100 text-emerald-700" }
+      ? { text: "จ่ายแล้ว", cls: "status-paid" }
       : r.status === "อนุมัติแล้ว"
-      ? { text: "อนุมัติแล้ว", cls: "bg-emerald-100 text-emerald-700" }
-      : r.status === "ตีกลับ"
-        ? { text: "ตีกลับแล้ว", cls: "bg-red-100 text-red-600" }
-        : r.status === "ร่าง"
-          ? { text: "ร่าง", cls: "bg-slate-200 text-slate-600" }
-          : canAct
-            ? { text: "รอคุณอนุมัติ", cls: "bg-amber-100 text-amber-700" }
+        ? { text: "อนุมัติแล้ว", cls: "status-approved" }
+        : r.status === "ตีกลับ"
+          ? { text: "ตีกลับแล้ว", cls: "status-rejected" }
+          : r.status === "ร่าง"
+            ? { text: "ร่าง", cls: "status-draft" }
             : {
-                text: waitingStep ? `รอ${waitingStep.label}` : "กำลังดำเนินการ",
-                cls: "bg-amber-100 text-amber-700",
+                text: canAct ? "รอคุณอนุมัติ" : waitingStep ? `รอ${waitingStep.label}` : "กำลังดำเนินการ",
+                cls: "status-pending",
               };
 
+  // ตัวช่วยตัดสินใจ: หลักฐานครบไหม · งบโครงการพอไหม (projectRemaining นับรวมคำขอนี้แล้ว)
+  const rowsWithFile = r.items.filter((it) => it.files.length > 0).length;
+  const filesComplete = rowsWithFile === r.items.length;
+  const budgetOk = projectRemaining === null || projectRemaining >= 0;
+
   return (
-    <div className="font-sans text-slate-800">
-      <div>
-        {/* Header */}
-        <header className="mb-9">
-          {/* breadcrumb (แดชบอร์ด / รหัสคำขอ) ย้ายไปอยู่บน header ของ layout แล้ว */}
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-[32px] font-bold text-[#111]">{r.title}</h1>
-            <span
-              className={`rounded-full px-3 py-1 text-xs font-bold ${badge.cls}`}
-            >
-              {badge.text}
-            </span>
-          </div>
-        </header>
+    <div className="text-[#0F172A]">
+      {/* Header: ชื่อคำขอ + สถานะ · บรรทัดรอง = เลขที่ / ผู้ขอ / วันที่ส่ง */}
+      <header className="mb-9">
+        {/* breadcrumb (แดชบอร์ด / รหัสคำขอ) อยู่บน header ของ layout */}
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-[32px] font-bold text-[#0F172A]">{r.title}</h1>
+          <span className={`status ${badge.cls}`}>{badge.text}</span>
+        </div>
+        <p className="mt-1 text-sm text-[#64748B]">
+          {r.id} ส่งโดย {requesterName} เมื่อ {thaiDateTime(r.createdAt)}
+        </p>
+      </header>
 
-        {notice && (
-          <div role="alert" className="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-700">
-            {notice}
-          </div>
-        )}
+      {notice && (
+        <div
+          role="alert"
+          className="mb-5 rounded-xl border border-[#FDE68A] bg-[#FFFBEB] p-4 text-sm font-semibold text-[#B45309]"
+        >
+          {notice}
+        </div>
+      )}
 
-        <div className="grid grid-cols-4 gap-5">
-          {/* ===== ซ้าย ===== */}
-          <div className="col-span-3 flex flex-col gap-5">
-            {/* ข้อมูลคำขอ */}
-            <Card>
-              <h2 className="mb-5 text-lg font-bold text-slate-900">
-                ข้อมูลคำขอ
-              </h2>
+      {/* จอกว้าง (≥1280px) = รายละเอียด 3 : ตัดสินใจ 1 · จอแคบ = ต่อกันลงมา */}
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-4">
+        {/* ===== ซ้าย: รายละเอียดคำขอ ===== */}
+        <div className="flex min-w-0 flex-col gap-5 xl:col-span-3">
+          <Card>
+            <h2 className="mb-5 text-lg font-bold">ข้อมูลคำขอ</h2>
 
-              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                <div className="space-y-5">
-                  <div>
-                    <p className="mb-2 text-xs text-slate-500">ผู้ขอเบิก</p>
-                    <div className="flex items-center gap-3">
-                      <span className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-600 text-sm font-semibold text-white">
-                        {requesterName.slice(0, 2)}
-                      </span>
-                      <div>
-                        <p className="font-semibold text-slate-900">
-                          {requesterName}
-                        </p>
-                        <p className="text-xs text-slate-400">
-                          {r.requester
-                            ? `${r.requester.department} · ${r.requester.lineOfWork}`
-                            : "-"}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                  <div>
-                    <p className="mb-1 text-xs text-slate-500">โครงการ</p>
-                    <p className="text-sm font-semibold text-slate-900">
-                      {r.project ? `${r.project.dept} › ${r.project.name}` : "-"}
-                    </p>
-                    {projectRemaining !== null && (
-                      <p className="text-xs text-slate-400">
-                        งบโครงการคงเหลือ{" "}
-                        <span className="font-semibold text-emerald-600">
-                          {baht(projectRemaining)}
-                        </span>
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="space-y-5">
-                  <div>
-                    <p className="mb-1 text-xs text-slate-500">
-                      ยอดเงินที่ขอเบิก
-                    </p>
-                    <p className="text-4xl font-bold text-slate-900">
-                      {baht(r.total)}
-                    </p>
-                    <p className="text-xs text-slate-400">
-                      <span className="font-semibold text-slate-600">
-                        {r.typeLabel}
-                      </span>{" "}
-                      · วันที่ใช้จ่าย {thaiDate(r.useDate)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="mb-1 text-xs text-slate-500">การโอนเงิน</p>
-                    <p className="text-sm font-semibold text-slate-900">
-                      {r.payTo}
-                    </p>
-                    {r.bankAccount && (
-                      <p className="text-xs text-slate-400">{r.bankAccount}</p>
-                    )}
-                  </div>
-                </div>
+            <dl className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2">
+              <div>
+                <dt className="mb-2 text-xs text-[#64748B]">ผู้ขอเบิก</dt>
+                <dd className="flex items-center gap-3">
+                  <span
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#059669] text-sm font-semibold text-white"
+                    aria-hidden="true"
+                  >
+                    {requesterName.slice(0, 2)}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block font-semibold">{requesterName}</span>
+                    <span className="block text-xs text-[#64748B]">
+                      {r.requester
+                        ? [r.requester.department, r.requester.lineOfWork].filter(Boolean).join(", ") || "-"
+                        : "-"}
+                    </span>
+                  </span>
+                </dd>
               </div>
 
-              <div className="mt-6 border-t border-slate-100 pt-4">
-                <p className="mb-1 text-xs text-slate-500">เหตุผลการเบิก</p>
-                <p className="text-sm text-slate-600">{r.reason || "-"}</p>
+              <div>
+                <dt className="mb-1 text-xs text-[#64748B]">ยอดเงินที่ขอเบิก</dt>
+                <dd>
+                  <span className="money block text-4xl font-bold">{baht(r.total)}</span>
+                  <span className="mt-1 block text-xs text-[#64748B]">
+                    <span className="font-semibold text-[#475569]">{r.typeLabel}</span>, ใช้จ่ายวันที่{" "}
+                    {thaiDate(r.useDate)}
+                  </span>
+                </dd>
+              </div>
+
+              <div>
+                <dt className="mb-1 text-xs text-[#64748B]">โครงการ</dt>
+                <dd>
+                  <span className="block text-sm font-semibold">{r.project ? r.project.name : "-"}</span>
+                  {r.project && <span className="block text-xs text-[#64748B]">{r.project.dept}</span>}
+                </dd>
+              </div>
+
+              <div>
+                <dt className="mb-1 text-xs text-[#64748B]">การโอนเงิน</dt>
+                <dd>
+                  <span className="block text-sm font-semibold">{r.payTo || "-"}</span>
+                  {r.bankAccount && <span className="block text-xs text-[#64748B]">{r.bankAccount}</span>}
+                </dd>
+              </div>
+            </dl>
+
+            <div className="mt-6 border-t border-[#E2E8F0] pt-4">
+              <p className="mb-1 text-xs text-[#64748B]">เหตุผลการเบิก</p>
+              <p className="max-w-prose text-sm text-[#334155]">{r.reason || "ไม่ได้ระบุ"}</p>
+            </div>
+          </Card>
+
+          {/* รายการค่าใช้จ่าย: ทุกแถวแสดงหลักฐานของแถวนั้นเอง → ตรวจทีละรายการได้ */}
+          <Card>
+            <div className="mb-2 flex items-baseline justify-between">
+              <h2 className="text-lg font-bold">รายการค่าใช้จ่าย</h2>
+              <span className="text-sm text-[#64748B]">{r.items.length} รายการ</span>
+            </div>
+
+            <ul className="divide-y divide-[#E2E8F0]">
+              {r.items.map((it, i) => (
+                <li key={i} className="py-4">
+                  <div className="flex items-start justify-between gap-4 text-sm">
+                    <div className="min-w-0">
+                      <p className="font-semibold">{it.name || "-"}</p>
+                      <p className="mt-0.5 text-xs text-[#64748B]">{it.categoryName || "ไม่ระบุหมวด"}</p>
+                    </div>
+                    <span className="money shrink-0 font-semibold">{baht(it.amount)}</span>
+                  </div>
+                  {it.files.length === 0 ? (
+                    <p className="mt-2 text-xs font-semibold text-[#BE123C]">ไม่มีหลักฐานแนบ</p>
+                  ) : (
+                    <ul className="mt-2 flex flex-wrap gap-2">
+                      {it.files.map((file, f) => (
+                        <li
+                          key={f}
+                          className="flex items-center gap-2 rounded-lg border border-[#E2E8F0] py-1.5 pl-2 pr-1 text-xs"
+                        >
+                          <FileText size={16} className="shrink-0 text-[#64748B]" aria-hidden="true" />
+                          <span className="max-w-[16rem] truncate">{file}</span>
+                          <button
+                            type="button"
+                            aria-label={`ดูเอกสาร ${file}`}
+                            className="rounded p-1 text-[#94A3B8] hover:text-[#047857]"
+                          >
+                            <Eye size={16} aria-hidden="true" />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </li>
+              ))}
+            </ul>
+
+            <div className="flex items-baseline justify-between border-t border-[#CBD5E1] pt-4">
+              <span className="font-bold">รวมทั้งหมด</span>
+              <span className="money text-xl font-bold text-[#047857]">{baht(r.total)}</span>
+            </div>
+          </Card>
+        </div>
+
+        {/* ===== ขวา: ตัดสินใจ → สถานะ → ประวัติ ===== */}
+        <div className="flex min-w-0 flex-col gap-5 self-start xl:col-span-1">
+          {/* มีคนอื่นกำลังตรวจสอบขั้นนี้อยู่ → กดไม่ได้ */}
+          {canAct && lockedBy && (
+            <Card>
+              <div role="status" className="text-sm text-[#B45309]">
+                <p className="font-bold">{lockedBy.userName} กำลังตรวจสอบคำขอนี้อยู่</p>
+                <p className="mt-1 text-[#92400E]">
+                  คุณจะกดอนุมัติหรือตีกลับได้เมื่อ {lockedBy.userName} ปิดหน้านี้
+                  หรือไม่มีการใช้งานเกิน 2 นาที หน้านี้จะอัปเดตให้เอง
+                </p>
               </div>
             </Card>
+          )}
 
-            {/* รายการค่าใช้จ่าย + เอกสารแนบ */}
-            <Card>
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-lg font-bold text-slate-900">
-                  รายการค่าใช้จ่าย
-                </h2>
-                <span className="text-sm text-slate-500">
-                  {r.items.length} รายการ
-                </span>
+          {/* การตัดสินใจ: ขึ้นบนสุด เพราะเป็นงานหลักของคนที่เปิดหน้านี้ */}
+          {canAct && !lockedBy && (
+            <section
+              aria-labelledby="decision-title"
+              className="rounded-xl border-2 border-[#059669] bg-white p-6 shadow-2xl"
+            >
+              <h2 id="decision-title" className="text-lg font-bold">
+                การอนุมัติของคุณ
+              </h2>
+              <p className="mt-0.5 text-sm text-[#64748B]">ขั้น{curStep.label}</p>
+
+              {/* ตรวจให้อัตโนมัติ: ข้อมูลจากคำขอ ไม่ใช่ปุ่มให้กด */}
+              <ul className="mt-4 space-y-2 text-sm">
+                <li className="flex items-start gap-2">
+                  <CheckMark ok={filesComplete} />
+                  <span className={filesComplete ? "" : "text-[#BE123C]"}>
+                    แนบหลักฐาน {rowsWithFile} จาก {r.items.length} รายการ
+                  </span>
+                </li>
+                {projectRemaining !== null && (
+                  <li className="flex items-start gap-2">
+                    <CheckMark ok={budgetOk} />
+                    <span className={budgetOk ? "" : "text-[#BE123C]"}>
+                      งบโครงการหลังคำขอนี้{" "}
+                      <b className="money">{baht(projectRemaining)}</b>
+                    </span>
+                  </li>
+                )}
+              </ul>
+
+              {/* TailGrids Checkbox · ข้อความใช้ label htmlFor (ห้ามครอบ Checkbox ด้วย label → คลิกแล้วติ๊ก 2 รอบ) */}
+              <div className="mt-5 flex items-start gap-2.5 text-sm">
+                <Checkbox
+                  id="review-checked"
+                  size="md"
+                  className="mt-0.5"
+                  checked={checked}
+                  onChange={(e) => {
+                    setChecked(e.target.checked);
+                    setError("");
+                  }}
+                />
+                <label htmlFor="review-checked" className="cursor-pointer">
+                  ตรวจเอกสารและยอดเงินครบแล้ว
+                </label>
               </div>
 
-              <ul className="divide-y divide-slate-100">
-                {r.items.map((it, i) => (
-                  <li
-                    key={i}
-                    className="flex items-center justify-between gap-4 py-4 text-sm"
-                  >
-                    <div className="min-w-0">
-                      <p className="text-slate-800">{it.name || "-"}</p>
-                      <p className="text-xs text-slate-400">
-                        {it.categoryName || "-"} · แนบ {it.files.length} ไฟล์
-                      </p>
+              <label htmlFor="comment" className="mb-1.5 mt-4 block text-sm font-semibold">
+                ความเห็น <span className="font-normal text-[#94A3B8]">ไม่บังคับ</span>
+              </label>
+              <TextArea
+                id="comment"
+                rows={3}
+                value={comment}
+                onChange={(e) => {
+                  setComment(e.target.value);
+                  setError("");
+                }}
+                placeholder="ถึงผู้ขอหรือขั้นถัดไป"
+                className="resize-y text-sm"
+              />
+
+              {error && (
+                <p role="alert" className="mt-3 text-sm font-semibold text-[#BE123C]">
+                  {error}
+                </p>
+              )}
+
+              {/* TailGrids Button: อนุมัติ = primary (เขียวทึบ) · ตีกลับ = danger outline (รองลงมา) */}
+              <Button variant="primary" size="lg" className="mt-4 w-full font-bold" onPress={approve}>
+                <Check aria-hidden="true" /> อนุมัติคำขอ
+              </Button>
+              <Button variant="danger" appearance="outline" className="mt-2 w-full" onPress={openReject}>
+                <ArrowRight className="rotate-180" aria-hidden="true" /> ตีกลับให้แก้ไข
+              </Button>
+            </section>
+          )}
+
+          {/* สถานะคำขอ: ลำดับขั้นจริง */}
+          <Card>
+            <h2 className="mb-5 text-lg font-bold">สถานะคำขอ</h2>
+            <ol>
+              {timeline.map((s, i) => {
+                const color =
+                  s.status === "rejected"
+                    ? "text-[#BE123C]"
+                    : s.status === "current"
+                      ? "text-[#047857]"
+                      : s.status === "pending"
+                        ? "text-[#64748B]"
+                        : "text-[#0F172A]";
+                return (
+                  <li key={i} className="relative flex gap-3 pb-5 last:pb-0">
+                    {i < timeline.length - 1 && (
+                      <span className="absolute left-[9.5px] top-5 h-full w-px bg-[#E2E8F0]" aria-hidden="true" />
+                    )}
+                    <Dot status={s.status} />
+                    <div className="-mt-0.5 min-w-0 flex-1">
+                      <p className={`text-sm font-semibold ${color}`}>{s.title}</p>
+                      <p className="text-xs text-[#64748B]">{s.meta}</p>
+                      {s.note && (
+                        <p
+                          className={`mt-2 rounded-lg px-3 py-2 text-xs ${
+                            s.status === "rejected"
+                              ? "bg-[#FFF1F2] text-[#9F1239]"
+                              : "bg-[#F1F5F9] text-[#475569]"
+                          }`}
+                        >
+                          {s.note}
+                        </p>
+                      )}
                     </div>
-                    <span className="shrink-0 font-semibold tabular-nums text-slate-800">
-                      {baht(it.amount)}
-                    </span>
+                  </li>
+                );
+              })}
+            </ol>
+          </Card>
+
+          {/* ประวัติการดำเนินการ (ใหม่ → เก่า) */}
+          {r.history.length > 0 && (
+            <Card>
+              <h2 className="mb-4 text-lg font-bold">ประวัติ</h2>
+              <ul className="space-y-3">
+                {[...r.history].reverse().map((h, i) => (
+                  <li key={i} className="text-xs">
+                    <p className="font-semibold text-[#334155]">{h.action}</p>
+                    <p className="text-[#64748B]">
+                      {h.by}, {thaiDateTime(h.at)}
+                    </p>
                   </li>
                 ))}
               </ul>
-
-              <div className="mt-2 flex items-center justify-between border-t border-slate-200 pt-4">
-                <span className="text-base font-bold text-slate-900">
-                  รวมทั้งหมด
-                </span>
-                <span className="text-xl font-bold text-emerald-600">
-                  {baht(r.total)}
-                </span>
-              </div>
-
-              <h3 className="mb-3 mt-8 text-base font-bold text-slate-900">
-                เอกสารแนบ{" "}
-                <span className="text-sm font-normal text-slate-400">
-                  ({allFiles.length} ไฟล์)
-                </span>
-              </h3>
-              {allFiles.length === 0 ? (
-                <p className="text-sm text-slate-400">ไม่มีเอกสารแนบ</p>
-              ) : (
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                  {allFiles.map((f, i) => (
-                    <div
-                      key={i}
-                      className="flex items-center gap-3 rounded-xl border border-slate-200 p-3"
-                    >
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-red-100 text-red-500">
-                        <FileIcon />
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold text-slate-900">
-                          {f.file}
-                        </p>
-                        <p className="truncate text-xs text-slate-400">
-                          {f.from}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        aria-label="ดูเอกสาร"
-                        className="text-slate-400 hover:text-slate-600"
-                      >
-                        <EyeIcon />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
             </Card>
-          </div>
-
-          {/* ===== ขวา ===== */}
-          <div className="col-span-1 flex flex-col gap-5 self-start">
-            {/* สถานะคำขอ */}
-            <Card>
-              <h2 className="mb-5 text-lg font-bold text-slate-900">
-                สถานะคำขอ
-              </h2>
-              <ol>
-                {timeline.map((s, i) => {
-                  const color =
-                    s.status === "rejected"
-                      ? "text-red-600"
-                      : s.status === "current"
-                        ? "text-emerald-700"
-                        : "text-slate-900";
-                  return (
-                    <li key={i} className="relative flex gap-3 pb-5">
-                      {i < timeline.length - 1 && (
-                        <span className="absolute left-[9.5px] top-5 h-full w-px bg-slate-200" />
-                      )}
-                      <Dot status={s.status} />
-                      <div className="-mt-0.5 min-w-0 flex-1">
-                        <p className={`text-xs font-semibold ${color}`}>
-                          {s.title}
-                        </p>
-                        <p className="text-[11px] text-slate-400">{s.meta}</p>
-                        {s.note && (
-                          <p
-                            className={`mt-2 rounded-lg border px-3 py-2 text-xs ${
-                              s.status === "rejected"
-                                ? "border-red-100 bg-red-50 text-red-600"
-                                : "border-slate-200 bg-slate-50 text-slate-600"
-                            }`}
-                          >
-                            {s.note}
-                          </p>
-                        )}
-                      </div>
-                    </li>
-                  );
-                })}
-              </ol>
-            </Card>
-
-            {/* มีคนอื่นกำลังตรวจสอบขั้นนี้อยู่ → กดไม่ได้ */}
-            {canAct && lockedBy && (
-              <Card>
-                <div
-                  role="status"
-                  className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700"
-                >
-                  <p className="font-bold">
-                    {lockedBy.userName} กำลังตรวจสอบคำขอนี้อยู่
-                  </p>
-                  <p className="mt-1">
-                    คุณจะกดอนุมัติหรือตีกลับได้เมื่อ {lockedBy.userName} ปิดหน้านี้
-                    หรือไม่มีการใช้งานเกิน 2 นาที (หน้านี้จะอัปเดตให้เอง)
-                  </p>
-                </div>
-              </Card>
-            )}
-
-            {/* การอนุมัติของคุณ */}
-            {canAct && !lockedBy && (
-              <Card>
-                <h2 className="mb-4 text-lg font-bold text-slate-900">
-                  การอนุมัติของคุณ
-                </h2>
-
-                <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-700">
-                  <CheckCircle1 className="h-5 w-5 shrink-0" />
-                  <span>
-                    ขั้นที่รอดำเนินการ:{" "}
-                    <b className="font-bold">{curStep.label}</b>
-                  </span>
-                </div>
-
-                <label className="mt-4 flex cursor-pointer items-center gap-2 text-sm text-slate-600">
-                  <span
-                    className={`flex h-5 w-5 items-center justify-center rounded-md ${
-                      checked
-                        ? "bg-emerald-600 text-white"
-                        : "border border-slate-300 bg-white"
-                    }`}
-                  >
-                    {checked && <Check className="h-3.5 w-3.5" />}
-                  </span>
-                  <input
-                    type="checkbox"
-                    className="sr-only"
-                    checked={checked}
-                    onChange={(e) => {
-                      setChecked(e.target.checked);
-                      setError("");
-                    }}
-                  />
-                  ตรวจเอกสารและยอดเงินครบแล้ว
-                </label>
-
-                <div className="mt-4">
-                  <label
-                    htmlFor="comment"
-                    className="mb-1.5 block text-xs text-slate-500"
-                  >
-                    ความเห็น (ไม่บังคับ)
-                  </label>
-                  <textarea
-                    id="comment"
-                    rows={3}
-                    value={comment}
-                    onChange={(e) => {
-                      setComment(e.target.value);
-                      setError("");
-                    }}
-                    placeholder="เพิ่มความเห็นถึงผู้ขอหรือขั้นถัดไป..."
-                    className="w-full resize-none rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
-                  />
-                </div>
-
-                {error && (
-                  <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
-                    {error}
-                  </p>
-                )}
-
-                <button
-                  type="button"
-                  onClick={approve}
-                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3.5 text-base font-bold text-white transition hover:bg-emerald-700"
-                >
-                  <Check /> อนุมัติคำขอ
-                </button>
-                <button
-                  type="button"
-                  onClick={openReject}
-                  className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 py-3.5 text-base font-semibold text-slate-700 transition hover:bg-slate-100"
-                >
-                  <ArrowRight className="rotate-180" /> ตีกลับให้แก้ไข
-                </button>
-              </Card>
-            )}
-
-            {/* ประวัติการดำเนินการ */}
-            {r.history.length > 0 && (
-              <Card>
-                <h2 className="mb-4 text-lg font-bold text-slate-900">
-                  ประวัติ
-                </h2>
-                <ul className="space-y-3">
-                  {[...r.history].reverse().map((h, i) => (
-                    <li key={i} className="text-xs">
-                      <p className="font-semibold text-slate-800">{h.action}</p>
-                      <p className="text-slate-400">
-                        {h.by} · {thaiDateTime(h.at)}
-                      </p>
-                    </li>
-                  ))}
-                </ul>
-              </Card>
-            )}
-          </div>
+          )}
         </div>
       </div>
 
-      {/* ===== ป๊อบอัพตีกลับคำขอ ===== */}
-      {showReject && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-          onClick={closeReject}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label="ตีกลับคำขอ"
-            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* หัวข้อ */}
-            <div className="flex items-center gap-3">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-100 text-red-500">
-                <ArrowRight className="rotate-180" />
-              </span>
-              <div>
-                <h2 className="text-lg font-bold text-slate-900">
-                  ตีกลับคำขอ
-                </h2>
-                <p className="text-xs text-slate-500">
-                  ผู้ขอจะได้รับแจ้งเตือน และแก้ไขแล้วส่งใหม่ได้
-                </p>
-              </div>
+      {/* ===== ป๊อบอัพตีกลับคำขอ: TailGrids Dialog ===== */}
+      {/* ModalOverlay = พื้นหลังมืด · Dialog ข้างในใช้ overlay นี้แทนของตัวเอง */}
+      <ModalOverlay
+        isOpen={showReject}
+        onOpenChange={setShowReject}
+        isDismissable
+        className="fixed inset-0 z-50 bg-[#0F172A]/40"
+      >
+        <Dialog className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>ตีกลับคำขอ</DialogTitle>
+            <DialogDescription>{requesterName} จะได้รับแจ้งเตือน แล้วแก้ไขส่งใหม่ได้</DialogDescription>
+          </DialogHeader>
+
+          <DialogBody className="text-[#0F172A]">
+            <div className="rounded-xl bg-[#F8FAFC] p-3">
+              <p className="truncate text-sm font-semibold">{r.title}</p>
+              <p className="money text-xs text-[#64748B]">
+                {baht(r.total)}, ส่งเมื่อ {thaiDateTime(r.createdAt)}
+              </p>
             </div>
 
-            {/* สรุปคำขอ */}
-            <div className="mt-4 flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-xs font-semibold text-white">
-                {requesterName.slice(0, 2)}
-              </span>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-slate-900">
-                  {r.title}
-                </p>
-                <p className="truncate text-xs text-slate-500">
-                  {requesterName} · ส่งเมื่อ {thaiDateTime(r.createdAt)}
-                </p>
-              </div>
-            </div>
-
-            {/* เหตุผลที่ตีกลับ */}
-            <p className="mb-2 mt-5 text-sm font-semibold text-slate-800">
-              เหตุผลที่ตีกลับ <span className="text-red-500">*</span>
+            <p id="reject-reason-label" className="mb-2 mt-5 text-sm font-semibold">
+              เหตุผลที่ตีกลับ
             </p>
-            <div className="flex flex-wrap gap-2">
+            <div role="group" aria-labelledby="reject-reason-label" className="flex flex-wrap gap-2">
               {REJECT_REASONS.map((reason) => {
                 const active = rejectReason === reason;
                 return (
                   <button
                     key={reason}
                     type="button"
+                    aria-pressed={active}
                     onClick={() => {
                       setRejectReason(reason);
                       setRejectError("");
                     }}
-                    className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
+                    className={`rounded-lg border px-3 py-1.5 text-sm font-semibold ${
                       active
-                        ? "border-red-200 bg-red-100 text-red-600"
-                        : "border-slate-200 bg-slate-100 text-slate-600 hover:bg-slate-200"
+                        ? "border-[#FDA4AF] bg-[#FFF1F2] text-[#BE123C]"
+                        : "border-[#E2E8F0] bg-white text-[#475569] hover:bg-[#F8FAFC]"
                     }`}
                   >
                     {reason}
@@ -824,9 +711,15 @@ function ReviewContent() {
               })}
             </div>
 
-            {/* ความเห็น */}
-            <div className="relative mt-3">
-              <textarea
+            <label htmlFor="reject-comment" className="mb-1.5 mt-4 block text-sm font-semibold">
+              สิ่งที่ผู้ขอต้องแก้{" "}
+              <span className="font-normal text-[#94A3B8]">
+                {rejectReason === "อื่นๆ" ? "จำเป็นเมื่อเลือกอื่นๆ" : "ไม่บังคับ"}
+              </span>
+            </label>
+            <div className="relative">
+              <TextArea
+                id="reject-comment"
                 rows={4}
                 maxLength={REJECT_COMMENT_MAX}
                 value={rejectComment}
@@ -834,49 +727,49 @@ function ReviewContent() {
                   setRejectComment(e.target.value);
                   setRejectError("");
                 }}
-                placeholder="อธิบายสิ่งที่ผู้ขอต้องแก้ไข..."
-                className="w-full resize-none rounded-xl border border-slate-200 px-3 py-2.5 pb-7 text-sm outline-none placeholder:text-slate-400 focus:border-red-400 focus:ring-2 focus:ring-red-400/20"
+                placeholder="เช่น ใบเสร็จรายการที่ 2 ไม่ชัด ขอไฟล์ใหม่"
+                className="resize-none pb-8 text-sm"
               />
-              <span className="absolute bottom-2.5 right-3 text-xs text-slate-400">
+              <span className="money absolute bottom-2.5 right-3 text-xs text-[#94A3B8]" aria-hidden="true">
                 {rejectComment.length}/{REJECT_COMMENT_MAX}
               </span>
             </div>
 
-            {/* ข้อความแจ้ง / error */}
-            {rejectError ? (
-              <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
+            {rejectError && (
+              <p role="alert" className="mt-3 text-sm font-semibold text-[#BE123C]">
                 {rejectError}
               </p>
-            ) : (
-              <p className="mt-3 flex items-center gap-2 rounded-lg border border-dashed border-slate-200 px-3 py-2 text-xs text-slate-500">
-                <InfoIcon className="h-4 w-4 shrink-0" />
-                ต้องระบุเหตุผลก่อนจึงตีกลับได้
-              </p>
             )}
+          </DialogBody>
 
-            {/* ปุ่ม */}
-            <div className="mt-5 flex gap-3">
-              <button
-                type="button"
-                onClick={closeReject}
-                className="flex-1 rounded-xl border border-slate-200 bg-white py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-              >
-                ยกเลิก
-              </button>
-              <button
-                type="button"
-                onClick={confirmReject}
-                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-red-500 py-3 text-sm font-bold text-white hover:bg-red-600"
-              >
-                <ArrowRight className="h-4 w-4 rotate-180" /> ตีกลับคำขอ
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          <DialogFooter>
+            <Button variant="primary" appearance="outline" onPress={closeReject}>
+              ยกเลิก
+            </Button>
+            <Button variant="danger" className="font-bold" onPress={confirmReject}>
+              ตีกลับคำขอ
+            </Button>
+          </DialogFooter>
+        </Dialog>
+      </ModalOverlay>
     </div>
   );
 }
+
+// ✓ / ! สำหรับรายการตรวจอัตโนมัติในกล่องตัดสินใจ
+function CheckMark({ ok }: { ok: boolean }) {
+  return (
+    <span
+      aria-label={ok ? "ผ่าน" : "ต้องตรวจ"}
+      className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+        ok ? "bg-[#ECFDF5] text-[#047857]" : "bg-[#FFF1F2] text-[#BE123C]"
+      }`}
+    >
+      {ok ? <Check className="h-3 w-3" /> : "!"}
+    </span>
+  );
+}
+
 
 // useSearchParams ต้องอยู่ใน Suspense ไม่งั้น build ของ Next.js จะ error
 export default function ApprovedDH() {
