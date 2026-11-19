@@ -209,7 +209,8 @@ export default function Home() {
 
           {/* grid 4 คอลัมน์: คำขอของฉัน 2 คอลัมน์ / แจ้งเตือนล่าสุด 2 คอลัมน์ */}
           <div className="grid grid-cols-4 gap-5">
-            <div className="col-span-2 bg-white border border-[#E2E8F0] rounded-xl p-6 shadow-2xl">
+            {/* self-start: สูงตามจำนวนรายการ (มากสุด MY_REQUEST_LIMIT) ไม่ยืดตามการ์ดข้างๆ */}
+            <div className="col-span-2 self-start bg-white border border-[#E2E8F0] rounded-xl p-6 shadow-2xl">
               <div className="text-2xl font-bold text-black flex items-center justify-between mb-4">
                 <h1>คำขอของฉัน</h1>
                 <Link

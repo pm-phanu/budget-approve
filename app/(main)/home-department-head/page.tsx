@@ -24,9 +24,9 @@ type ExpenseRequest = SavedRequest;
 type CurrentUser = Credential;
 
 const APPROVED_PATH = "/home-department-head/approve"; // ← path หน้าตรวจสอบ ต้องตรงกับชื่อโฟลเดอร์
-const ROW_H = 93; // ความสูงแถว (px) ต้องตรงกับ h-[93px] ใน ROW_GRID
-const RECENT_LIMIT = 5; // แสดง "อนุมัติล่าสุด" สูงสุดกี่รายการ
-const RECENT_MIN_ROWS = 3; // เว้นพื้นที่อย่างน้อยกี่แถว (ว่าง/น้อยกว่า 3 ก็ไม่ยุบ)
+// แสดงสูงสุดกี่รายการ ทั้ง "รอคุณตรวจสอบ" และ "อนุมัติล่าสุด"
+// ความสูงการ์ดเป็น auto ตามจำนวนรายการ (1 รายการ = เตี้ย · มากสุด 5) เริ่มจากบนสุดเสมอ
+const LIST_LIMIT = 5;
 
 // ความกว้างคอลัมน์ของแถวรายการ ใช้ร่วมกันทั้ง "รอคุณตรวจสอบ" และ "อนุมัติล่าสุด"
 // (ชื่อ | ป้ายรอ | ยอดเงิน | ปุ่ม/สถานะ) ถ้าจะปรับความกว้าง แก้ที่นี่ที่เดียว
@@ -165,7 +165,7 @@ export default function DH() {
       );
 
   // อนุมัติล่าสุด: แสดงสูงสุด 5 รายการ (ล่าสุดอยู่บนสุด)
-  const recentApproved = mine.slice(0, RECENT_LIMIT);
+  const recentApproved = mine.slice(0, LIST_LIMIT);
 
   // อนุมัติแล้วปีนี้: รวมยอดของคำขอที่คุณอนุมัติในปีปัจจุบัน
   const approvedTotal = mine
@@ -275,7 +275,7 @@ export default function DH() {
 
         {/* รอคุณตรวจสอบ */}
         <div className="grid grid-cols-4 gap-5">
-          <div className="bg-white relative flex justify-between p-6 flex-col col-span-2 rounded-xl border border-[#E2E8F0] shadow-2xl">
+          <div className="bg-white relative flex self-start p-6 flex-col col-span-2 rounded-xl border border-[#E2E8F0] shadow-2xl">
             <div className="items-center flex justify-between mb-1">
               <div>
                 <span className="font-bold text-md">รอคุณตรวจสอบ</span>
@@ -290,15 +290,15 @@ export default function DH() {
               </div>
             </div>
 
-            {/* รายการรอตรวจสอบ: grid คอลัมน์คงที่ / พื้นที่สูงเท่า 3 แถวเสมอ */}
-            <div className="min-h-[279px]">
+            {/* รายการรอตรวจสอบ: grid คอลัมน์คงที่ / สูงตามจำนวนรายการ มากสุด LIST_LIMIT */}
+            <div>
               {pending.length === 0 ? (
-                <div className="flex h-[279px] flex-col items-center justify-center gap-2 text-gray-400">
+                <div className="flex flex-col items-center justify-center gap-2 py-8 text-gray-400">
                   <CheckCircle1 />
                   <span className="text-sm">ไม่มีคำขอ</span>
                 </div>
               ) : (
-                pending.map((r) => {
+                pending.slice(0, LIST_LIMIT).map((r) => {
                   const name = r.requester?.fullName ?? "-";
                   return (
                     <div key={r.id} className={ROW_GRID}>
@@ -369,14 +369,11 @@ export default function DH() {
               </div>
             </div>
 
-            {/* อนุมัติล่าสุด: แสดงสูงสุด 5 รายการ ล่าสุดอยู่บนสุด / ใช้ grid เดียวกับด้านบน
-                ว่างหรือน้อยกว่า 3 รายการ ก็เว้นพื้นที่ไว้ 3 แถว */}
-            <div style={{ minHeight: RECENT_MIN_ROWS * ROW_H }}>
+            {/* อนุมัติล่าสุด: แสดงสูงสุด LIST_LIMIT รายการ ล่าสุดอยู่บนสุด / ใช้ grid เดียวกับด้านบน
+                สูงตามจำนวนรายการ */}
+            <div>
               {recentApproved.length === 0 ? (
-                <div
-                  className="flex flex-col items-center justify-center gap-2 text-gray-400"
-                  style={{ height: RECENT_MIN_ROWS * ROW_H }}
-                >
+                <div className="flex flex-col items-center justify-center gap-2 py-8 text-gray-400">
                   <CheckCircle1 />
                   <span className="text-sm">ยังไม่มีรายการที่อนุมัติ</span>
                 </div>

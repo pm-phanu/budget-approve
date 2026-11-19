@@ -36,7 +36,6 @@ const ACCOUNTANT_ROLE = "ACCOUNTANT_ADMIN";
 // (ชื่อ | ป้ายรอ | ยอดเงิน | ปุ่ม/สถานะ)
 const ROW_GRID =
   "grid h-[93px] grid-cols-[260px_90px_110px_1fr] items-center gap-3";
-const ROW_H = 93; // ความสูงแถว (px) ต้องตรงกับ h-[93px] ด้านบน
 
 /* ------------------------------------------------------------------
    ชนิดข้อมูล: ใช้ของกลางใน data/ (คำขอ = SavedRequest · ผู้ใช้ = Credential)
@@ -354,7 +353,8 @@ export default function AccountantHome() {
         {/* grid 4 คอลัมน์เหมือนหน้า employee: ซ้าย 2 คอลัมน์ / ขวา 2 คอลัมน์ */}
         <div className="grid grid-cols-4 gap-5">
           {/* ---------- การ์ดซ้าย ---------- */}
-          <div className="relative col-span-2 flex flex-col justify-between rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl">
+          {/* self-start: สูงตามจำนวนรายการ (มากสุด 5 ต่อส่วน) เริ่มจากบนสุด ไม่ยืดตามการ์ดขวา */}
+          <div className="relative col-span-2 flex flex-col self-start rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl">
             {/* รอคุณตรวจสอบ */}
             <div className="mb-1 flex items-center justify-between">
               <div>
@@ -368,13 +368,10 @@ export default function AccountantHome() {
               </button>
             </div>
 
-            {/* พื้นที่สูงเท่า 3 แถวเสมอ */}
-            <div style={{ minHeight: 3 * ROW_H }}>
+            {/* สูงตามจำนวนรายการ มากสุด PENDING_LIMIT */}
+            <div>
               {pending.length === 0 ? (
-                <div
-                  className="flex flex-col items-center justify-center gap-2 text-gray-400"
-                  style={{ height: 3 * ROW_H }}
-                >
+                <div className="flex flex-col items-center justify-center gap-2 py-8 text-gray-400">
                   <CheckCircle1 />
                   <span className="text-sm">ไม่มีคำขอรอตรวจ</span>
                 </div>
@@ -455,12 +452,10 @@ export default function AccountantHome() {
               </div>
             </div>
 
-            <div style={{ minHeight: RECENT_LIMIT * ROW_H }}>
+            {/* สูงตามจำนวนรายการ มากสุด RECENT_LIMIT */}
+            <div>
               {recent.length === 0 ? (
-                <div
-                  className="flex flex-col items-center justify-center gap-2 text-gray-400"
-                  style={{ height: RECENT_LIMIT * ROW_H }}
-                >
+                <div className="flex flex-col items-center justify-center gap-2 py-8 text-gray-400">
                   <CheckCircle1 />
                   <span className="text-sm">ยังไม่มีรายการที่ดำเนินการ</span>
                 </div>

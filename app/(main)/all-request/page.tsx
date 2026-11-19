@@ -181,12 +181,15 @@ export default function AllRequestDH() {
   const overBudget = budget.limit > 0 && budget.used > budget.limit;
 
   return (
-    <div className="min-h-screen bg-[#F1F5F9]">
-      <div className="mx-auto max-w-7xl">
+    <div>
+      <header className="mb-9">
+        <h1 className="text-[32px] font-bold text-[#111]">คำขอรออนุมัติทั้งหมด</h1>
+      </header>
+      <div>
         {/* ===== แบนเนอร์ข้อมูล (เหมือนหน้าหลัก) ===== */}
-        <div className="grid grid-cols-1 gap-5 pt-5 lg:grid-cols-[3fr_1.5fr_1.5fr]">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-[3fr_1.5fr_1.5fr]">
           {/* งบประมาณคงเหลือ */}
-          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#0b1f2a] via-[#0e4b3e] to-[#0a8f5f] p-6 text-white">
+          <div className="relative overflow-hidden rounded-xl shadow-2xl bg-gradient-to-br from-[#0b1f2a] via-[#0e4b3e] to-[#0a8f5f] p-6 text-white">
             {/* ลวดลายวงกลมตกแต่ง */}
             <div className="pointer-events-none absolute -right-12 -top-16 h-56 w-56 rounded-full border border-white/10" />
             <div className="pointer-events-none absolute -right-4 -top-8 h-40 w-40 rounded-full border border-white/10" />
@@ -226,7 +229,7 @@ export default function AllRequestDH() {
           </div>
 
           {/* กำลังดำเนินการ */}
-          <div className="flex flex-col justify-between rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+          <div className="flex flex-col justify-between rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
               <ClockThree />
             </div>
@@ -244,7 +247,7 @@ export default function AllRequestDH() {
           </div>
 
           {/* อนุมัติแล้วปีนี้ */}
-          <div className="flex flex-col justify-between rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+          <div className="flex flex-col justify-between rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600">
               <Check />
             </div>
@@ -260,7 +263,7 @@ export default function AllRequestDH() {
         </div>
 
         {/* ===== รายการคำขอรอตรวจทั้งหมด (เต็มความกว้าง) ===== */}
-        <section className="mt-5 w-full rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+        <section className="mt-9 w-full rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl">
           <div className="mb-4 flex items-center justify-between border-b border-gray-100 pb-4">
             <div>
               <span className="text-base font-bold">รอคุณตรวจสอบ</span>
