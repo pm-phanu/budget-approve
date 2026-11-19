@@ -460,7 +460,7 @@ export default function BudgetSetting() {
 
       <div className="flex flex-col gap-9">
         {/* สรุปปีที่เลือก */}
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-4">
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-4">
           <div className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl">
             <p className="mb-2 text-sm text-gray-500">ปีงบประมาณ</p>
             <NativeSelect

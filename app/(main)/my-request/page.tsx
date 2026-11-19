@@ -239,15 +239,15 @@ export default function MyRequest() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#F1F5F9] p-6 text-slate-800">
-      <div className="mx-auto max-w-7xl">
+    <div className="text-slate-800">
+      <div>
         {/* ===== หัวหน้า ===== */}
-        <header className="flex flex-wrap items-center justify-between gap-4">
-          <h1 className="text-3xl font-bold text-slate-900">คำขอของฉัน</h1>
+        <header className="mb-9 flex flex-wrap items-center justify-between gap-4">
+          <h1 className="text-[32px] font-bold text-[#111]">คำขอของฉัน</h1>
         </header>
 
         {/* ===== การ์ดสรุป 4 ใบ ===== */}
-        <div className="mt-5 grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-5 lg:grid-cols-4">
           {[
             { label: "ทั้งหมด", value: counts.all, color: "text-slate-900" },
             { label: "กำลังดำเนินการ", value: counts.progress, color: "text-orange-500" },
@@ -256,7 +256,7 @@ export default function MyRequest() {
           ].map((c) => (
             <div
               key={c.label}
-              className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm"
+              className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl"
             >
               <div className="text-sm text-gray-500">{c.label}</div>
               <div className={`mt-1 text-3xl font-bold ${c.color}`}>
@@ -267,7 +267,7 @@ export default function MyRequest() {
         </div>
 
         {/* ===== รายการคำขอ ===== */}
-        <section className="mt-5 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+        <section className="mt-9 rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl">
           {/* แท็บกรอง */}
           <div className="mb-2 flex flex-wrap gap-2">
             {tabs.map((t) => (

@@ -188,6 +188,10 @@ export default function NewRequest() {
   // โครงการที่เลือก + หมวดของโครงการนั้น
   const project = budget.find((p) => p.id === projectId); // ไม่ได้เลือก = undefined
   const categories = project ? project.categories : [];
+  const currentYear = user ? new Date().getFullYear() : null
+  const myProjects = budget.filter(
+    (p) => !!user?.departmentId && p.departmentId === user.departmentId && p.year === currentYear
+  )
 
   // งบคงเหลือของโครงการ = รวม (วงเงิน − ใช้ไป) ทุกหมวด
   let projectRemaining = 0;
@@ -267,6 +271,7 @@ export default function NewRequest() {
     if (!user) list.push("ไม่พบผู้ใช้ กรุณาเข้าสู่ระบบก่อน");
     if (!title) list.push("กรุณากรอกชื่อคำขอ");
     if (!project) list.push("กรุณาเลือกโครงการ");
+    if (project && !myProjects.some((p) => p.id === project.id)) list.push("โครงการนี้ไม่ใช่ของคุณ หรือไม่ใช่ปีงบประมาณปัจจุบัน")
     if (!useDate) list.push("กรุณาเลือกวันที่ใช้จ่าย");
 
     // ตรวจทีละแถว
@@ -460,14 +465,23 @@ export default function NewRequest() {
                 onChange={(e) => changeProject(e.target.value)}
               >
                 <option value="">-- เลือกโครงการ --</option>
-                {budget.map((p) => (
+                {myProjects.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.dept} › {p.name}
                   </option>
                 ))}
               </select>
+              {/* ไม่มีโครงการให้เลือก: ยังไม่กำหนดแผนก / แผนกยังไม่มีงบปีนี้ */}
+              {user && myProjects.length === 0 && (
+                <p className="mt-1 text-xs text-[#B45309]">
+                  {user.departmentId
+                    ? "แผนกของคุณยังไม่มีโครงการในปีนี้ ติดต่อฝ่ายบัญชีให้ตั้งงบก่อน"
+                    : "บัญชีของคุณยังไม่ได้กำหนดแผนก ติดต่อฝ่ายบัญชี"}
+                </p>
+              )}
               {/* ยังไม่เลือก = บอกว่าต้องเลือกก่อน · เลือกแล้ว = โชว์งบคงเหลือ */}
-              {!project && (
+              {/* ※ ไม่มีโครงการให้เลือก → ใช้ข้อความด้านบนแทน (ไม่ขึ้นซ้อนกัน 2 ข้อความ) */}
+              {!project && myProjects.length > 0 && (
                 <p className="mt-1 text-xs text-[#B45309]">
                   เลือกโครงการก่อน แล้วจึงเลือกหมวดในรายการค่าใช้จ่ายได้
                 </p>
