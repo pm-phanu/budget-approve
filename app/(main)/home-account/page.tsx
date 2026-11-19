@@ -363,9 +363,9 @@ export default function AccountantHome() {
                   {pending.length}
                 </span>
               </div>
-              <button className="flex items-center gap-1 text-xs font-bold text-green-700">
-                ดูทั้งหมด <ArrowRight size={15} />
-              </button>
+              <Link href="/all-request" className="flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:underline">
+                  ดูทั้งหมด →
+                </Link>
             </div>
 
             {/* สูงตามจำนวนรายการ มากสุด PENDING_LIMIT */}
