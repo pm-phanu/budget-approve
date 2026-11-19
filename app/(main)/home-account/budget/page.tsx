@@ -887,13 +887,13 @@ export default function BudgetSetting() {
                         <TableCell className="whitespace-nowrap">
                           {new Date(h.at).toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" })}
                         </TableCell>
-                        <TableCell>{h.byName}</TableCell>
+                        <TableCell className="whitespace-nowrap">{h.byName}</TableCell>
                         <TableCell>
-                          <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${h.kind === "โอนงบ" ? "bg-[#EFF6FF] text-[#1D4ED8]" : "bg-[#F1F5F9] text-[#475569]"}`}>
+                          <span className={`whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold ${h.kind === "โอนงบ" ? "bg-[#EFF6FF] text-[#1D4ED8]" : "bg-[#F1F5F9] text-[#475569]"}`}>
                             {h.kind}
                           </span>
                         </TableCell>
-                        <TableCell>{h.item}</TableCell>
+                        <TableCell className="min-w-56">{h.item}</TableCell>
                         <TableCell className="money whitespace-nowrap text-right">
                           {h.before === null ? "-" : `${baht(h.before)} → ${baht(h.after ?? 0)}`}
                         </TableCell>
@@ -902,7 +902,7 @@ export default function BudgetSetting() {
                         >
                           {h.kind === "โอนงบ" ? baht(h.amount) : (h.amount > 0 ? "+" : "−") + baht(Math.abs(h.amount))}
                         </TableCell>
-                        <TableCell>{h.note || "-"}</TableCell>
+                        <TableCell className="min-w-40">{h.note || "-"}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
