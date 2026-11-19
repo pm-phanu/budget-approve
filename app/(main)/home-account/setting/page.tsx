@@ -93,6 +93,18 @@ export default function Account() {
     updateUser(userId, patch);
     setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, ...patch } : u)));
   };
+
+  // หัวหน้า / ผอ. โดยตรงของผู้ใช้ (spec §3) → คำขอของคนนี้จะไปหาคนที่เลือกเท่านั้น
+  // ※ เปลี่ยนสังกัด (setAffiliation) จะรีเซ็ตค่านี้ เพราะคนเดิมอาจอยู่คนละแผนกแล้ว
+  const setSupervisor = (u: Credential, key: "headId" | "directorId", value: string) => {
+    const hierarchy = {
+      headId: u.hierarchy?.headId ?? null,
+      directorId: u.hierarchy?.directorId ?? null,
+      [key]: value || null,
+    };
+    updateUser(u.id, { hierarchy });
+    setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, hierarchy } : x)));
+  };
   const changeLine = (u: Credential, lineOfWorkId: string) =>
     setAffiliation(u.id, lineOfWorkId || null, null, null);
   const changeDivision = (u: Credential, divisionId: string) => {
@@ -287,6 +299,8 @@ export default function Account() {
                 <TableHead>ฝ่าย</TableHead>
                 <TableHead>แผนก</TableHead>
                 <TableHead>บทบาท</TableHead>
+                <TableHead>หัวหน้าโดยตรง</TableHead>
+                <TableHead>ผอ.โดยตรง</TableHead>
                 <TableHead>งบร่วม</TableHead>
                 <TableHead>สถานะ</TableHead>
               </TableRow>
@@ -295,13 +309,13 @@ export default function Account() {
             <TableBody>
               {error ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center">
+                  <TableCell colSpan={10} className="text-center">
                     {error}
                   </TableCell>
                 </TableRow>
               ) : users.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center">
+                  <TableCell colSpan={10} className="text-center">
                     ยังไม่มีข้อมูล
                   </TableCell>
                 </TableRow>
@@ -373,6 +387,38 @@ export default function Account() {
                             {roleLabel(r)}
                           </NativeSelectOption>
                         ))}
+                      </NativeSelect>
+                    </TableCell>
+                    <TableCell>
+                      <NativeSelect
+                        aria-label="หัวหน้าโดยตรง"
+                        value={u.hierarchy?.headId ?? ""}
+                        onChange={(e) => setSupervisor(u, "headId", e.target.value)}
+                      >
+                        <NativeSelectOption value="">ใครก็ได้ในแผนก</NativeSelectOption>
+                        {users
+                          .filter((x) => x.role === "HEAD" && x.id !== u.id && !!u.departmentId && x.departmentId === u.departmentId)
+                          .map((x) => (
+                            <NativeSelectOption key={x.id} value={x.id}>
+                              {x.fullName}
+                            </NativeSelectOption>
+                          ))}
+                      </NativeSelect>
+                    </TableCell>
+                    <TableCell>
+                      <NativeSelect
+                        aria-label="ผอ.โดยตรง"
+                        value={u.hierarchy?.directorId ?? ""}
+                        onChange={(e) => setSupervisor(u, "directorId", e.target.value)}
+                      >
+                        <NativeSelectOption value="">ใครก็ได้ในฝ่าย</NativeSelectOption>
+                        {users
+                          .filter((x) => x.role === "DIRECTOR" && x.id !== u.id && !!u.divisionId && x.divisionId === u.divisionId)
+                          .map((x) => (
+                            <NativeSelectOption key={x.id} value={x.id}>
+                              {x.fullName}
+                            </NativeSelectOption>
+                          ))}
                       </NativeSelect>
                     </TableCell>
                     <TableCell>

@@ -263,7 +263,7 @@ export default function NewRequest() {
   // ยังไม่รู้ว่าใครล็อกอิน → แสดงตามวงเงินอย่างเดียว
   const plan: PlannedStep[] = user
     ? planApprovalSteps(total, user, org, rules, positions)
-    : getApprovalSteps(total, rules).map((role) => ({ role, approverId: null, hasApprover: true }));
+    : getApprovalSteps(total, rules).map((role) => ({ role, approverId: null, hasApprover: true, actingRole: null }));
   const steps = plan.map((p) => p.role);
   // ขั้นที่ยังไม่มีใครอนุมัติได้ (ในแผนก/ฝ่ายของผู้ขอ) → ส่งไม่ได้จนกว่าบัญชีจะกำหนดคน
   const missingSteps = plan.filter((p) => !p.hasApprover).map((p) => p.role);
@@ -445,10 +445,14 @@ export default function NewRequest() {
     } else {
       // คำขอใหม่ / ร่าง / ยอดเปลี่ยนจนเส้นทางเปลี่ยน → เริ่มที่ขั้นแรก
       // ทุกขั้นเริ่มที่ "รอ" · หน้าอนุมัติเป็นคนเปลี่ยน · approverId = คนที่ต้องอนุมัติขั้นนั้น
-      approvalSteps = plan.map(({ role, approverId }): SavedStep => ({
+      approvalSteps = plan.map(({ role, approverId, actingRole }): SavedStep => ({
         role,
         approverId,
-        label: getRoleLabel(role, positions),
+        actingRole,
+        // ทางสำรอง → "กรรมการผู้จัดการ (แทนฝ่ายบัญชี)"
+        label: actingRole
+          ? `${getRoleLabel(actingRole, positions)} (แทน${getRoleLabel(role, positions)})`
+          : getRoleLabel(role, positions),
         status: "รอ",
         by: null,
         at: null,
