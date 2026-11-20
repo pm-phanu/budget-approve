@@ -1,0 +1,205 @@
+// ════════════════════════════════════════════════════════════
+//  รูปแบบ "คำขอเบิก 1 ใบ" ที่เก็บใน localStorage ("requests")
+//  หน้าสร้างคำขอเป็นคนบันทึก · หน้าอนุมัติ / ประวัติ / รายงานอ่านไปใช้
+// ════════════════════════════════════════════════════════════
+
+import type { StepRole } from "./approval";
+
+export const REQUESTS_KEY = "requests";
+
+// สถานะของคำขอ
+export type RequestStatus = "ร่าง" | "รออนุมัติ" | "ตีกลับ" | "อนุมัติแล้ว" | "จ่ายแล้ว";
+
+// 1 แถวค่าใช้จ่าย
+export type SavedItem = {
+  categoryId: string; // รหัสหมวด เช่น "C01"
+  categoryName: string; // ชื่อหมวด เช่น "ค่าเดินทาง"
+  name: string; // รายละเอียด
+  amount: number; // จำนวนเงิน
+  files: string[]; // ชื่อไฟล์หลักฐานของแถวนี้
+};
+
+// 1 ขั้นในเส้นทางอนุมัติ
+export type SavedStep = {
+  role: StepRole; // ใครต้องทำขั้นนี้
+  // คนที่ต้องอนุมัติขั้นนี้ (ใส่ตอนสร้างคำขอ ดู planApprovalSteps ใน data/approval.ts)
+  // null = ใครก็ได้ใน role นี้ ยกเว้นผู้ขอเอง (ใช้กับขั้นบัญชี / การเงิน)
+  // ※ optional เพราะคำขอเก่าใน localStorage ยังไม่มีฟิลด์นี้
+  approverId?: string | null;
+  label: string; // ชื่อภาษาไทย เช่น "หัวหน้าแผนก"
+  status: "รอ" | "อนุมัติ" | "ตีกลับ";
+  by: string | null; // ชื่อคนที่กด (ยังไม่กด = null)
+  byId?: string | null; // id คนที่กด (ใช้หา "ประวัติการอนุมัติ" · คำขอเก่าไม่มี → เทียบจากชื่อ)
+  at: string | null; // เวลาที่กด
+  note: string; // เหตุผล (ตอนตีกลับ)
+  // ทางสำรอง (spec §5): role นี้ไม่มีคนอื่นนอกจากผู้ขอ → ให้ role นี้อนุมัติแทน · ไม่มี = role เดียวกับ `role`
+  actingRole?: string | null;
+};
+
+// คำขอ 1 ใบ
+export type SavedRequest = {
+  id: string; // เลขที่คำขอ เช่น "REQ-1794659462071"
+  createdAt: string; // สร้างเมื่อ
+  updatedAt: string; // แก้ล่าสุดเมื่อ
+  status: RequestStatus;
+  type: "advance" | "invoice"; // advance = สำรองจ่าย · invoice = ใบแจ้งหนี้
+  typeLabel: string; // ชื่อประเภทภาษาไทย
+  title: string;
+  useDate: string; // วันที่ใช้จ่าย
+  reason: string;
+  project: { id: string; name: string; dept: string } | null;
+  items: SavedItem[];
+  total: number;
+  fileCount: number;
+  requester: {
+    id: string;
+    fullName: string;
+    role: string;
+    departmentId?: string | null; // แผนกของผู้ขอ ณ วันที่ยื่น (data/organization.ts)
+    department: string;
+    lineOfWork: string;
+    headId: string | null; // หัวหน้าของผู้ขอ
+    directorId: string | null; // ผอ. ของผู้ขอ
+  } | null;
+  payTo: string; // จ่ายเงินให้ใคร
+  bankAccount: string | null; // บัญชีรับเงินคืน (เฉพาะสำรองจ่าย)
+  approvalSteps: SavedStep[];
+  currentStep: number; // ขั้นที่ต้องทำต่อ (ลำดับใน approvalSteps)
+  payment?: { ref: string; date: string }; // การเงินบันทึกตอนทำจ่าย (home-finance/pay) · ยังไม่จ่าย = ไม่มี
+  history: HistoryEntry[]; // บันทึกว่าใครทำอะไรเมื่อไหร่ (เพิ่มต่อท้ายเสมอ ไม่ลบ ไม่แก้)
+};
+
+// ════════════════════════════════════════════════════════════
+//  ประวัติ (Audit log) — 1 รายการต่อ 1 การกระทำบนคำขอ
+//  ※ ฟิลด์ใหม่เป็น optional เพราะหน้าอนุมัติเดิมยังบันทึกแค่ { action, by, at }
+// ════════════════════════════════════════════════════════════
+export type HistoryType = "บันทึกร่าง" | "ส่งคำขอ" | "ส่งใหม่" | "อนุมัติ" | "ตีกลับ" | "ทำจ่าย";
+
+export type HistoryEntry = {
+  action: string; // ข้อความที่แสดง เช่น "อนุมัติ: หัวหน้าแผนก"
+  by: string; // ชื่อคนทำ
+  at: string; // เวลา (ISO)
+  type?: HistoryType; // ประเภท (ใช้กรอง) · ไม่มี = เดาจาก action ด้วย historyType()
+  byId?: string | null; // id คนทำ
+  role?: string; // role คนทำ ณ ตอนนั้น
+  note?: string; // เหตุผล / ความเห็น
+};
+
+// สร้างรายการประวัติ 1 รายการ (ใช้ตอนบันทึกคำขอ / อนุมัติ / ตีกลับ)
+export function makeHistory(
+  type: HistoryType,
+  user: { id: string; fullName: string; role: string } | null,
+  options: { action?: string; note?: string; at?: string } = {},
+): HistoryEntry {
+  return {
+    type,
+    action: options.action ?? type,
+    by: user ? user.fullName : "-",
+    byId: user ? user.id : null,
+    role: user ? user.role : undefined,
+    at: options.at ?? new Date().toISOString(),
+    ...(options.note ? { note: options.note } : {}),
+  };
+}
+
+// ประเภทของรายการ · ข้อมูลเก่าไม่มี type → ดูจากคำขึ้นต้นของ action
+export function historyType(entry: HistoryEntry): HistoryType | null {
+  if (entry.type) return entry.type;
+  const types: HistoryType[] = ["บันทึกร่าง", "ส่งคำขอ", "ส่งใหม่", "อนุมัติ", "ตีกลับ", "ทำจ่าย"];
+  return types.find((t) => entry.action.startsWith(t)) ?? null;
+}
+
+// ไทม์ไลน์ของคำขอ (เก่า → ใหม่)
+export function getTimeline(request: SavedRequest): HistoryEntry[] {
+  return [...request.history].sort((a, b) => a.at.localeCompare(b.at));
+}
+
+// "ประวัติการอนุมัติ" ของผู้ใช้: ทุกครั้งที่คนนี้อนุมัติ / ตีกลับ (ใหม่ → เก่า)
+// อ่านจาก history (บันทึกต่อท้ายเสมอ ไม่ลบ) ไม่ใช่ approvalSteps
+//   เพราะส่งใหม่หลังถูกตีกลับ ขั้นใน approvalSteps ถูกรีเซ็ตเป็น "รอ" → การตีกลับ / อนุมัติรอบก่อนหายจาก steps
+// มี byId ใช้ byId · ข้อมูลเก่าไม่มี → เทียบชื่อ
+// คำขอเก่ามากที่ history ไม่มีรายการอนุมัติ/ตีกลับเลย → ใช้ approvalSteps แทน
+// step ที่คืน: role = role ของคนทำ · label = ชื่อขั้น (จาก action "อนุมัติ: หัวหน้าแผนก")
+export function getActedRequests(
+  requests: SavedRequest[],
+  user: { id: string; fullName: string },
+) {
+  const rows: { request: SavedRequest; step: SavedStep }[] = [];
+  const isMine = (byId: string | null | undefined, by: string | null) =>
+    byId ? byId === user.id : by === user.fullName;
+
+  for (const request of requests) {
+    const acted = (request.history ?? []).filter((h) => {
+      const t = historyType(h);
+      return t === "อนุมัติ" || t === "ตีกลับ";
+    });
+
+    if (acted.length === 0) {
+      for (const step of request.approvalSteps) {
+        if (step.status !== "รอ" && isMine(step.byId, step.by)) rows.push({ request, step });
+      }
+      continue;
+    }
+
+    for (const h of acted) {
+      if (!isMine(h.byId, h.by)) continue;
+      const status = historyType(h) === "ตีกลับ" ? "ตีกลับ" : "อนุมัติ";
+      // "อนุมัติ: หัวหน้าแผนก (ความเห็น)" → "หัวหน้าแผนก"
+      const label = h.action.replace(/^(อนุมัติ|ตีกลับ)\s*:?\s*/, "").replace(/\s*\(.*\)$/, "") || status;
+      rows.push({
+        request,
+        step: {
+          role: h.role ?? "",
+          label,
+          status,
+          by: h.by,
+          byId: h.byId ?? null,
+          at: h.at,
+          note: h.note ?? "",
+        },
+      });
+    }
+  }
+  return rows.sort((a, b) => (b.step.at ?? "").localeCompare(a.step.at ?? ""));
+}
+
+// "ประวัติการเบิก" ของผู้ใช้: คำขอของตัวเองที่จบแล้ว (อนุมัติแล้ว / จ่ายแล้ว / ตีกลับ) ใหม่ → เก่า
+export function getMyFinishedRequests(requests: SavedRequest[], userId: string) {
+  return requests
+    .filter(
+      (r) =>
+        r.requester &&
+        String(r.requester.id) === String(userId) &&
+        (r.status === "อนุมัติแล้ว" || r.status === "จ่ายแล้ว" || r.status === "ตีกลับ"),
+    )
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+}
+
+// อ่านคำขอทั้งหมด (ยังไม่มี = ลิสต์ว่าง)
+export function loadRequests(): SavedRequest[] {
+  try {
+    const stored = localStorage.getItem(REQUESTS_KEY);
+    const parsed: SavedRequest[] = stored ? JSON.parse(stored) : [];
+    return parsed.filter((r) => r && Array.isArray(r.approvalSteps)); // ข้ามแถวที่รูปแบบเสีย
+  } catch {
+    return []; // ข้อมูลในเครื่องเสีย → ไม่ให้ทุกหน้าพัง
+  }
+}
+
+// เวลาที่ส่งคำขอล่าสุด (ส่งครั้งแรก / ส่งใหม่หลังถูกตีกลับ) · ร่างที่บันทึกไว้ก่อนส่ง → ใช้เวลากดส่ง ไม่ใช่วันสร้างร่าง
+export function sentAt(r: SavedRequest) {
+  let latest = r.createdAt;
+  for (const h of r.history ?? []) {
+    const t = historyType(h);
+    if ((t === "ส่งคำขอ" || t === "ส่งใหม่") && h.at > latest) latest = h.at;
+  }
+  return latest;
+}
+
+// คำขอมาถึงขั้นปัจจุบันเมื่อไร = ขั้นก่อนหน้าอนุมัติ หรือส่ง/ส่งใหม่ (เอาที่หลังสุด) · ใช้นับ "รอนานเท่าไร"
+export function arrivedAt(r: SavedRequest) {
+  const prev = r.approvalSteps[r.currentStep - 1];
+  const sent = sentAt(r);
+  const base = prev?.at ?? sent;
+  return sent > base ? sent : base;
+}

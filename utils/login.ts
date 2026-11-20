@@ -1,0 +1,63 @@
+import { useRouter } from "next/navigation";
+import { getUsers, withoutPassword, type Credential } from "@/data/credential";
+
+type Router = ReturnType<typeof useRouter>;
+
+const CURRENT_USER_KEY = "current_user";
+
+export const getCurrentUser = (): Credential | null => {
+  const stored = localStorage.getItem(CURRENT_USER_KEY);
+
+  if (!stored) return null;
+  try {
+    const user = JSON.parse(stored) as Credential;
+
+    if (!user.id || !user.username || !user.role) return null;
+
+    // current_user เป็นภาพ ณ ตอน login → ถ้าข้อมูลผู้ใช้เปลี่ยนทีหลัง (เช่น เพิ่ม departmentId)
+    // ให้ใช้ข้อมูลล่าสุดจากรายชื่อผู้ใช้ (ไม่รวมรหัสผ่าน)
+    const latest = getUsers().find((u) => u.id === user.id);
+    return latest ? withoutPassword(latest) : user;
+  } catch {
+    return null;
+  }
+};
+
+export const checkLogin = (router: Router, returnPath: string) => {
+  const user = getCurrentUser();
+
+  if (!user) {
+    localStorage.removeItem(CURRENT_USER_KEY);
+    localStorage.setItem("returnPath", returnPath);
+    router.replace("/login");
+    return null;
+  }
+  return user;
+};
+
+export const doLogout = (router: Router) => {
+  localStorage.removeItem(CURRENT_USER_KEY);
+  router.replace("/login");
+};
+
+export const checkGuest = (router: Router): boolean => {
+  const user = getCurrentUser()
+
+  if(user) {
+    router.replace('/')
+    return false // login อยู่แล้ว ไม่ใช่ guest
+  }
+  return true // ยังไม่ login อยู่หน้านี้ได้
+}
+
+// role ที่ไม่มีหน้าแดชบอร์ดของตัวเอง (เช่น ตำแหน่งที่เพิ่มเอง) → หน้าแรก
+export const getHomePath = (role: Credential["role"]): string => HOME_PATHS[role] ?? "/";
+
+export const HOME_PATHS: Record<Credential["role"], string> = {
+  EMPLOYEE: "/",
+  HEAD: "/home-department-head",
+  DIRECTOR: "/home-director",
+  MANAGING_DIRECTOR: "/home-managing-director",
+  ACCOUNTANT: "/home-account",
+  FINANCE: "/home-finance",
+}
