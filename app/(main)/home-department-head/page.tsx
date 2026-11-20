@@ -20,6 +20,7 @@ import {
   Check,
   CheckCircle1,
   ClockThree,
+  Wallet2,
 } from "@tailgrids/icons";
 import { bkkYear } from "@/utils/date";
 
@@ -30,6 +31,7 @@ type ExpenseRequest = SavedRequest;
 type CurrentUser = Credential;
 
 const APPROVED_PATH = "/home-department-head/approve"; // ← path หน้าตรวจสอบ ต้องตรงกับชื่อโฟลเดอร์
+
 // แสดงสูงสุดกี่รายการ ทั้ง "รอคุณตรวจสอบ" และ "อนุมัติล่าสุด"
 // ความสูงการ์ดเป็น auto ตามจำนวนรายการ (1 รายการ = เตี้ย · มากสุด 5) เริ่มจากบนสุดเสมอ
 const LIST_LIMIT = 5;
@@ -222,42 +224,46 @@ export default function DH() {
         <div className="flex flex-col gap-9">
         {/* card1 */}
         <div className="grid grid-cols-4 gap-5">
-          {/* งบประมาณคงเหลือ (ข้อมูลงบรายปีจริง + หลอด progress) */}
-          <div className="bg-[#0e4b3e] text-white relative flex justify-between p-6 overflow-hidden flex-col col-span-2 rounded-xl shadow-2xl">
-            <div>
-              <div className="items-center flex justify-between mb-1">
-                <div>
-                  <span>งบประมาณคงเหลือ</span>
-                </div>
-                <span>
+          {/* งบแผนกคงเหลือ (ข้อมูลงบรายปีจริง + หลอด progress) ไล่สี + วงกลมตกแต่ง */}
+          <div className="relative col-span-2 flex flex-col justify-between overflow-hidden rounded-xl bg-gradient-to-br from-[#0b1f2a] via-[#0e4b3e] to-[#0a8f5f] p-6 text-white shadow-2xl">
+            {/* ลวดลายวงกลมตกแต่ง */}
+            <div className="pointer-events-none absolute -right-12 -top-16 h-56 w-56 rounded-full border border-white/10" />
+            <div className="pointer-events-none absolute -right-4 -top-8 h-40 w-40 rounded-full border border-white/10" />
+
+            <div className="relative z-10">
+              <div className="mb-1 flex items-center justify-between">
+                <span className="flex items-center gap-2 text-sm">
+                  <Wallet2 className="h-5 w-5 text-emerald-300" />
+                  งบแผนกคงเหลือ
+                </span>
+                <span className="rounded-full bg-white/10 px-3 py-0.5 text-xs">
                   {currentYear !== null ? `ปี ${currentYear + 543}` : ""}
                 </span>
               </div>
-              <div>
-                <div className="text-3xl font-bold tracking-tight">
-                  {baht(remaining)}
-                </div>
-                <div className="text-xs text-emerald-300/80 mt-1">
-                  จากงบทั้งปี {baht(budget.limit)}
-                </div>
-                {budget.sharedCount > 0 && (
-                  <div className="text-xs text-emerald-200 mt-1">
-                    + งบร่วมจากแผนกอื่น {baht(budget.shared)} ({budget.sharedCount} โครงการ)
-                  </div>
-                )}
+              <div className="text-3xl font-bold tracking-tight">
+                {baht(remaining)}
               </div>
-              <div className="relative z-10">
-                <div className="flex justify-between text-xs text-emerald-200 mb-1.5">
+              <div className="mt-1 text-xs text-emerald-300/80">
+                จากงบทั้งปี {baht(budget.limit)}
+              </div>
+              {budget.sharedCount > 0 && (
+                <div className="mt-1 text-xs text-emerald-200">
+                  + งบร่วมจากแผนกอื่น {baht(budget.shared)} ({budget.sharedCount} โครงการ)
+                </div>
+              )}
+
+              <div className="mt-3">
+                <div className="mb-1.5 flex justify-between text-xs text-emerald-200">
                   <span>{overBudget ? "ใช้งบเกินวงเงิน" : ""}</span>
                   <span>ใช้ไปแล้ว {usedPct}%</span>
                 </div>
-                <div className="w-full bg-emerald-950/60 h-2 rounded-full overflow-hidden">
+                <div className="h-2 w-full overflow-hidden rounded-full bg-white/15">
                   <div
                     className={`h-full rounded-full transition-all duration-500 ${
-                      overBudget ? "bg-rose-400" : "bg-[#00e699]"
+                      overBudget ? "bg-rose-400" : "bg-[#34e0a1]"
                     }`}
                     style={{ width: `${barWidth}%` }}
-                  ></div>
+                  />
                 </div>
               </div>
             </div>
