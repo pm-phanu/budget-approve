@@ -29,6 +29,7 @@ import {
   CheckCircle1,
   TrendUp2,
   Bank1,
+  Wallet2,
 } from "@tailgrids/icons";
 import { forwardRef, Suspense, SVGProps, useEffect, useState } from "react";
 import { mergeProps } from "react-aria";
@@ -60,6 +61,7 @@ const mainItems: MenuItem[] = [
 ];
 
 const manageItems: MenuItem[] = [
+  { title: "งบประมาณประจำปี", url: "/home-account/budget-year", icon: Wallet2, roles: ["ACCOUNTANT_ADMIN"], group: "manage" },
   { title: "ตั้งงบประมาณ", url: "/home-account/budget", icon: Plus, adminOnly: true, group: "manage" },
   { title: "จัดการผู้ใช้และสิทธิ์", url: "/home-account/setting", icon: UserMultiple4, adminOnly: true, group: "manage" },
 
