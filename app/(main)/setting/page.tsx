@@ -2,7 +2,7 @@
 
 // ════════════════════════════════════════════════════════════
 //  การตั้งค่าบัญชีของผู้ใช้ทุก role (/setting · ปุ่ม "การตั้งค่า" ใน sidebar)
-//  1) ข้อมูลพนักงาน (ดูอย่างเดียว · แก้ได้ที่หน้า "จัดการผู้ใช้และสิทธิ์" ของผู้ดูแลระบบ)
+//  1) ข้อมูลพนักงาน: รหัส / ชื่อ ดูอย่างเดียว (ผู้ดูแลระบบแก้) · อีเมลแก้เองได้ → ป็อปอัพถามยืนยัน
 //  2) เปลี่ยนรหัสผ่าน → ป็อปอัพถามยืนยัน
 //  3) บัญชีรับเงินคืน (คำขอแบบสำรองจ่าย) → ป็อปอัพให้ตรวจเลขบัญชีอีกรอบก่อนบันทึก
 // ════════════════════════════════════════════════════════════
@@ -15,24 +15,29 @@ import { useVisitKey } from "@/components/use-visit-key";
 import {
   THAI_BANKS,
   changePassword,
+  normalizeEmail,
   normalizeBankAccount,
   passwordChangeError,
   updateBankAccount,
+  updateUser,
   type BankAccount,
   type Credential,
 } from "@/data/credential";
 import { getCurrentUser } from "@/utils/login";
+import { formatAccount } from "@/utils/format";
 
 // ช่องกรอก: แบบเดียวกับหน้าเข้าสู่ระบบ
 const FIELD =
   "mt-2 w-full rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2.5 text-[15px] text-[#0F172A] placeholder:text-sm placeholder:text-[#94A3B8] focus:border-[#059669] focus:outline-none focus:ring-2 focus:ring-[#059669]/20";
 const CARD = "rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl";
 
-// 1234567890 → 123-4-56789-0 (รูปแบบเลขบัญชี 10 หลักที่คนไทยคุ้น) · 12 หลักแสดงตามเดิม
-const formatAccount = (n: string) => (/^\d{10}$/.test(n) ? `${n.slice(0, 3)}-${n.slice(3, 4)}-${n.slice(4, 9)}-${n.slice(9)}` : n);
-
 function Settings() {
   const [me, setMe] = useState<Credential | null>(null);
+
+  // อีเมล
+  const [email, setEmail] = useState("");
+  const [emailError, setEmailError] = useState("");
+  const [emailPopup, setEmailPopup] = useState<{ step: "ask" | "done"; email: string } | null>(null);
 
   // รหัสผ่าน
   const [pw, setPw] = useState({ current: "", next: "", confirm: "" });
@@ -49,6 +54,7 @@ function Settings() {
     const user = getCurrentUser();
     /* eslint-disable react-hooks/set-state-in-effect -- อ่าน localStorage ได้หลังเปิดหน้าเท่านั้น */
     setMe(user);
+    setEmail(user?.email ?? "");
     // บัญชีเดิมเป็นข้อมูลตัวอย่างที่ปิดเลขไว้ (xxx-x-x4521-x) → ให้กรอกเลขจริงใหม่ · ชื่อบัญชีตั้งต้น = ชื่อผู้ใช้
     if (user) setBank({ bank: user.bankAccount?.bank ?? "", number: "", name: user.bankAccount?.name ?? user.fullName });
     /* eslint-enable react-hooks/set-state-in-effect */
@@ -60,6 +66,22 @@ function Settings() {
     setPw((p) => ({ ...p, [key]: e.target.value }));
     setPwError("");
   };
+
+  function askEmail(e: React.FormEvent) {
+    e.preventDefault();
+    try {
+      setEmailPopup({ step: "ask", email: normalizeEmail(me!.id, email) });
+    } catch (error) {
+      setEmailError(error instanceof Error ? error.message : "อีเมลไม่ถูกต้อง");
+    }
+  }
+
+  function saveEmail(next: string) {
+    updateUser(me!.id, { email: next });
+    setMe(getCurrentUser());
+    setEmail(next);
+    setEmailPopup({ step: "done", email: next });
+  }
 
   // ตรวจก่อน แล้วค่อยถามยืนยัน (ไม่ให้ป็อปอัพพาไปเจอ error)
   function askPassword(e: React.FormEvent) {
@@ -107,11 +129,10 @@ function Settings() {
         {/* ---------- 1) ข้อมูลพนักงาน ---------- */}
         <section aria-labelledby="profile-title" className={`${CARD} lg:col-span-2`}>
           <h2 id="profile-title" className="text-lg font-bold">ข้อมูลพนักงาน</h2>
-          <dl className="mt-4 grid gap-4 text-sm sm:grid-cols-3">
+          <dl className="mt-4 grid gap-4 text-sm sm:grid-cols-2">
             {[
               ["รหัสพนักงาน", me.id],
               ["ชื่อ-นามสกุล", me.fullName],
-              ["อีเมล", me.email || "-"],
             ].map(([label, value]) => (
               <div key={label} className="rounded-xl bg-[#F8FAFC] p-4">
                 <dt className="text-[#64748B]">{label}</dt>
@@ -119,7 +140,34 @@ function Settings() {
               </div>
             ))}
           </dl>
-          <p className="mt-3 text-xs text-[#64748B]">ข้อมูลไม่ถูกต้อง แจ้งผู้ดูแลระบบให้แก้ไข</p>
+          <p className="mt-3 text-xs text-[#64748B]">รหัสพนักงาน / ชื่อไม่ถูกต้อง แจ้งผู้ดูแลระบบให้แก้ไข</p>
+
+          <form onSubmit={askEmail} className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-end">
+            <div className="flex-1">
+              <label htmlFor="profile-email" className="text-sm font-medium">
+                อีเมล <span className="font-normal text-[#64748B]">(ใช้เข้าสู่ระบบแทนชื่อผู้ใช้ได้)</span>
+              </label>
+              <input
+                id="profile-email"
+                type="email"
+                autoComplete="email"
+                required
+                placeholder="name@company.com"
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setEmailError("");
+                }}
+                aria-invalid={!!emailError}
+                aria-describedby={emailError ? "email-error" : undefined}
+                className={FIELD}
+              />
+            </div>
+            <Button type="submit" variant="success" className="sm:w-48">
+              บันทึกอีเมล
+            </Button>
+          </form>
+          {emailError && <div className="mt-3"><ErrorText id="email-error" text={emailError} /></div>}
         </section>
 
         {/* ---------- 2) เปลี่ยนรหัสผ่าน ---------- */}
@@ -235,6 +283,21 @@ function Settings() {
       </div>
 
       {/* ---------- ป็อปอัพ ---------- */}
+      <ActionPopup
+        open={emailPopup?.step === "ask"}
+        tone="warning"
+        title="ยืนยันเปลี่ยนอีเมล?"
+        message={`${me.email || "ยังไม่มีอีเมล"} → ${emailPopup?.email ?? ""} · ครั้งต่อไปเข้าสู่ระบบด้วยอีเมลใหม่ (หรือชื่อผู้ใช้เดิม)`}
+        confirmLabel="เปลี่ยนอีเมล"
+        onConfirm={() => emailPopup && saveEmail(emailPopup.email)}
+        onCancel={() => setEmailPopup(null)}
+      />
+      <ActionPopup
+        open={emailPopup?.step === "done"}
+        title="เปลี่ยนอีเมลแล้ว"
+        message={emailPopup?.email}
+        onConfirm={() => setEmailPopup(null)}
+      />
       <ActionPopup
         open={pwPopup === "ask"}
         tone="warning"

@@ -60,19 +60,19 @@ export type User = {
 //  ผู้ดูแลระบบ (isAdmin) = kanya เท่านั้น · nattaya เป็นบัญชีแต่ไม่มีสิทธิ์จัดการระบบ
 //
 //  รหัสผ่านทุกคน = "pass" (ข้อมูลทดสอบเท่านั้น)
+//  บัญชีธนาคาร = เลขสมมติ 10 หลัก ตั้งไว้ให้ทุกคน · อีเมลว่างไว้ ผู้ใช้กรอกเองที่หน้า "การตั้งค่า"
 // ────────────────────────────────────────────────────────────
 export const users: User[] = [
   {
     id: "u_01",
     username: "phanu",
     fullName: "ภาณุ ศรีบุญเพ็ง",
-    email: "riampaat@gmail.com",
+    bankAccount: { bank: "กสิกรไทย", number: "1234567890", name: "ภาณุ ศรีบุญเพ็ง" },
     password: "pass",
     role: "EMPLOYEE",
     lineOfWorkId: "LW01",
     divisionId: "DV01",
     departmentId: "DP01",
-    bankAccount: { bank: "กสิกรไทย", number: "xxx-x-x4521-x", name: "ภาณุ ศรีบุญเพ็ง" },
     departmentInfo: { lineOfWork: "สายงานบัญชีและการเงิน", department: "แผนกงบประมาณและควบคุมต้นทุน" },
     status: "ACTIVE",
   },
@@ -80,6 +80,7 @@ export const users: User[] = [
     id: "u_02",
     username: "somchai",
     fullName: "สมชาย ใจดี",
+    bankAccount: { bank: "กรุงเทพ", number: "2345678901", name: "สมชาย ใจดี" },
     role: "HEAD",
     password: "pass",
     lineOfWorkId: "LW01",
@@ -92,6 +93,7 @@ export const users: User[] = [
     id: "u_03",
     username: "wanida",
     fullName: "วนิดา รัตนกุล",
+    bankAccount: { bank: "ไทยพาณิชย์", number: "3456789012", name: "วนิดา รัตนกุล" },
     role: "DIRECTOR",
     password: "pass",
     lineOfWorkId: "LW01",
@@ -104,6 +106,7 @@ export const users: User[] = [
     id: "u_04",
     username: "kanya",
     fullName: "กัญญา ทองดี",
+    bankAccount: { bank: "กรุงไทย", number: "4567890123", name: "กัญญา ทองดี" },
     isAdmin: true, // ผู้ดูแลระบบคนเดียวในข้อมูลตัวอย่าง
     password: "pass",
     role: "ACCOUNTANT",
@@ -117,6 +120,7 @@ export const users: User[] = [
     id: "u_05",
     username: "preecha",
     fullName: "ปรีชา มั่นคง",
+    bankAccount: { bank: "กรุงศรีอยุธยา", number: "5678901234", name: "ปรีชา มั่นคง" },
     role: "FINANCE",
     password: "pass",
     lineOfWorkId: "LW01",
@@ -129,6 +133,7 @@ export const users: User[] = [
     id: "u_06",
     username: "thanakorn",
     fullName: "ธนกร วงศ์สวัสดิ์",
+    bankAccount: { bank: "กรุงเทพ", number: "6789012345", name: "ธนกร วงศ์สวัสดิ์" },
     role: "MANAGING_DIRECTOR",
     password: "pass",
     lineOfWorkId: null,
@@ -141,6 +146,7 @@ export const users: User[] = [
     id: "u_07",
     username: "nattaya",
     fullName: "ณัฐยา สุขใจ",
+    bankAccount: { bank: "ทหารไทยธนชาต (ttb)", number: "7890123456", name: "ณัฐยา สุขใจ" },
     role: "ACCOUNTANT",
     password: "pass",
     lineOfWorkId: "LW01",
@@ -153,6 +159,7 @@ export const users: User[] = [
     id: "u_08",
     username: "kittisak",
     fullName: "กิตติศักดิ์ แสงทอง",
+    bankAccount: { bank: "กสิกรไทย", number: "8901234567", name: "กิตติศักดิ์ แสงทอง" },
     role: "HEAD",
     password: "pass",
     lineOfWorkId: "LW02",
@@ -165,12 +172,12 @@ export const users: User[] = [
     id: "u_09",
     username: "malee",
     fullName: "มาลี พรหมมา",
+    bankAccount: { bank: "ไทยพาณิชย์", number: "9012345678", name: "มาลี พรหมมา" },
     role: "EMPLOYEE",
     password: "pass",
     lineOfWorkId: "LW02",
     divisionId: "DV03",
     departmentId: "DP05",
-    bankAccount: { bank: "ไทยพาณิชย์", number: "xxx-x-x7788-x", name: "มาลี พรหมมา" },
     departmentInfo: { lineOfWork: "สายงานธุรกิจและปฏิบัติการ", department: "การตลาด" },
     status: "ACTIVE",
   },
@@ -222,7 +229,8 @@ const mergeWithSeed = (stored: User[]): User[] => {
     return {
       ...user,
       departmentId: user.departmentId === undefined ? seed.departmentId : user.departmentId,
-      bankAccount: user.bankAccount === undefined ? seed.bankAccount : user.bankAccount,
+      // ไม่มีบัญชี / บัญชีตัวอย่างเก่าแบบปิดเลข (xxx-x-x4521-x) → ใช้บัญชีตัวอย่างใหม่
+      bankAccount: !user.bankAccount || user.bankAccount.number.includes("x") ? seed.bankAccount : user.bankAccount,
       password: user.password ?? seed.password,
       isAdmin: user.isAdmin ?? seed.isAdmin,
     };
@@ -472,4 +480,14 @@ export const normalizeBankAccount = (input: BankAccount): BankAccount => {
 
 export const updateBankAccount = (userId: string, input: BankAccount) => {
   updateUser(userId, { bankAccount: normalizeBankAccount(input) });
+};
+
+// เปลี่ยนอีเมล (ใช้เข้าสู่ระบบแทนชื่อผู้ใช้ได้) · คืนอีเมลที่จัดรูปแล้ว · ผิด → throw
+export const normalizeEmail = (userId: string, input: string) => {
+  const email = input.trim().toLocaleLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("รูปแบบอีเมลไม่ถูกต้อง เช่น name@company.com");
+  const owner = getUsers().find((u) => u.email?.toLocaleLowerCase() === email);
+  if (owner && owner.id !== userId) throw new Error("อีเมลนี้มีผู้ใช้คนอื่นใช้แล้ว");
+  if (owner) throw new Error("อีเมลนี้เป็นอีเมลปัจจุบันของคุณอยู่แล้ว");
+  return email;
 };

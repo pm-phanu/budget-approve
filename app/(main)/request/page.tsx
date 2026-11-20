@@ -30,6 +30,7 @@ import { getUsers, type Credential } from "@/data/credential";
 import { notifyRequestEvent } from "@/data/notification";
 import { getCurrentUser } from "@/utils/login";
 import { openAttachment, saveAttachments } from "@/utils/attachments";
+import { formatAccount } from "@/utils/format";
 import { ActionPopup } from "@/components/action-popup";
 import { RequestSummary } from "@/components/request-summary";
 import { useVisitKey } from "@/components/use-visit-key";
@@ -352,7 +353,7 @@ function NewRequest({ openId }: { openId: string | null }) {
 
   // บัญชีรับเงินคืน: ของผู้ขอ (data/credential.ts) · ยังไม่มีข้อมูล = แสดงข้อความแทน
   const bankLabel = user?.bankAccount
-    ? `${user.bankAccount.bank} ${user.bankAccount.number}`
+    ? `${user.bankAccount.bank} ${formatAccount(user.bankAccount.number)}`
     : BANK_ACCOUNT;
 
   // คำที่เปลี่ยนตามประเภท
