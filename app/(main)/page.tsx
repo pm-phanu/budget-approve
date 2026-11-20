@@ -4,10 +4,10 @@ import {
   Wallet2,
   ClockThree,
   CheckCircle1,
-  Check,
 } from "@tailgrids/icons";
-import { Link } from "@/components/tailgrids/core/link";
 import NextLink from "next/link";
+import { KIND_STYLE, formatTime, getNotificationHref, useNotifications } from "@/components/notification-bell";
+import { markAsRead } from "@/data/notification";
 import { useEffect, useState } from "react";
 import MyRequestsCard from "@/components/my-requests-card";
 import { getCurrentUser } from "@/utils/login";
@@ -31,6 +31,8 @@ export default function Home() {
   const [requests, setRequests] = useState<SavedRequest[]>([]);
   // ปีปัจจุบัน: ตั้งค่าใน useEffect (เลี่ยง new Date() ตอน prerender)
   const [year, setYear] = useState<number | null>(null);
+  const [now, setNow] = useState(0); // เวลาตอนเปิดหน้า สำหรับ "x นาทีที่แล้ว"
+  const notifications = useNotifications(me?.id ?? "");
 
   // localStorage อ่านได้เฉพาะฝั่ง browser จึงต้องโหลดใน useEffect
   useEffect(() => {
@@ -42,6 +44,7 @@ export default function Home() {
       setRequests([]);
     }
     setYear(new Date().getFullYear());
+    setNow(Date.now());
     /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
@@ -138,69 +141,39 @@ export default function Home() {
           <div className="grid grid-cols-1 gap-5 xl:grid-cols-4">
             <MyRequestsCard mine={mine} className="xl:col-span-2" />
 
-            {/* แจ้งเตือนล่าสุด (ข้อมูลตัวอย่าง) */}
+            {/* แจ้งเตือนล่าสุด 4 รายการ (ทั้งหมดดูที่กระดิ่งบน header) */}
             <div className="flex flex-col justify-between rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl xl:col-span-2">
               <div>
-                <div className="mb-2 flex items-center justify-between">
-                  <h2 className="text-base font-bold text-[#0F172A]">แจ้งเตือนล่าสุด</h2>
-                  <Link href="#" className="flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:underline">
-                    ดูทั้งหมด →
-                  </Link>
-                </div>
+                <h2 className="mb-2 text-base font-bold text-[#0F172A]">แจ้งเตือนล่าสุด</h2>
 
-                <ul className="divide-y divide-gray-100">
-                  {/* แจ้งเตือนที่ 1: ได้รับเงินแล้ว */}
-                  <li className="flex items-start gap-3 py-4">
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
-                      <Check size={18} />
-                    </span>
-                    <div className="text-sm text-[#334155]">
-                      <p>
-                        คำขอ <strong className="text-[#0F172A]">ค่าอบรมทีมการตลาด</strong> ได้รับเงินแล้ว
-                      </p>
-                      <p className="mt-0.5 text-xs text-[#64748B]">วันนี้ 09.00 น.</p>
-                    </div>
-                  </li>
-
-                  {/* แจ้งเตือนที่ 2: รอขั้นถัดไป */}
-                  <li className="flex items-start gap-3 py-4">
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
-                      <ClockThree size={18} />
-                    </span>
-                    <div className="text-sm text-[#334155]">
-                      <p>
-                        <strong className="text-[#0F172A]">ซื้อหมึกพิมพ์สำนักงาน</strong> หัวหน้าแผนกอนุมัติแล้ว รอฝ่ายบัญชีตรวจ
-                      </p>
-                      <p className="mt-0.5 text-xs text-[#64748B]">12 ต.ค. 10:15</p>
-                    </div>
-                  </li>
-
-                  {/* แจ้งเตือนที่ 3: ได้รับเงินแล้ว */}
-                  <li className="flex items-start gap-3 py-4">
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
-                      <Check size={18} />
-                    </span>
-                    <div className="text-sm text-[#334155]">
-                      <p>
-                        คำขอ <strong className="text-[#0F172A]">ค่าอบรมทีมการตลาด</strong> ได้รับเงินแล้ว
-                      </p>
-                      <p className="mt-0.5 text-xs text-[#64748B]">วันนี้ 09.00 น.</p>
-                    </div>
-                  </li>
-
-                  {/* แจ้งเตือนที่ 4: ได้รับเงินแล้ว */}
-                  <li className="flex items-start gap-3 py-4">
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
-                      <Check size={18} />
-                    </span>
-                    <div className="text-sm text-[#334155]">
-                      <p>
-                        คำขอ <strong className="text-[#0F172A]">ค่าอบรมทีมการตลาด</strong> ได้รับเงินแล้ว
-                      </p>
-                      <p className="mt-0.5 text-xs text-[#64748B]">วันนี้ 09.00 น.</p>
-                    </div>
-                  </li>
-                </ul>
+                {notifications.length === 0 ? (
+                  <p className="py-8 text-center text-sm text-[#94A3B8]">ยังไม่มีการแจ้งเตือน</p>
+                ) : (
+                  <ul className="divide-y divide-gray-100">
+                    {notifications.slice(0, 4).map((n) => {
+                      const { bg, Icon } = KIND_STYLE[n.kind] ?? KIND_STYLE.progress;
+                      return (
+                        <li key={n.id}>
+                          <NextLink
+                            href={me ? getNotificationHref(n, me.role) : "#"}
+                            onClick={() => !n.read && markAsRead(n.id)}
+                            className="flex items-start gap-3 py-4 hover:bg-[#F8FAFC]"
+                          >
+                            <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${bg}`}>
+                              <Icon size={18} aria-hidden={true} />
+                            </span>
+                            <div className="text-sm text-[#334155]">
+                              <p>
+                                <strong className="text-[#0F172A]">{n.requestTitle}</strong> {n.message}
+                              </p>
+                              <p className="mt-0.5 text-xs text-[#64748B]">{formatTime(n.createdAt, now)}</p>
+                            </div>
+                          </NextLink>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
               </div>
 
               <div className="mt-6 flex items-center gap-2.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3.5 text-xs text-[#64748B]">

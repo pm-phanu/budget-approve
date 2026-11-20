@@ -25,7 +25,7 @@ import {
 import { loadRequests } from "@/data/request";
 
 // สีและไอคอนตามประเภทแจ้งเตือนใน data/notification.ts
-const KIND_STYLE: Record<
+export const KIND_STYLE: Record<
   NotificationKind,
   { bg: string; Icon: React.ComponentType<{ size?: number; "aria-hidden"?: boolean }> }
 > = {
@@ -63,7 +63,7 @@ function subscribeNotifications(onChange: () => void) {
 }
 
 // เส้นทางปลายทางเมื่อคลิกแจ้งเตือน 1 รายการ
-function getNotificationHref(item: AppNotification, role: Credential["role"]): string {
+export function getNotificationHref(item: AppNotification, role: Credential["role"]): string {
   const encodedId = encodeURIComponent(item.requestId);
 
   if (item.kind === "waiting_you") {
@@ -82,7 +82,7 @@ function getNotificationHref(item: AppNotification, role: Credential["role"]): s
   return `/my-request/detail?id=${encodedId}`;
 }
 
-function formatTime(iso: string, nowMs: number): string {
+export function formatTime(iso: string, nowMs: number): string {
   const date = new Date(iso);
   const timeMs = date.getTime();
   if (Number.isNaN(timeMs)) return "";
@@ -102,13 +102,18 @@ function formatTime(iso: string, nowMs: number): string {
   });
 }
 
-export function NotificationBell({ user }: { user: Credential }) {
-  const router = useRouter();
-  const list = useSyncExternalStore(
+// แจ้งเตือนของผู้ใช้ (ใหม่สุดก่อน) · อัปเดตเองเมื่อมีแจ้งเตือนใหม่/อ่านแล้ว
+export function useNotifications(userId: string) {
+  return useSyncExternalStore(
     subscribeNotifications,
-    () => readUserNotifications(user.id),
+    () => readUserNotifications(userId),
     () => EMPTY,
   );
+}
+
+export function NotificationBell({ user }: { user: Credential }) {
+  const router = useRouter();
+  const list = useNotifications(user.id);
   const unread = list.filter((n) => !n.read).length;
 
   const [open, setOpen] = useState(false);
