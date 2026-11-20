@@ -5,6 +5,7 @@ import Link from "next/link";
 import { REQUESTS_KEY, loadRequests, type SavedRequest } from "@/data/request";
 import type { Credential } from "@/data/credential";
 import { getCurrentUser } from "@/utils/login";
+import { onHeaderSearch, readSearchParam } from "@/utils/search";
 import { ArrowRight, Check, Close, InfoCircle, Search1 } from "@tailgrids/icons";
 
 /* ------------------------------------------------------------------
@@ -176,6 +177,13 @@ export default function MyRequest() {
   const [me, setMe] = useState<CurrentUser | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
+
+  // คำค้นจากช่องค้นหาบน header (?q= ตอนเปิดหน้า · event ตอนอยู่หน้านี้อยู่แล้ว) utils/search.ts
+  useEffect(() => {
+    /* eslint-disable-next-line react-hooks/set-state-in-effect -- ?q= อ่านได้หลังเปิดหน้าเท่านั้น */
+    setQuery(readSearchParam());
+    return onHeaderSearch(setQuery);
+  }, []);
 
   // โหลดใน useEffect เท่านั้น (ฝั่งเซิร์ฟเวอร์ไม่มี localStorage)
   useEffect(() => {

@@ -39,6 +39,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Credential, User } from "@/data/credential";
 import { isApproverRole } from "@/data/approval";
 import { checkLogin, doLogout, getHomePath, HOME_PATHS } from "@/utils/login";
+import { HEADER_SEARCH_EVENT } from "@/utils/search";
 
 type Role = User['role']
 
@@ -180,6 +181,25 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const isHome = !currentTitle && !isApprovePage && !isMyRequestDetail && !isPayDetail
 
   const handleLogout = () => doLogout(router)
+
+  // ช่องค้นหาบน header: ค้นในรายการหลักของ role นี้
+  // การเงิน = คำขอทำจ่าย · ผู้อนุมัติ = คำขอรออนุมัติทั้งหมด · คนอื่น = คำขอของฉัน
+  const searchTarget =
+    user.role === "FINANCE"
+      ? { path: "/pay-request", label: "ค้นหาคำขอทำจ่าย" }
+      : isApproverRole(user.role)
+        ? { path: "/all-request", label: "ค้นหาคำขอรออนุมัติ" }
+        : { path: "/my-request", label: "ค้นหาคำขอของฉัน" }
+
+  const handleSearch = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const q = String(new FormData(event.currentTarget).get("q") ?? "").trim()
+    router.push(q ? `${searchTarget.path}?q=${encodeURIComponent(q)}` : searchTarget.path)
+    // อยู่หน้านั้นอยู่แล้ว → หน้าไม่โหลดใหม่ จึงบอกคำค้นผ่าน event
+    if (pathname === searchTarget.path) {
+      window.dispatchEvent(new CustomEvent(HEADER_SEARCH_EVENT, { detail: q }))
+    }
+  }
 
   return (
     <div className="flex h-screen w-full">
@@ -327,14 +347,25 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </div>
 
             <div className="menuLinks flex items-center gap-4">
-              <div className="flex justify-center items-center bg-white border border-[#E2E8F0] rounded-lg px-4 shadow-2xl">
-                <Search1 />
+              {/* ค้นหา: กด Enter → ไปหน้ารายการหลักของ role พร้อมคำค้น (utils/search.ts) */}
+              <form
+                role="search"
+                onSubmit={handleSearch}
+                className="flex justify-center items-center bg-white border border-[#E2E8F0] rounded-lg px-4 shadow-2xl focus-within:border-[#059669]"
+              >
+                <Search1 aria-hidden="true" />
+                <label htmlFor="header-search" className="sr-only">
+                  {searchTarget.label}
+                </label>
                 <input
-                  type="text"
-                  placeholder="ค้นหาคำขอ..."
+                  id="header-search"
+                  name="q"
+                  type="search"
+                  placeholder={`${searchTarget.label}...`}
+                  title="พิมพ์ชื่อคำขอ ผู้ขอ หรือเลขที่ แล้วกด Enter"
                   className="border-0 focus:ring-0 w-full"
                 />
-              </div>
+              </form>
               <NotificationBell user={user} />
               <div className="shadow-2xl">
                 <Button variant={"success"} className="whitespace-nowrap" onPress={() => router.push("/request")}>

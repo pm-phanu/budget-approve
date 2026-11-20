@@ -7,6 +7,7 @@ import { REQUESTS_KEY, getActedRequests, loadRequests, type SavedRequest } from 
 import { getDepartmentBudget } from "@/data/budget";
 import { canApproveStep } from "@/data/approval";
 import { getCurrentUser } from "@/utils/login";
+import { onHeaderSearch, readSearchParam } from "@/utils/search";
 import type { Credential } from "@/data/credential";
 import {
   ArrowRight,
@@ -128,6 +129,13 @@ export default function AllRequestDH() {
   // ปีปัจจุบัน: ตั้งค่าใน useEffect เท่านั้น (เลี่ยง new Date() ตอน prerender)
   const [currentYear, setCurrentYear] = useState<number | null>(null);
   const [query, setQuery] = useState("");
+
+  // คำค้นจากช่องค้นหาบน header (?q= ตอนเปิดหน้า · event ตอนอยู่หน้านี้อยู่แล้ว) utils/search.ts
+  useEffect(() => {
+    /* eslint-disable-next-line react-hooks/set-state-in-effect -- ?q= อ่านได้หลังเปิดหน้าเท่านั้น */
+    setQuery(readSearchParam());
+    return onHeaderSearch(setQuery);
+  }, []);
 
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect -- อ่านได้หลังเปิดหน้าเท่านั้น */
