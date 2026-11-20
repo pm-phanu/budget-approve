@@ -7,15 +7,17 @@ import { REQUESTS_KEY, getActedRequests, loadRequests, type SavedRequest } from 
 import { getDepartmentBudget } from "@/data/budget";
 import { canApproveStep } from "@/data/approval";
 import { getCurrentUser } from "@/utils/login";
+import { onHeaderSearch, readSearchParam } from "@/utils/search";
 import type { Credential } from "@/data/credential";
 import {
   ArrowRight,
   Check,
   CheckCircle1,
   ClockThree,
-  Search1,
-} from "@tailgrids/icons";
+  } from "@tailgrids/icons";
 import { bkkYear } from "@/utils/date";
+import { baht, timeAgo, waitLabel } from "@/utils/format";
+import { SearchField } from "@/components/search-field";
 
 /* ------------------------------------------------------------------
    ตั้งค่า
@@ -47,50 +49,19 @@ type CurrentUser = Credential;
    อ่านข้อมูลจาก localStorage (ผ่านฟังก์ชันกลางใน data/ และ utils/login)
 ------------------------------------------------------------------- */
 // ข้ามข้อมูลรูปแบบเก่าที่ไม่มีเส้นทางอนุมัติ
-function readRequests(): ExpenseRequest[] {
-  try {
-    return loadRequests().filter((r) => r && Array.isArray(r.approvalSteps));
-  } catch {
-    return [];
-  }
-}
 
 // งบของแผนกตัวเองปีนี้ (งบที่บัญชีแบ่งให้แผนก · data/budget.ts)
 function readBudget(user: CurrentUser | null) {
-  const { limit, used } = getDepartmentBudget(user?.departmentId, readRequests(), bkkYear());
+  const { limit, used } = getDepartmentBudget(user?.departmentId, loadRequests(), bkkYear());
   return { limit, used };
 }
 
 /* ------------------------------------------------------------------
    ฟังก์ชันช่วย
 ------------------------------------------------------------------- */
-const baht = (n: number) => "฿" + n.toLocaleString("en-US");
 
-function timeAgo(iso: string) {
-  const mins = Math.max(
-    0,
-    Math.floor((Date.now() - new Date(iso).getTime()) / 60000),
-  );
-  if (mins < 1) return "เมื่อสักครู่";
-  if (mins < 60) return `เมื่อ ${mins} นาทีที่แล้ว`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `เมื่อ ${hours} ชั่วโมงที่แล้ว`;
-  return `เมื่อ ${Math.floor(hours / 24)} วันที่แล้ว`;
-}
 
 // ป้ายเวลารอ: รอสักครู่ / รอ X นาที / รอ X ชม. / รอ X วัน
-function waitLabel(iso: string) {
-  const mins = Math.max(
-    0,
-    Math.floor((Date.now() - new Date(iso).getTime()) / 60000),
-  );
-  if (mins < 1) return "รอสักครู่";
-  if (mins < 60) return `รอ ${mins} นาที`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `รอ ${hours} ชม.`;
-  return `รอ ${Math.floor(hours / 24)} วัน`;
-}
-
 
 // รอเกิน OVERDUE_DAYS วันแล้วหรือยัง (ใช้ทำป้ายเวลารอเป็นสีแดง)
 function isOverdue(iso: string) {
@@ -129,10 +100,17 @@ export default function AllRequestDH() {
   const [currentYear, setCurrentYear] = useState<number | null>(null);
   const [query, setQuery] = useState("");
 
+  // คำค้นจากช่องค้นหาบน header (?q= ตอนเปิดหน้า · event ตอนอยู่หน้านี้อยู่แล้ว) utils/search.ts
+  useEffect(() => {
+    /* eslint-disable-next-line react-hooks/set-state-in-effect -- ?q= อ่านได้หลังเปิดหน้าเท่านั้น */
+    setQuery(readSearchParam());
+    return onHeaderSearch(setQuery);
+  }, []);
+
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect -- อ่านได้หลังเปิดหน้าเท่านั้น */
     const user = getCurrentUser();
-    setRequests(readRequests());
+    setRequests(loadRequests());
     setMe(user);
     setBudget(readBudget(user));
     setCurrentYear(bkkYear());
@@ -140,7 +118,7 @@ export default function AllRequestDH() {
 
     const onStorage = (e: StorageEvent) => {
       if (e.key === REQUESTS_KEY) {
-        setRequests(readRequests());
+        setRequests(loadRequests());
         setBudget(readBudget(getCurrentUser()));
       }
       if (e.key === "current_user") {
@@ -246,17 +224,13 @@ export default function AllRequestDH() {
                 {q ? `${shown.length} จาก ${pending.length}` : pending.length} รายการ, รอนานสุดอยู่บน
               </span>
             </h2>
-            <label className="flex w-full items-center gap-2 rounded-xl border border-[#E2E8F0] px-3 py-2 focus-within:border-[#059669] sm:w-72">
-              <Search1 size={18} className="shrink-0 text-[#94A3B8]" aria-hidden="true" />
-              <span className="sr-only">ค้นหาคำขอ</span>
-              <input
-                type="search"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="ค้นหาชื่อคำขอ ผู้ขอ หรือเลขที่"
-                className="w-full border-0 bg-transparent p-0 text-sm outline-none focus:ring-0"
-              />
-            </label>
+            <SearchField
+              label="ค้นหาคำขอ"
+              value={query}
+              onChange={setQuery}
+              placeholder="ค้นหาชื่อคำขอ ผู้ขอ หรือเลขที่"
+              className="sm:w-72"
+            />
           </div>
 
           {/* หัวตาราง: ใช้ grid เดียวกับแถว */}

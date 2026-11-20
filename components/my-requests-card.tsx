@@ -6,11 +6,11 @@
 import { Plus, CheckCircle1 } from "@tailgrids/icons";
 import { Link } from "@/components/tailgrids/core/link";
 import type { SavedRequest } from "@/data/request";
+import { money } from "@/utils/format";
 
 const MY_REQUEST_PATH = "/my-request"; // ปุ่ม "ดูทั้งหมด"
 const MY_REQUEST_LIMIT = 3; // แสดงคำขอล่าสุดกี่รายการ
 
-const money = (n: number) => n.toLocaleString("en-US");
 
 // "14 ต.ค." (เวลาไทย)
 function shortDate(iso: string) {

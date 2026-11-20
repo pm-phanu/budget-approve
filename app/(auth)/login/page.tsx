@@ -7,6 +7,7 @@ import { ArrowRight, Eye, EyeDisabled, InfoCircle } from "@tailgrids/icons";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { login } from "@/data/credential";
+import { ActionPopup } from "@/components/action-popup";
 
 // ช่องกรอก: สีในธีม · โฟกัสขอบเขียว
 const FIELD =
@@ -21,6 +22,7 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [welcome, setWelcome] = useState(""); // ชื่อผู้ใช้ → ป็อปอัพเข้าสู่ระบบสำเร็จ (ว่าง = ปิด)
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = event.target;
@@ -34,17 +36,22 @@ export default function Login() {
     setSubmitting(true);
 
     try {
-      login(formData.identifier.trim(), formData.password);
+      const me = login(formData.identifier.trim(), formData.password);
       const requestedPath = localStorage.getItem("returnPath");
       localStorage.removeItem("returnPath");
       const returnPath =
         requestedPath?.startsWith("/") && !requestedPath.startsWith("//")
           ? requestedPath
           : "/";
-      router.replace(returnPath);
-      // Next เก็บหน้านี้ไว้ (ซ่อน) แทนการทิ้ง → ตอน logout กลับมาจะเห็นปุ่มค้าง "กำลังเข้าสู่ระบบ…" + รหัสเดิม
-      setSubmitting(false);
-      setFormData({ identifier: "", password: "" });
+      // แสดงป็อปอัพสำเร็จแป๊บนึง แล้วค่อยพาไป
+      setWelcome(me.fullName);
+      setTimeout(() => {
+        router.replace(returnPath);
+        // Next เก็บหน้านี้ไว้ (ซ่อน) แทนการทิ้ง → ตอน logout กลับมาจะเห็นปุ่มค้าง "กำลังเข้าสู่ระบบ…" + รหัสเดิม
+        setSubmitting(false);
+        setFormData({ identifier: "", password: "" });
+        setWelcome("");
+      }, 1000);
     } catch (error) {
       setSubmitting(false);
       setErrorMessage(
@@ -152,7 +159,7 @@ export default function Login() {
 
               <div className="my-6 flex items-center gap-4" aria-hidden="true">
                 <div className="w-full border-t border-[#E5E9F0]"></div>
-                <p className="text-sm text-[#94A3B8]">หรือ</p>
+                <p className="text-sm text-[#64748B]">หรือ</p>
                 <div className="w-full border-t border-[#E5E9F0]"></div>
               </div>
 
@@ -168,6 +175,7 @@ export default function Login() {
               </p>
             </form>
           </div>
+          <ActionPopup open={!!welcome} title="เข้าสู่ระบบสำเร็จ" message={`ยินดีต้อนรับ ${welcome} กำลังพาไปหน้าหลัก…`} />
         </main>
       </div>
     </div>

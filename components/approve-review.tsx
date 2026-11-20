@@ -10,7 +10,8 @@ import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 // ไอคอนทั้งหมดจาก @tailgrids/icons (https://tailgrids.com/icons)
-import { ArrowRight, Check, CheckCircle1, Close, Eye, FileText } from "@tailgrids/icons";
+import { ArrowRight, Check, CheckCircle1, Close, FileText } from "@tailgrids/icons";
+import AttachmentButton from "@/components/attachment-button";
 // component จาก TailGrids (https://tailgrids.com/docs/components)
 import { ModalOverlay } from "react-aria-components";
 import { Button } from "@/components/tailgrids/core/button";
@@ -30,6 +31,11 @@ import { actOnRequest, canApproveStep } from "@/data/approval";
 import { useReviewLock } from "@/components/use-review-lock";
 import { getCurrentUser } from "@/utils/login";
 import type { Credential } from "@/data/credential";
+import { baht } from "@/utils/format";
+import { ActionPopup } from "@/components/action-popup";
+import { RequestSummary } from "@/components/request-summary";
+import { useVisitKey } from "@/components/use-visit-key";
+import { thaiDate } from "@/utils/date";
 
 /* ------------------------------------------------------------------
    ตั้งค่า
@@ -66,18 +72,6 @@ function loadAll(): Req[] {
 /* ------------------------------------------------------------------
    ฟังก์ชันช่วย
 ------------------------------------------------------------------- */
-const baht = (n: number) => "฿" + n.toLocaleString("en-US");
-
-function thaiDate(iso?: string | null) {
-  if (!iso) return "-";
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return "-";
-  return d.toLocaleDateString("th-TH", { timeZone: "Asia/Bangkok",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-}
 
 function thaiDateTime(iso?: string | null) {
   if (!iso) return "";
@@ -168,6 +162,8 @@ function ReviewContent({ homePath }: { homePath: string }) {
   // คนที่ login (ใช้เช็คสิทธิ์อนุมัติ) · ขั้นที่เห็นตอนเปิดหน้า (ใช้กันกดซ้อน ดู actOnRequest)
   const [me, setMe] = useState<Credential | null>(null);
   const [openedStep, setOpenedStep] = useState(0);
+  const [done, setDone] = useState<"approve" | "reject" | null>(null); // ป็อปอัพบันทึกสำเร็จ → พากลับหน้าหลัก
+  const [asking, setAsking] = useState<"approve" | "reject" | null>(null); // ป็อปอัพถามยืนยันก่อนบันทึก
   const [notice, setNotice] = useState(""); // บันทึกไม่สำเร็จ (มีคนกดไปก่อน) → แสดงด้านบน
 
   useEffect(() => {
@@ -231,7 +227,12 @@ function ReviewContent({ homePath }: { homePath: string }) {
       setError("กรุณาติ๊กยืนยันว่าตรวจเอกสารและยอดเงินครบแล้ว");
       return;
     }
+    setError("");
+    setAsking("approve");
+  };
 
+  const doApprove = () => {
+    setAsking(null);
     // อ่านคำขอล่าสุดก่อนบันทึก: ถ้ามีคนกดขั้นนี้ไปแล้ว (เปิดหน้าค้างไว้) จะไม่บันทึกซ้ำ
     // บันทึก byId / ประวัติ / แจ้งเตือนให้ในครั้งเดียว (data/approval.ts actOnRequest)
     const result = actOnRequest(r.id, me, "approve", {
@@ -244,7 +245,14 @@ function ReviewContent({ homePath }: { homePath: string }) {
       reloadLatest();
       return;
     }
-    router.push(homePath);
+    finish("approve");
+  };
+
+  // บันทึกสำเร็จ → ป็อปอัพแป๊บนึง แล้วกลับหน้าหลักของ role
+  const finish = (kind: "approve" | "reject") => {
+    setShowReject(false);
+    setDone(kind);
+    setTimeout(() => router.push(homePath), 1200);
   };
 
   // ---- ป๊อบอัพตีกลับ: เปิด / ปิด / ยืนยัน ----
@@ -266,7 +274,12 @@ function ReviewContent({ homePath }: { homePath: string }) {
       setRejectError("กรุณาระบุรายละเอียดเหตุผล");
       return;
     }
+    setShowReject(false);
+    setAsking("reject");
+  };
 
+  const doReject = () => {
+    setAsking(null);
     const text = rejectComment.trim();
     // อ่านคำขอล่าสุดก่อนบันทึก (กันกดซ้อน) · บันทึก byId / ประวัติ / แจ้งเตือนผู้ขอให้ในครั้งเดียว
     const result = actOnRequest(r.id, me, "reject", {
@@ -286,7 +299,7 @@ function ReviewContent({ homePath }: { homePath: string }) {
       reloadLatest();
       return;
     }
-    router.push(homePath);
+    finish("reject");
   };
 
   // ---- timeline: ส่งคำขอ + ทุกขั้นในเส้นทางอนุมัติ ----
@@ -473,13 +486,8 @@ function ReviewContent({ homePath }: { homePath: string }) {
                         >
                           <FileText size={16} className="shrink-0 text-[#64748B]" aria-hidden="true" />
                           <span className="max-w-[16rem] truncate">{file}</span>
-                          <button
-                            type="button"
-                            aria-label={`ดูเอกสาร ${file}`}
-                            className="rounded p-1 text-[#94A3B8] hover:text-[#047857]"
-                          >
-                            <Eye size={16} aria-hidden="true" />
-                          </button>
+                          {/* เปิดไฟล์จาก IndexedDB (components/attachment-button.tsx) */}
+                          <AttachmentButton requestId={r.id} name={file} />
                         </li>
                       ))}
                     </ul>
@@ -565,7 +573,7 @@ function ReviewContent({ homePath }: { homePath: string }) {
               </div>
 
               <label htmlFor="comment" className="mb-1.5 mt-4 block text-sm font-semibold">
-                ความเห็น <span className="font-normal text-[#94A3B8]">ไม่บังคับ</span>
+                ความเห็น <span className="font-normal text-[#64748B]">ไม่บังคับ</span>
               </label>
               <TextArea
                 id="comment"
@@ -717,7 +725,7 @@ function ReviewContent({ homePath }: { homePath: string }) {
 
             <label htmlFor="reject-comment" className="mb-1.5 mt-4 block text-sm font-semibold">
               สิ่งที่ผู้ขอต้องแก้{" "}
-              <span className="font-normal text-[#94A3B8]">
+              <span className="font-normal text-[#64748B]">
                 {rejectReason === "อื่นๆ" ? "จำเป็นเมื่อเลือกอื่นๆ" : "ไม่บังคับ"}
               </span>
             </label>
@@ -734,7 +742,7 @@ function ReviewContent({ homePath }: { homePath: string }) {
                 placeholder="เช่น ใบเสร็จรายการที่ 2 ไม่ชัด ขอไฟล์ใหม่"
                 className="resize-none pb-8 text-sm"
               />
-              <span className="money absolute bottom-2.5 right-3 text-xs text-[#94A3B8]" aria-hidden="true">
+              <span className="money absolute bottom-2.5 right-3 text-xs text-[#64748B]" aria-hidden="true">
                 {rejectComment.length}/{REJECT_COMMENT_MAX}
               </span>
             </div>
@@ -756,6 +764,50 @@ function ReviewContent({ homePath }: { homePath: string }) {
           </DialogFooter>
         </Dialog>
       </ModalOverlay>
+
+      <ActionPopup
+        open={asking !== null}
+        tone={asking === "reject" ? "danger" : "success"}
+        title={asking === "reject" ? "ยืนยันตีกลับคำขอนี้?" : "ยืนยันอนุมัติคำขอนี้?"}
+        message={
+          asking === "reject"
+            ? `${requesterName} จะได้รับแจ้งให้แก้ไขแล้วส่งใหม่`
+            : `บันทึกแล้วส่งต่อขั้นถัดไปทันที แก้ไขไม่ได้`
+        }
+        confirmLabel={asking === "reject" ? "ตีกลับคำขอ" : "อนุมัติ"}
+        onConfirm={asking === "reject" ? doReject : doApprove}
+        // ตีกลับ: ยกเลิก = กลับไปแก้เหตุผลในป็อปอัพเดิม (ค่าที่เลือกไว้ยังอยู่)
+        onCancel={() => {
+          if (asking === "reject") setShowReject(true);
+          setAsking(null);
+        }}
+      >
+        <RequestSummary
+          rows={[
+            ["เลขที่คำขอ", r.id],
+            ["ชื่อคำขอ", r.title],
+            ["ผู้ขอ", requesterName],
+            ["ประเภท", r.typeLabel],
+            ["โครงการ", r.project?.name],
+            ["วันที่ใช้จ่าย", thaiDate(r.useDate)],
+            ["จ่ายให้", r.payTo],
+            ["บัญชีรับเงิน", r.bankAccount],
+            ["ขั้นที่อนุมัติ", curStep?.label],
+            ...(asking === "reject"
+              ? ([["เหตุผลที่ตีกลับ", rejectReason], ["รายละเอียด", rejectComment.trim()]] as [string, string][])
+              : ([["ความเห็น", comment.trim()]] as [string, string][])),
+          ]}
+          items={r.items.map((it) => ({ category: it.categoryName, name: it.name, amount: it.amount, files: it.files }))}
+          total={r.total}
+        />
+      </ActionPopup>
+
+      <ActionPopup
+        open={done !== null}
+        tone={done === "reject" ? "danger" : "success"}
+        title={done === "reject" ? "ตีกลับคำขอแล้ว" : "อนุมัติคำขอแล้ว"}
+        message={`${done === "reject" ? `แจ้ง${requesterName}ให้แก้ไขแล้ว` : "ส่งต่อขั้นถัดไปแล้ว"} กำลังพากลับหน้าหลัก…`}
+      />
     </div>
   );
 }
@@ -779,7 +831,13 @@ function CheckMark({ ok }: { ok: boolean }) {
 export default function ApproveReview({ homePath }: { homePath: string }) {
   return (
     <Suspense fallback={null}>
-      <ReviewContent homePath={homePath} />
+      <ReviewKeyed homePath={homePath} />
     </Suspense>
   );
+}
+
+// สร้างเนื้อหาใหม่ทุกครั้งที่เปิดหน้า (Activity เก็บหน้าไว้ → ป็อปอัพ "อนุมัติแล้ว" ของคำขอก่อนจะค้าง)
+function ReviewKeyed({ homePath }: { homePath: string }) {
+  const key = useVisitKey(useSearchParams().get("id"));
+  return <ReviewContent key={key} homePath={homePath} />;
 }

@@ -104,12 +104,6 @@ export function isApproverRole(role: string, positions: ApproverPosition[] = loa
   return FINAL_STEPS.includes(role) || positions.some((p) => p.id === role);
 }
 
-// ทำ role ที่มีอยู่แล้วใน users ให้เป็นตำแหน่งผู้อนุมัติ (ยังไม่บันทึก)
-// → ผู้ใช้ทุกคนที่มี role นี้อนุมัติได้ (ยกเว้นผู้ขอ)
-export function createPositionFromRole(role: string, label: string): ApproverPosition {
-  return { id: role, label, resolve: "ANY_WITH_ROLE", builtIn: false };
-}
-
 export function getRoleLabel(role: string, positions: ApproverPosition[] = loadPositions()) {
   return positions.find((p) => p.id === role)?.label ?? ROLE_LABEL[role] ?? role;
 }
@@ -124,9 +118,6 @@ export const DEFAULT_RULES: ApprovalRule[] = [
   { max: 300000, approvers: ["HEAD", "DIRECTOR"] }, //        30,001 – 300,000
   { max: null, approvers: ["HEAD", "DIRECTOR", "MANAGING_DIRECTOR"] }, //    300,001 ขึ้นไป
 ];
-
-// ※ เดิมใช้บังคับลำดับ · ตอนนี้เรียงได้อิสระ เก็บไว้ให้โค้ดเดิมที่ import อยู่
-export const RULE_APPROVER_ORDER: StepRole[] = DEFAULT_POSITIONS.map((p) => p.id);
 
 // ยอดรวม → ลิสต์ role ตามลำดับ · ทุกช่วงจบที่ บัญชี → การเงิน
 // ※ find() หยุดที่ช่วงแรกที่ยอดไม่เกิน max

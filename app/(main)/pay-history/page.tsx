@@ -10,7 +10,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { REQUESTS_KEY, getActedRequests, loadRequests, type SavedRequest } from "@/data/request";
 import { getCurrentUser } from "@/utils/login";
-import { bkkMonth } from "@/utils/date";
+import { bkkMonth, thaiDate } from "@/utils/date";
 import type { Credential } from "@/data/credential";
 import { PAY_DETAIL_PATH, baht, payee } from "@/components/pay-queue";
 import {
@@ -21,22 +21,10 @@ import {
   TableRoot,
   TableRow,
 } from "@/components/tailgrids/core/table";
-import { ArrowRight, CheckCircle1, Search1 } from "@tailgrids/icons";
+import { ArrowRight, CheckCircle1 } from "@tailgrids/icons";
+import { SearchField } from "@/components/search-field";
 
 type Filter = "all" | "อนุมัติ" | "ตีกลับ";
-
-function thaiDate(iso: string | null | undefined, withTime = false) {
-  if (!iso) return "-";
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return "-";
-  return d.toLocaleDateString("th-TH", {
-    timeZone: "Asia/Bangkok",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    ...(withTime ? { hour: "2-digit", minute: "2-digit" } : {}),
-  });
-}
 
 export default function PayHistoryPage() {
   const [me, setMe] = useState<Credential | null>(null);
@@ -123,17 +111,13 @@ export default function PayHistoryPage() {
             {filter === "all" ? "ทั้งหมด" : filter === "อนุมัติ" ? "จ่ายแล้ว" : "ตีกลับ"}{" "}
             <span className="text-sm font-normal text-[#64748B]">{shown.length} ครั้ง</span>
           </h2>
-          <label className="flex w-72 items-center gap-2 rounded-xl border border-[#E2E8F0] px-3 py-2 focus-within:border-[#059669]">
-            <Search1 size={18} className="shrink-0 text-[#94A3B8]" aria-hidden="true" />
-            <span className="sr-only">ค้นหา</span>
-            <input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="ค้นหาเลขที่ ผู้รับเงิน หรือเลขอ้างอิง"
-              className="w-full border-0 bg-transparent p-0 text-sm outline-none focus:ring-0"
-            />
-          </label>
+          <SearchField
+            label="ค้นหา"
+            value={query}
+            onChange={setQuery}
+            placeholder="ค้นหาเลขที่ ผู้รับเงิน หรือเลขอ้างอิง"
+            className="w-72"
+          />
         </div>
 
         {shown.length === 0 ? (

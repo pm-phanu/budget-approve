@@ -19,6 +19,7 @@ import NotificationsCard from "@/components/notifications-card";
 import { HeroCard } from "@/components/budget-card";
 import { DUE_DAYS, PAY_DETAIL_PATH, baht, getPayQueue, paidAt, payee, waitingDays } from "@/components/pay-queue";
 import { ArrowRight, Bank1, CheckCircle1, ClockThree } from "@tailgrids/icons";
+import { timeAgo } from "@/utils/format";
 
 const QUEUE_LIMIT = 5; // แถวสูงสุดใน "รอคุณทำจ่าย"
 const RECENT_LIMIT = 5; // แถวสูงสุดใน "ทำจ่ายล่าสุด"
@@ -28,15 +29,6 @@ const ROW_GRID =
   "grid min-h-[72px] grid-cols-[minmax(0,1fr)_auto_auto_auto] items-center gap-3 border-b border-[#F1F5F9] py-3 last:border-b-0";
 
 // "เมื่อ 2 ชั่วโมงที่แล้ว"
-function timeAgo(iso: string | null) {
-  if (!iso) return "";
-  const mins = Math.floor(Math.max(0, Date.now() - new Date(iso).getTime()) / 60000);
-  if (mins < 1) return "เมื่อสักครู่";
-  if (mins < 60) return `เมื่อ ${mins} นาทีที่แล้ว`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `เมื่อ ${hours} ชั่วโมงที่แล้ว`;
-  return `เมื่อ ${Math.floor(hours / 24)} วันที่แล้ว`;
-}
 
 // ป้ายรอกี่วัน: เกินกำหนด = แดง · อื่น ๆ = เหลือง
 function WaitBadge({ days }: { days: number }) {

@@ -19,26 +19,16 @@ import {
 } from "@/data/request";
 import { getCurrentUser } from "@/utils/login";
 import type { Credential } from "@/data/credential";
-import { ArrowRight, ChevronRight, ClockThree, InfoCircle, Search1 } from "@tailgrids/icons";
+import { ArrowRight, ChevronRight, ClockThree, InfoCircle } from "@tailgrids/icons";
+import { baht } from "@/utils/format";
+import { SearchField } from "@/components/search-field";
+import { thaiDate } from "@/utils/date";
 
 const DETAIL_PATH = "/my-request/detail";
 const NEW_REQUEST_PATH = "/request";
 
 type Filter = "all" | "paid" | "approved" | "rejected";
 
-const baht = (n: number) => "฿" + Number(n || 0).toLocaleString("en-US");
-
-function thaiDate(iso: string | null, withTime = false) {
-  if (!iso) return "-";
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return "-";
-  return d.toLocaleDateString("th-TH", { timeZone: "Asia/Bangkok",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    ...(withTime ? { hour: "2-digit", minute: "2-digit" } : {}),
-  });
-}
 
 // หัวกลุ่มรายเดือน เช่น "พฤศจิกายน 2569"
 function monthLabel(iso: string) {
@@ -169,17 +159,13 @@ export default function WithdrawHistory() {
             {tabs.find((t) => t.key === filter)?.label}{" "}
             <span className="text-sm font-normal text-[#64748B]">{shown.length} รายการ</span>
           </h2>
-          <label className="flex w-full items-center gap-2 rounded-xl border border-[#E2E8F0] px-3 py-2 focus-within:border-[#059669] sm:w-72">
-            <Search1 size={18} className="shrink-0 text-[#94A3B8]" aria-hidden="true" />
-            <span className="sr-only">ค้นหาคำขอ</span>
-            <input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="ค้นหาชื่อคำขอหรือเลขที่"
-              className="w-full border-0 bg-transparent p-0 text-sm outline-none focus:ring-0"
-            />
-          </label>
+          <SearchField
+            label="ค้นหาคำขอ"
+            value={query}
+            onChange={setQuery}
+            placeholder="ค้นหาชื่อคำขอหรือเลขที่"
+            className="sm:w-72"
+          />
         </div>
 
         {shown.length === 0 ? (

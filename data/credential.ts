@@ -60,19 +60,19 @@ export type User = {
 //  ผู้ดูแลระบบ (isAdmin) = kanya เท่านั้น · nattaya เป็นบัญชีแต่ไม่มีสิทธิ์จัดการระบบ
 //
 //  รหัสผ่านทุกคน = "pass" (ข้อมูลทดสอบเท่านั้น)
+//  บัญชีธนาคาร = เลขสมมติ 10 หลัก ตั้งไว้ให้ทุกคน · อีเมลว่างไว้ ผู้ใช้กรอกเองที่หน้า "การตั้งค่า"
 // ────────────────────────────────────────────────────────────
 export const users: User[] = [
   {
     id: "u_01",
     username: "phanu",
     fullName: "ภาณุ ศรีบุญเพ็ง",
-    email: "riampaat@gmail.com",
+    bankAccount: { bank: "กสิกรไทย", number: "1234567890", name: "ภาณุ ศรีบุญเพ็ง" },
     password: "pass",
     role: "EMPLOYEE",
     lineOfWorkId: "LW01",
     divisionId: "DV01",
     departmentId: "DP01",
-    bankAccount: { bank: "กสิกรไทย", number: "xxx-x-x4521-x", name: "ภาณุ ศรีบุญเพ็ง" },
     departmentInfo: { lineOfWork: "สายงานบัญชีและการเงิน", department: "แผนกงบประมาณและควบคุมต้นทุน" },
     status: "ACTIVE",
   },
@@ -80,6 +80,7 @@ export const users: User[] = [
     id: "u_02",
     username: "somchai",
     fullName: "สมชาย ใจดี",
+    bankAccount: { bank: "กรุงเทพ", number: "2345678901", name: "สมชาย ใจดี" },
     role: "HEAD",
     password: "pass",
     lineOfWorkId: "LW01",
@@ -92,6 +93,7 @@ export const users: User[] = [
     id: "u_03",
     username: "wanida",
     fullName: "วนิดา รัตนกุล",
+    bankAccount: { bank: "ไทยพาณิชย์", number: "3456789012", name: "วนิดา รัตนกุล" },
     role: "DIRECTOR",
     password: "pass",
     lineOfWorkId: "LW01",
@@ -104,6 +106,7 @@ export const users: User[] = [
     id: "u_04",
     username: "kanya",
     fullName: "กัญญา ทองดี",
+    bankAccount: { bank: "กรุงไทย", number: "4567890123", name: "กัญญา ทองดี" },
     isAdmin: true, // ผู้ดูแลระบบคนเดียวในข้อมูลตัวอย่าง
     password: "pass",
     role: "ACCOUNTANT",
@@ -117,6 +120,7 @@ export const users: User[] = [
     id: "u_05",
     username: "preecha",
     fullName: "ปรีชา มั่นคง",
+    bankAccount: { bank: "กรุงศรีอยุธยา", number: "5678901234", name: "ปรีชา มั่นคง" },
     role: "FINANCE",
     password: "pass",
     lineOfWorkId: "LW01",
@@ -129,6 +133,7 @@ export const users: User[] = [
     id: "u_06",
     username: "thanakorn",
     fullName: "ธนกร วงศ์สวัสดิ์",
+    bankAccount: { bank: "กรุงเทพ", number: "6789012345", name: "ธนกร วงศ์สวัสดิ์" },
     role: "MANAGING_DIRECTOR",
     password: "pass",
     lineOfWorkId: null,
@@ -141,6 +146,7 @@ export const users: User[] = [
     id: "u_07",
     username: "nattaya",
     fullName: "ณัฐยา สุขใจ",
+    bankAccount: { bank: "ทหารไทยธนชาต (ttb)", number: "7890123456", name: "ณัฐยา สุขใจ" },
     role: "ACCOUNTANT",
     password: "pass",
     lineOfWorkId: "LW01",
@@ -153,6 +159,7 @@ export const users: User[] = [
     id: "u_08",
     username: "kittisak",
     fullName: "กิตติศักดิ์ แสงทอง",
+    bankAccount: { bank: "กสิกรไทย", number: "8901234567", name: "กิตติศักดิ์ แสงทอง" },
     role: "HEAD",
     password: "pass",
     lineOfWorkId: "LW02",
@@ -165,12 +172,12 @@ export const users: User[] = [
     id: "u_09",
     username: "malee",
     fullName: "มาลี พรหมมา",
+    bankAccount: { bank: "ไทยพาณิชย์", number: "9012345678", name: "มาลี พรหมมา" },
     role: "EMPLOYEE",
     password: "pass",
     lineOfWorkId: "LW02",
     divisionId: "DV03",
     departmentId: "DP05",
-    bankAccount: { bank: "ไทยพาณิชย์", number: "xxx-x-x7788-x", name: "มาลี พรหมมา" },
     departmentInfo: { lineOfWork: "สายงานธุรกิจและปฏิบัติการ", department: "การตลาด" },
     status: "ACTIVE",
   },
@@ -222,7 +229,8 @@ const mergeWithSeed = (stored: User[]): User[] => {
     return {
       ...user,
       departmentId: user.departmentId === undefined ? seed.departmentId : user.departmentId,
-      bankAccount: user.bankAccount === undefined ? seed.bankAccount : user.bankAccount,
+      // ไม่มีบัญชี / บัญชีตัวอย่างเก่าแบบปิดเลข (xxx-x-x4521-x) → ใช้บัญชีตัวอย่างใหม่
+      bankAccount: !user.bankAccount || user.bankAccount.number.includes("x") ? seed.bankAccount : user.bankAccount,
       password: user.password ?? seed.password,
       isAdmin: user.isAdmin ?? seed.isAdmin,
     };
@@ -314,7 +322,7 @@ export const updateUser = (id: string, patch: Partial<Omit<User, "id" | "passwor
   saveUsers(getUsers().map((u) => (u.id === id ? { ...u, ...patch } : u)));
 };
 
-const withoutPassword = (user: User): Credential => {
+export const withoutPassword = (user: User): Credential => {
   const credential = { ...user };
   delete credential.password;
   return credential;
@@ -414,4 +422,83 @@ export const register = (input: RegistrationInput): Credential => {
   };
   saveUsers([...currentUsers, newUser]);
   return withoutPassword(newUser);
+};
+
+// ════════════════════════════════════════════════════════════
+//  หน้าตั้งค่าบัญชีของผู้ใช้ (app/(main)/setting) · ผิด → throw พร้อมข้อความภาษาไทย
+// ════════════════════════════════════════════════════════════
+
+// ธนาคารในไทย (พิมพ์ชื่อสั้นแบบข้อมูลตัวอย่างเดิม เช่น "กสิกรไทย")
+export const THAI_BANKS = [
+  "กรุงเทพ",
+  "กสิกรไทย",
+  "กรุงไทย",
+  "ไทยพาณิชย์",
+  "กรุงศรีอยุธยา",
+  "ทหารไทยธนชาต (ttb)",
+  "ยูโอบี",
+  "ซีไอเอ็มบี ไทย",
+  "เกียรตินาคินภัทร",
+  "แลนด์ แอนด์ เฮ้าส์",
+  "ทิสโก้",
+  "ไอซีบีซี (ไทย)",
+  "ไทยเครดิต",
+  "ออมสิน",
+  "ธ.ก.ส.",
+  "อาคารสงเคราะห์ (ธอส.)",
+  "อิสลามแห่งประเทศไทย",
+] as const;
+
+// เปลี่ยนรหัสผ่าน: ต้องรู้รหัสเดิม · ใหม่ ≥ 8 ตัว (เท่ากับตอนลงทะเบียน) · ต้องพิมพ์ยืนยันตรงกัน
+// คืนข้อความผิด (null = ผ่าน) · หน้าจอเรียกก่อนเปิดป็อปอัพยืนยัน
+export const passwordChangeError = (userId: string, current: string, next: string, confirm: string) => {
+  const user = getUsers().find((u) => u.id === userId);
+  if (!user) return "ไม่พบผู้ใช้";
+  if (user.password !== current) return "รหัสผ่านปัจจุบันไม่ถูกต้อง";
+  if (next.length < 8) return "รหัสผ่านใหม่ต้องมีอย่างน้อย 8 ตัวอักษร";
+  if (next !== confirm) return "รหัสผ่านใหม่กับยืนยันรหัสผ่านไม่ตรงกัน";
+  if (next === current) return "รหัสผ่านใหม่ต้องไม่ซ้ำรหัสเดิม";
+  return null;
+};
+
+export const changePassword = (userId: string, current: string, next: string, confirm: string) => {
+  const error = passwordChangeError(userId, current, next, confirm);
+  if (error) throw new Error(error);
+  saveUsers(getUsers().map((u) => (u.id === userId ? { ...u, password: next } : u)));
+};
+
+// ตรวจ + จัดรูปบัญชีธนาคาร · เลขบัญชีเก็บเป็นตัวเลขล้วน (ธนาคารพาณิชย์ 10 หลัก · ออมสิน/ธ.ก.ส. 12 หลัก)
+export const normalizeBankAccount = (input: BankAccount): BankAccount => {
+  const bank = input.bank.trim();
+  const number = input.number.replace(/[\s-]/g, "");
+  const name = input.name.trim();
+  if (!(THAI_BANKS as readonly string[]).includes(bank)) throw new Error("กรุณาเลือกธนาคาร");
+  if (!/^\d{10,12}$/.test(number)) throw new Error("เลขบัญชีต้องเป็นตัวเลข 10–12 หลัก");
+  if (!name) throw new Error("กรุณากรอกชื่อบัญชี");
+  return { bank, number, name };
+};
+
+export const updateBankAccount = (userId: string, input: BankAccount) => {
+  updateUser(userId, { bankAccount: normalizeBankAccount(input) });
+};
+
+// เปลี่ยนอีเมล (ใช้เข้าสู่ระบบแทนชื่อผู้ใช้ได้) · คืนอีเมลที่จัดรูปแล้ว · ผิด → throw
+export const normalizeEmail = (userId: string, input: string) => {
+  const email = input.trim().toLocaleLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("รูปแบบอีเมลไม่ถูกต้อง เช่น name@company.com");
+  const owner = getUsers().find((u) => u.email?.toLocaleLowerCase() === email);
+  if (owner && owner.id !== userId) throw new Error("อีเมลนี้มีผู้ใช้คนอื่นใช้แล้ว");
+  if (owner) throw new Error("อีเมลนี้เป็นอีเมลปัจจุบันของคุณอยู่แล้ว");
+  return email;
+};
+
+// เปลี่ยนชื่อผู้ใช้ (ใช้เข้าสู่ระบบ) · อังกฤษตัวเล็ก/ตัวเลข/. _ - 3–30 ตัว (ไม่มี @ → ไม่ชนกับอีเมล) · ผิด → throw
+export const normalizeUsername = (userId: string, input: string) => {
+  const username = input.trim().toLocaleLowerCase();
+  if (!/^[a-z0-9._-]{3,30}$/.test(username))
+    throw new Error("ชื่อผู้ใช้ต้องเป็นภาษาอังกฤษ ตัวเลข หรือ . _ - ยาว 3–30 ตัว");
+  const owner = getUsers().find((u) => u.username.toLocaleLowerCase() === username);
+  if (owner && owner.id !== userId) throw new Error("ชื่อผู้ใช้นี้มีคนใช้แล้ว");
+  if (owner) throw new Error("นี่คือชื่อผู้ใช้ปัจจุบันของคุณอยู่แล้ว");
+  return username;
 };

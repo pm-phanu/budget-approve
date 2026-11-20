@@ -6,8 +6,8 @@
 
 import type { ReactNode } from "react";
 import { Wallet2 } from "@tailgrids/icons";
+import { baht } from "@/utils/format";
 
-const baht = (n: number) => "฿" + Number(n || 0).toLocaleString("en-US");
 
 export function HeroCard({
   label,

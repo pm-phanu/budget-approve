@@ -21,7 +21,7 @@
 //  * เมนูซ้ายอยู่ที่ app/layout.tsx (ใช้ร่วมทุกหน้า)
 // ════════════════════════════════════════════════════════════
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 // component จาก TailGrids (https://tailgrids.com/docs/components)
 import { Button } from "@/components/tailgrids/core/button";
 import { TextArea } from "@/components/tailgrids/core/text-area";
@@ -29,6 +29,11 @@ import { useRouter, useSearchParams } from "next/navigation"; // ✅ เพิ�
 import { getUsers, type Credential } from "@/data/credential";
 import { notifyRequestEvent } from "@/data/notification";
 import { getCurrentUser } from "@/utils/login";
+import { openAttachment, saveAttachments } from "@/utils/attachments";
+import { formatAccount, money } from "@/utils/format";
+import { ActionPopup } from "@/components/action-popup";
+import { RequestSummary } from "@/components/request-summary";
+import { useVisitKey } from "@/components/use-visit-key";
 import { projects, addRequestsToBudget, canUseProject, type Project } from "@/data/budget";
 import {
   DEFAULT_RULES,
@@ -126,11 +131,10 @@ function emptyItem(): Item {
 //  [4] ฟังก์ชันช่วย
 // ════════════════════════════════════════
 
-// ใส่ลูกน้ำ เช่น 12500 → "12,500"
-function money(n: number) {
-  return n.toLocaleString("th-TH");
-}
+// ชนิดไฟล์หลักฐานที่แนบได้ (ตรงกับ accept ของช่องแนบไฟล์)
+const ALLOWED_FILE = /\.(pdf|jpe?g|png)$/i;
 
+// ใส่ลูกน้ำ เช่น 12500 → "12,500"
 // บัญชีรับเงินคืนของผู้ขอ (ข้อมูลสมมติ ยังไม่มีในข้อมูลผู้ใช้)
 const BANK_ACCOUNT = "ยังไม่ได้ตั้งค่าบัญชีรับเงิน"; // ใช้เมื่อผู้ขอยังไม่มี bankAccount
 
@@ -150,11 +154,8 @@ export default function NewRequestPage() {
 function NewRequestKeyed() {
   const openId = useSearchParams().get("id");
   // Next เก็บหน้านี้ไว้ (ซ่อน) ตอนออกไปหน้าอื่น → กลับมาแล้วฟอร์ม + เลขที่ใบเดิมยังอยู่ กดส่งจะทับใบเดิม
-  // effect รันใหม่ทุกครั้งที่หน้าถูกแสดงอีกรอบ → นับรอบเข้าหน้า แล้วใช้เป็น key = ฟอร์มใหม่ทุกครั้ง
-  const [visit, setVisit] = useState(0);
-  /* eslint-disable-next-line react-hooks/set-state-in-effect -- ต้องรู้ว่าหน้าเพิ่งถูกแสดงอีกรอบ */
-  useEffect(() => setVisit((v) => v + 1), []);
-  return <NewRequest key={`${openId ?? ""}#${visit}`} openId={openId} />;
+  // → key ใหม่ทุกครั้งที่หน้าถูกแสดง = ฟอร์มใหม่ทุกครั้ง (components/use-visit-key.ts)
+  return <NewRequest key={useVisitKey(openId)} openId={openId} />;
 }
 
 function NewRequest({ openId }: { openId: string | null }) {
@@ -170,6 +171,14 @@ function NewRequest({ openId }: { openId: string | null }) {
   const [items, setItems] = useState<Item[]>([emptyItem()]);
   // ลิงก์ดูไฟล์ที่แนบ (ชื่อไฟล์ → ลิงก์ชั่วคราวในเครื่อง) · ใช้ได้จนกว่าจะปิด/รีเฟรชหน้า
   const [previews, setPreviews] = useState<Record<string, string>>({});
+  // ลิงก์ preview ทุกอันที่สร้าง → คืนหน่วยความจำตอนออกจากหน้า (ไม่งั้นไฟล์ค้างจนปิดแท็บ)
+  const previewUrls = useRef<string[]>([]);
+  useEffect(() => {
+    const urls = previewUrls.current;
+    return () => urls.forEach((u) => URL.revokeObjectURL(u));
+  }, []);
+  // ตัวไฟล์ที่เลือกในรอบนี้ (ชื่อ → File) → บันทึกลง IndexedDB ตอนบันทึกร่าง / ส่ง (utils/attachments.ts)
+  const [picked, setPicked] = useState<Record<string, File>>({});
 
   // ข้อความแจ้งผล
   const [errors, setErrors] = useState<string[]>([]);
@@ -179,6 +188,7 @@ function NewRequest({ openId }: { openId: string | null }) {
   // ป็อปอัพยืนยันก่อนส่ง: "closed" = ปิด · "confirm" = ถามยืนยัน · "done" = ส่งสำเร็จ กำลังพาไปแดชบอร์ด
   const [popup, setPopup] = useState<"closed" | "confirm" | "done">("closed");
   const [goingTo, setGoingTo] = useState("แดชบอร์ด"); // ข้อความ "กำลังพาไป…" ตอนส่งสำเร็จ
+  const [filesFailedNext, setFilesFailedNext] = useState<string | null>(null); // ส่งแล้วแต่เก็บไฟล์ไม่สำเร็จ → หน้าที่จะไปต่อ
 
   // เลขที่ใบที่กำลังแก้ (ร่าง หรือ คำขอที่ถูกตีกลับ) · ยังไม่เคยบันทึก = ""
   // ※ กดบันทึกร่างซ้ำ → ทับใบเดิม ไม่เกิดร่างซ้ำหลายใบ
@@ -212,16 +222,14 @@ function NewRequest({ openId }: { openId: string | null }) {
     setBudget(addRequestsToBudget(loadRequests().filter((r) => r.id !== openId)));
 
     // ---------- [5.1] เปิดร่าง / เปิดคำขอที่ถูกตีกลับ มาแก้ต่อ ----------
-    // - ร่าง: เปิดได้
-    // - ตีกลับ: เปิดได้เฉพาะเจ้าของคำขอ (ผู้ขอคนเดิม)
+    // - ร่าง / ตีกลับ: เปิดได้เฉพาะเจ้าของคำขอ (ผู้ขอคนเดิม)
     const draft = loadRequests().find(
       (r) =>
         r.id === openId &&
-        (r.status === "ร่าง" ||
-          (r.status === "ตีกลับ" &&
-            !!me &&
-            r.requester != null &&
-            String(r.requester.id) === String(me.id))),
+        (r.status === "ร่าง" || r.status === "ตีกลับ") &&
+        !!me &&
+        r.requester != null &&
+        String(r.requester.id) === String(me.id),
     );
     if (draft) {
       setType(draft.type);
@@ -341,7 +349,7 @@ function NewRequest({ openId }: { openId: string | null }) {
 
   // บัญชีรับเงินคืน: ของผู้ขอ (data/credential.ts) · ยังไม่มีข้อมูล = แสดงข้อความแทน
   const bankLabel = user?.bankAccount
-    ? `${user.bankAccount.bank} ${user.bankAccount.number}`
+    ? `${user.bankAccount.bank} ${formatAccount(user.bankAccount.number)}`
     : BANK_ACCOUNT;
 
   // คำที่เปลี่ยนตามประเภท
@@ -385,15 +393,29 @@ function NewRequest({ openId }: { openId: string | null }) {
 
   // ---------- [5.4] แนบหลักฐานรายแถว ----------
   function addFiles(index: number, e: React.ChangeEvent<HTMLInputElement>) {
-    const picked = e.target.files; // ไฟล์ที่เลือกมา
-    if (!picked) return; // ไม่ได้เลือก = ไม่ทำอะไร
+    // คัดลอกเป็น array ทันที: FileList ผูกกับช่อง → ล้างช่อง (e.target.value = "") แล้วลิสต์ว่างตาม
+    //   ซึ่งเกิดก่อน React รัน updater ของ setPicked
+    const picked = Array.from(e.target.files ?? []); // ไฟล์ที่เลือกมา
+    if (picked.length === 0) return; // ไม่ได้เลือก = ไม่ทำอะไร
+    // accept ของช่องเป็นแค่คำแนะนำ (เลือก "All files" ได้) → ตรวจซ้ำ กันไฟล์ .html ที่จะไปรันในหน้าผู้อนุมัติ
+    const bad = picked.filter((f) => !ALLOWED_FILE.test(f.name));
+    if (bad.length > 0) {
+      setErrors([`แนบได้เฉพาะ PDF / JPG / PNG (${bad.map((f) => f.name).join(", ")})`]);
+      e.target.value = "";
+      return;
+    }
 
-    const names = Array.from(picked).map((f) => f.name); // เก็บแค่ชื่อไฟล์
+    const names = picked.map((f) => f.name); // เก็บแค่ชื่อไฟล์
 
     // ทำลิงก์ดูไฟล์ ไว้กดเปิดดูก่อนส่ง
     const links = { ...previews };
-    for (const f of Array.from(picked)) links[f.name] = URL.createObjectURL(f);
+    for (const f of picked) {
+      links[f.name] = URL.createObjectURL(f);
+      previewUrls.current.push(links[f.name]);
+    }
     setPreviews(links);
+    // เก็บตัวไฟล์ไว้ บันทึกจริงตอนบันทึกร่าง / ส่ง
+    setPicked((prev) => ({ ...prev, ...Object.fromEntries(picked.map((f) => [f.name, f])) }));
     updateRow(index, { files: [...items[index].files, ...names] }); // ไฟล์เดิม + ไฟล์ใหม่
 
     e.target.value = ""; // ล้างช่อง จะได้เลือกไฟล์ชื่อเดิมซ้ำได้
@@ -559,11 +581,23 @@ function NewRequest({ openId }: { openId: string | null }) {
     const others = all.filter((r) => r.id !== id);
     localStorage.setItem(REQUESTS_KEY, JSON.stringify([...others, request]));
 
+    // ตัวไฟล์ที่ยังแนบอยู่ → IndexedDB ใต้เลขที่คำขอนี้ (ผู้อนุมัติ/การเงินกดเปิดดูได้)
+    // shortcut: ไฟล์ที่ผู้ขอกด × ลบทิ้ง ยังค้างใน IndexedDB (ไม่มีใครเปิดถึง) · ถ้าพื้นที่เริ่มเต็มค่อยลบตอนบันทึก
+    const stillAttached = new Set(items.flatMap((it) => it.files));
+    const toStore = Object.values(picked).filter((f) => stillAttached.has(f.name));
+    // คนเรียกต้องรอผลก่อนเปลี่ยนหน้า (ไม่งั้นข้อความผิดพลาดไปขึ้นบนหน้าที่ปิดไปแล้ว)
+    const filesSaved = saveAttachments(id, toStore).then(
+      () => true,
+      () => false,
+    );
+
     // ส่งจริง (ไม่ใช่ร่าง) → แจ้งเตือนผู้อนุมัติ (data/notification.ts)
     // ※ ส่งใหม่ก็ใช้ event "submitted" เดิม ถ้า notification.ts มี event สำหรับส่งใหม่ ให้เปลี่ยนตรงนี้
     if (status !== "ร่าง") notifyRequestEvent(request, "submitted", getUsers(), { at: now });
-    return id;
+    return { id, filesSaved };
   }
+
+  const FILES_FAILED = "บันทึกคำขอแล้ว แต่เก็บไฟล์แนบในเครื่องไม่สำเร็จ (พื้นที่เบราว์เซอร์อาจเต็ม) ผู้อนุมัติจะเปิดไฟล์ไม่ได้";
 
   // ---------- [5.7] ส่ง / บันทึกร่าง ----------
   function submit() {
@@ -578,11 +612,23 @@ function NewRequest({ openId }: { openId: string | null }) {
   // กด "ยืนยัน" ในป็อปอัพ → บันทึกจริง → โชว์สำเร็จแป๊บนึง → ไปหน้าถัดไป
   // - คำขอใหม่ → แดชบอร์ด · ส่งใหม่ (เคยถูกตีกลับ) → หน้า "คำขอของฉัน"
   function confirmSubmit() {
+    // อ่านงบล่าสุดอีกรอบก่อนบันทึก: ระหว่างกรอก แท็บ/ผู้ใช้อื่นอาจใช้งบหมวดเดียวกันไปแล้ว
+    const fresh = addRequestsToBudget(loadRequests().filter((r) => r.id !== draftId));
+    const over = (fresh.find((p) => p.id === projectId)?.categories ?? []).filter(
+      (c) => (categoryAsked.get(c.id) ?? 0) > c.limit - c.used,
+    );
+    if (over.length > 0) {
+      setBudget(fresh);
+      setErrors(over.map((c) => c.name + " เกินงบคงเหลือ (เหลือ ฿" + money(c.limit - c.used) + ")"));
+      setPopup("closed");
+      return;
+    }
     const next = resubmit ? MY_REQUEST_PATH : "/"; // จำไว้ก่อน
     setGoingTo(resubmit ? "หน้าคำขอของฉัน" : "แดชบอร์ด");
-    saveRequest("รออนุมัติ");
+    const { filesSaved } = saveRequest("รออนุมัติ");
     setPopup("done");
-    setTimeout(() => router.push(next), 1200);
+    // รอเก็บไฟล์แนบเสร็จก่อนพาไป · ไม่สำเร็จ → ค้างป็อปอัพพร้อมคำเตือน ให้ผู้ขอกดไปต่อเอง
+    filesSaved.then((ok) => (ok ? setTimeout(() => router.push(next), 1200) : setFilesFailedNext(next)));
   }
 
   // ร่างไม่ต้องตรวจ (ยังกรอกไม่ครบได้) แต่ต้องมีชื่อคำขอ ไว้หาเจอทีหลัง
@@ -592,10 +638,11 @@ function NewRequest({ openId }: { openId: string | null }) {
       setMessage("");
       return;
     }
-    const id = saveRequest("ร่าง");
+    const { id, filesSaved } = saveRequest("ร่าง");
     setDraftId(id); // กดบันทึกร่างอีกครั้ง → ทับใบนี้
     setErrors([]);
     setMessage("บันทึกร่าง " + id + " แล้ว");
+    filesSaved.then((ok) => !ok && setErrors([FILES_FAILED]));
   }
 
   // ════════════════════════════════════════
@@ -786,7 +833,7 @@ function NewRequest({ openId }: { openId: string | null }) {
                         err.amount || over ? "border-[#FDA4AF]" : "border-[#E2E8F0]"
                       }`}
                     >
-                      <span className="text-sm text-[#94A3B8]" aria-hidden="true">
+                      <span className="text-sm text-[#64748B]" aria-hidden="true">
                         ฿
                       </span>
                       <input
@@ -808,7 +855,7 @@ function NewRequest({ openId }: { openId: string | null }) {
                     </div>
                     {/* ปุ่มแนบ: ยังไม่มีไฟล์ = ขอบประ · มีแล้ว = เขียว + จำนวนไฟล์ */}
                     <label
-                      className={`flex w-28 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-xl text-sm font-semibold focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[#059669] ${
+                      className={`relative flex w-28 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-xl text-sm font-semibold focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[#059669] ${
                         it.files.length > 0
                           ? "border border-[#A7F3D0] bg-[#ECFDF5] text-[#047857]"
                           : err.files
@@ -832,7 +879,7 @@ function NewRequest({ openId }: { openId: string | null }) {
                       onClick={() => removeItem(i)}
                       aria-label={`ลบรายการที่ ${row}`}
                       title={items.length === 1 ? "ล้างรายการนี้" : `ลบรายการที่ ${row}`}
-                      className="flex w-10 shrink-0 items-center justify-center rounded-xl text-[#94A3B8] hover:bg-[#FEF2F2] hover:text-[#DC2626] disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
+                      className="flex w-10 shrink-0 items-center justify-center rounded-xl text-[#64748B] hover:bg-[#FEF2F2] hover:text-[#DC2626] disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
                     >
                       <Trash1 size={18} />
                     </button>
@@ -854,19 +901,30 @@ function NewRequest({ openId }: { openId: string | null }) {
                           className="flex items-center gap-1 rounded-lg bg-[#F1F5F9] py-0.5 pl-2 pr-1 text-[#334155]"
                         >
                           <FileText size={12} className="text-[#64748B]" aria-hidden="true" />
-                          {/* มีลิงก์ = กดเปิดดูได้ · ไฟล์จากร่างเก่าไม่มีลิงก์ (ยังไม่มีที่เก็บไฟล์จริง) */}
+                          {/* แนบรอบนี้ = ลิงก์ในเครื่อง · ไฟล์จากร่าง/คำขอที่ถูกตีกลับ = เปิดจาก IndexedDB (utils/attachments.ts) */}
                           {previews[name] ? (
                             <a href={previews[name]} target="_blank" rel="noreferrer" className="underline hover:text-[#047857]">
                               {name}
                             </a>
+                          ) : draftId ? (
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                if (!(await openAttachment(draftId, name)))
+                                  setErrors([`ไม่พบไฟล์ ${name} ในเครื่องนี้ กรุณาลบแล้วแนบใหม่`]);
+                              }}
+                              className="underline hover:text-[#047857]"
+                            >
+                              {name}
+                            </button>
                           ) : (
-                            <span title="ไฟล์จากร่างเก่า ดูไม่ได้ ต้องแนบใหม่">{name}</span>
+                            <span>{name}</span>
                           )}
                           <button
                             type="button"
                             onClick={() => removeFile(i, f)}
                             aria-label={`ลบไฟล์ ${name}`}
-                            className="rounded p-0.5 text-[#94A3B8] hover:text-[#DC2626]"
+                            className="rounded p-0.5 text-[#64748B] hover:text-[#DC2626]"
                           >
                             <Xmark size={12} aria-hidden="true" />
                           </button>
@@ -957,7 +1015,7 @@ function NewRequest({ openId }: { openId: string | null }) {
                   </p>
                 </>
               ) : (
-                <p className="mt-1 whitespace-nowrap text-xs text-[#94A3B8]">เลือกโครงการเพื่อดูงบ</p>
+                <p className="mt-1 whitespace-nowrap text-xs text-[#64748B]">เลือกโครงการเพื่อดูงบ</p>
               )}
             </div>
 
@@ -1076,46 +1134,39 @@ function NewRequest({ openId }: { openId: string | null }) {
       </div>
 
       {/* ---------- ป็อปอัพยืนยันส่งคำขอ ---------- */}
-      {popup !== "closed" && (
+      <ActionPopup
+        open={popup === "confirm"}
+        title="ยืนยันส่งคำขอ?"
+        message="แก้ไขได้จนกว่าฝ่ายบัญชีจะเริ่มตรวจ ถ้าบัญชี/การเงินเริ่มทำเรื่องแล้วจะแก้ไม่ได้"
+        confirmLabel="ยืนยันส่งคำขอ"
+        onConfirm={confirmSubmit}
+        onCancel={() => setPopup("closed")}
+      >
+        <RequestSummary
+          rows={[
+            ["เลขที่คำขอ", draftId || "ออกเลขใหม่ตอนส่ง"],
+            ["ประเภท", isAdvance ? "สำรองจ่ายแล้ว (ขอเบิกคืน)" : "ให้บัญชีจ่ายตามใบแจ้งหนี้"],
+            ["ชื่อคำขอ", title],
+            ["โครงการ", project?.name],
+            ["วันที่ใช้จ่าย", useDate && new Date(useDate).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Bangkok" })],
+            ["เหตุผล", reason],
+            ["บัญชีรับเงินคืน", isAdvance ? bankLabel : null],
+            ["เส้นทางอนุมัติ", plan.map((p) => getRoleLabel(p.actingRole ?? p.role, positions)).join(" → ")],
+            ["ส่งต่อให้", targetLabel],
+          ]}
+          items={items.map((it) => ({
+            category: categories.find((c) => c.id === it.categoryId)?.name ?? "",
+            name: it.name,
+            amount: Number(it.amount || 0),
+            files: it.files,
+          }))}
+          total={total}
+        />
+      </ActionPopup>
+
+      {popup === "done" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-            {popup === "confirm" ? (
-              <>
-                <h2 className="text-xl font-bold">ยืนยันส่งคำขอ?</h2>
-                <p className="mt-1 text-sm text-[#64748B]">
-                  แก้ไขได้จนกว่าฝ่ายบัญชีจะเริ่มตรวจ
-                  ถ้าบัญชี/การเงินเริ่มทำเรื่องแล้วจะแก้ไม่ได้
-                </p>
-                <div className="mt-4 space-y-2 rounded-xl bg-[#F8FAFC] p-4 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-[#64748B]">ชื่อคำขอ</span>
-                    <b>{title}</b>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-[#64748B]">ยอดรวม</span>
-                    <b className="text-[#059669]">฿{money(total)}</b>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-[#64748B]">ส่งต่อให้</span>
-                    <b>{targetLabel}</b>
-                  </div>
-                </div>
-                <div className="mt-5 flex gap-2">
-                  <button
-                    onClick={() => setPopup("closed")}
-                    className="flex-1 rounded-xl bg-gray-100 py-3 font-semibold text-gray-600 hover:bg-gray-200"
-                  >
-                    ยกเลิก
-                  </button>
-                  <button
-                    onClick={confirmSubmit}
-                    className="flex-1 rounded-xl bg-[#059669] py-3 font-bold text-white hover:bg-[#047857]"
-                  >
-                    ยืนยัน
-                  </button>
-                </div>
-              </>
-            ) : (
               <div className="py-4 text-center">
                 {/* วงกลมเขียวอ่อน + เครื่องหมายถูก (วาดด้วย svg ไม่ต้อง import ไอคอนเพิ่ม) */}
                 <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#ECFDF5]">
@@ -1134,11 +1185,19 @@ function NewRequest({ openId }: { openId: string | null }) {
                 <h2 className="mt-4 text-xl font-bold text-[#0F172A]">
                   ส่งคำขอแล้ว
                 </h2>
-                <p className="mt-1 text-sm text-[#64748B]">
-                  กำลังพาไป{goingTo}…
-                </p>
+                {filesFailedNext ? (
+                  <>
+                    <p role="alert" className="mt-2 text-sm text-[#B45309]">{FILES_FAILED}</p>
+                    <Button className="mt-4" onClick={() => router.push(filesFailedNext)}>
+                      ไป{goingTo}
+                    </Button>
+                  </>
+                ) : (
+                  <p className="mt-1 text-sm text-[#64748B]">
+                    กำลังพาไป{goingTo}…
+                  </p>
+                )}
               </div>
-            )}
           </div>
         </div>
       )}
@@ -1170,7 +1229,7 @@ function Label({ htmlFor, text, optional }: { htmlFor: string; text: string; opt
   return (
     <label htmlFor={htmlFor} className="mb-1.5 mt-4 block text-sm font-semibold">
       {text}
-      {optional && <span className="ml-1.5 font-normal text-[#94A3B8]">ไม่บังคับ</span>}
+      {optional && <span className="ml-1.5 font-normal text-[#64748B]">ไม่บังคับ</span>}
     </label>
   );
 }

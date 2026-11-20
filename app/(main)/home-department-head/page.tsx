@@ -3,13 +3,7 @@
 import { BudgetCard } from "@/components/budget-card";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import {
-  REQUESTS_KEY,
-  getActedRequests,
-  historyType,
-  loadRequests,
-  type SavedRequest,
-} from "@/data/request";
+import { REQUESTS_KEY, getActedRequests, historyType, loadRequests, type SavedRequest, sentAt } from "@/data/request";
 import { getDepartmentBudget, getSharedBudget } from "@/data/budget";
 import { loadOrganization } from "@/data/organization";
 import { canApproveStep } from "@/data/approval";
@@ -24,6 +18,7 @@ import {
   ClockThree,
 } from "@tailgrids/icons";
 import { bkkYear } from "@/utils/date";
+import { baht, timeAgo, waitLabel } from "@/utils/format";
 
 /* ------------------------------------------------------------------
    ชนิดข้อมูล: ใช้ของกลางใน data/ (คำขอ = SavedRequest · ผู้ใช้ = Credential)
@@ -47,17 +42,10 @@ const ROW_GRID =
    อ่านข้อมูลจาก localStorage (ผ่านฟังก์ชันกลางใน data/ และ utils/login)
 ------------------------------------------------------------------- */
 // ข้ามข้อมูลรูปแบบเก่าที่ไม่มีเส้นทางอนุมัติ
-function readRequests(): ExpenseRequest[] {
-  try {
-    return loadRequests().filter((r) => r && Array.isArray(r.approvalSteps));
-  } catch {
-    return [];
-  }
-}
 
 // งบของแผนกตัวเองปีนี้ (งบที่บัญชีแบ่งให้แผนก · data/budget.ts)
 function readBudget(user: CurrentUser | null) {
-  const requests = readRequests();
+  const requests = loadRequests();
   const year = bkkYear();
   const { limit, used } = getDepartmentBudget(user?.departmentId, requests, year);
   // งบร่วมที่แผนกอื่นแชร์มา (แสดงแยก ไม่รวมในวงเงินแผนก)
@@ -68,51 +56,18 @@ function readBudget(user: CurrentUser | null) {
 /* ------------------------------------------------------------------
    ฟังก์ชันช่วย
 ------------------------------------------------------------------- */
-const baht = (n: number) => "฿" + n.toLocaleString("en-US");
 
 // "เมื่อ 2 ชั่วโมงที่แล้ว"
-function timeAgo(iso: string) {
-  const mins = Math.max(
-    0,
-    Math.floor((Date.now() - new Date(iso).getTime()) / 60000),
-  );
-  if (mins < 1) return "เมื่อสักครู่";
-  if (mins < 60) return `เมื่อ ${mins} นาทีที่แล้ว`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `เมื่อ ${hours} ชั่วโมงที่แล้ว`;
-  return `เมื่อ ${Math.floor(hours / 24)} วันที่แล้ว`;
-}
 
 // ป้ายเวลารอ: ละเอียดตามช่วงเวลา ไม่บังคับขั้นต่ำ 1 วัน
 //   < 1 นาที  → "รอสักครู่"
 //   < 1 ชม.   → "รอ X นาที"
 //   < 24 ชม.  → "รอ X ชม."
 //   ตั้งแต่ 24 ชม. → "รอ X วัน"
-function waitLabel(iso: string) {
-  const mins = Math.max(
-    0,
-    Math.floor((Date.now() - new Date(iso).getTime()) / 60000),
-  );
-  if (mins < 1) return "รอสักครู่";
-  if (mins < 60) return `รอ ${mins} นาที`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `รอ ${hours} ชม.`;
-  return `รอ ${Math.floor(hours / 24)} วัน`;
-}
-
 // เวลาที่คำขอ "ถึงคิวรอตรวจ" ล่าสุด = ส่งคำขอ / ส่งใหม่ ครั้งล่าสุดในประวัติ
 // ถูกตีกลับแล้วส่งใหม่ → เวลานี้เปลี่ยน ป้ายรอจึงนับใหม่จาก 0
 // (คำขอเก่าที่ไม่มีประวัติ ใช้ createdAt)
 // ※ ไม่ใช้ updatedAt เพราะ updatedAt เปลี่ยนทุกครั้งที่มีคนกดอนุมัติ
-function sentAt(r: ExpenseRequest) {
-  let latest = r.createdAt;
-  for (const h of r.history ?? []) {
-    const t = historyType(h);
-    if ((t === "ส่งคำขอ" || t === "ส่งใหม่") && h.at > latest) latest = h.at;
-  }
-  return latest;
-}
-
 // ป้ายสถานะของคำขอที่คุณอนุมัติไปแล้ว
 // ป้ายสถานะ: class ร่วมใน globals.css (status-*)
 function statusBadge(r: ExpenseRequest) {
@@ -138,7 +93,7 @@ export default function DH() {
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect -- อ่านได้หลังเปิดหน้าเท่านั้น */
     const user = getCurrentUser();
-    setRequests(readRequests());
+    setRequests(loadRequests());
     setMe(user);
     setBudget(readBudget(user));
     setCurrentYear(bkkYear());
@@ -155,7 +110,7 @@ export default function DH() {
     // อัปเดตอัตโนมัติถ้าแท็บอื่นแก้ข้อมูล
     const onStorage = (e: StorageEvent) => {
       if (e.key === REQUESTS_KEY) {
-        setRequests(readRequests());
+        setRequests(loadRequests());
         setBudget(readBudget(getCurrentUser()));
       }
       if (e.key === "current_user") {
@@ -208,7 +163,7 @@ export default function DH() {
             </h1>
             <p className="text-sm text-[#64748B] mt-3">
               {today} · คำขอรอคุณอนุมัติ{" "}
-              <span className="font-semibold text-[#00a86b]">
+              <span className="font-semibold text-[#047857]">
                 {pending.length} รายการ
               </span>
             </p>

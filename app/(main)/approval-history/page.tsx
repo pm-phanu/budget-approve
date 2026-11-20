@@ -17,7 +17,10 @@ import {
 } from "@/data/request";
 import { getCurrentUser } from "@/utils/login";
 import type { Credential } from "@/data/credential";
-import { ArrowRight, CheckCircle1, Search1 } from "@tailgrids/icons";
+import { ArrowRight, CheckCircle1 } from "@tailgrids/icons";
+import { baht } from "@/utils/format";
+import { SearchField } from "@/components/search-field";
+import { thaiDate } from "@/utils/date";
 
 // หน้ารายละเอียดแยกตาม role (เหมือนหน้า "คำขอรออนุมัติทั้งหมด")
 const APPROVE_PATHS: Record<string, string> = {
@@ -28,20 +31,6 @@ const DEFAULT_APPROVE_PATH = "/home-department-head/approve";
 
 type Filter = "all" | "อนุมัติ" | "ตีกลับ";
 
-const baht = (n: number) => "฿" + Number(n || 0).toLocaleString("en-US");
-
-function thaiDateTime(iso: string | null) {
-  if (!iso) return "-";
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return "-";
-  return d.toLocaleDateString("th-TH", { timeZone: "Asia/Bangkok",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 function monthLabel(iso: string | null) {
   const d = new Date(iso ?? "");
@@ -163,17 +152,13 @@ export default function ApprovalHistory() {
             {filter === "all" ? "ทั้งหมด" : filter}{" "}
             <span className="text-sm font-normal text-[#64748B]">{shown.length} ครั้ง</span>
           </h2>
-          <label className="flex w-full items-center gap-2 rounded-xl border border-[#E2E8F0] px-3 py-2 focus-within:border-[#059669] sm:w-72">
-            <Search1 size={18} className="shrink-0 text-[#94A3B8]" aria-hidden="true" />
-            <span className="sr-only">ค้นหา</span>
-            <input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="ค้นหาชื่อคำขอ ผู้ขอ หรือเลขที่"
-              className="w-full border-0 bg-transparent p-0 text-sm outline-none focus:ring-0"
-            />
-          </label>
+          <SearchField
+            label="ค้นหา"
+            value={query}
+            onChange={setQuery}
+            placeholder="ค้นหาชื่อคำขอ ผู้ขอ หรือเลขที่"
+            className="sm:w-72"
+          />
         </div>
 
         {shown.length === 0 ? (
@@ -225,7 +210,7 @@ export default function ApprovalHistory() {
                           {r.title}
                         </Link>
                         <p className="text-xs text-[#64748B]">
-                          {r.requester?.fullName ?? "-"} · {r.id} · ขั้น {step.label} · {thaiDateTime(step.at)}
+                          {r.requester?.fullName ?? "-"} · {r.id} · ขั้น {step.label} · {thaiDate(step.at, true)}
                         </p>
                         {step.note && (
                           <p className={`mt-1 text-sm ${rejected ? "text-[#9F1239]" : "text-[#475569]"}`}>

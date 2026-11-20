@@ -23,7 +23,6 @@ import { useEffect, useState } from "react";
 import { bkkMonth, bkkYear, monthLabel, shiftMonth } from "@/utils/date";
 import {
   FileText,
-  Search1,
   ClockThree,
   ErrorCircle,
 } from "@tailgrids/icons";
@@ -37,6 +36,8 @@ import {
 } from "@/data/budget";
 import { loadRequests, type SavedRequest } from "@/data/request";
 import { getCurrentUser } from "@/utils/login";
+import { SearchField } from "@/components/search-field";
+import { money } from "@/utils/format";
 
 // ════════════════════════════════════════
 //  [1] ชนิดข้อมูล
@@ -76,10 +77,6 @@ const WARN_PERCENT = 80;
 // ════════════════════════════════════════
 
 // ใส่ลูกน้ำให้ตัวเลข เช่น 12500 → "12,500"
-function money(n: number) {
-  return n.toLocaleString("th-TH"); // toLocaleString = ใส่ลูกน้ำแบบไทย
-}
-
 // แปลงคำขอ (ที่หน้าสร้างคำขอบันทึกไว้) → แถวของรายงาน
 function toReportRow(r: SavedRequest, today: Date): ReportRow {
   const created = new Date(r.createdAt);
@@ -426,17 +423,13 @@ export default function Report() {
       <section className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl print:p-4 print:shadow-none">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-bold">รายการเบิกจ่าย</h2>
-          <label className="flex w-full items-center gap-2 rounded-xl border border-[#E2E8F0] px-3 focus-within:border-[#059669] sm:w-64 print:hidden">
-            <Search1 size={18} className="shrink-0 text-[#94A3B8]" aria-hidden="true" />
-            <span className="sr-only">ค้นหาเลขที่เอกสารหรือรายการ</span>
-            <input
-              type="search"
-              className="w-full border-0 bg-transparent py-2 text-sm outline-none focus:ring-0"
-              placeholder="ค้นหาเลขที่หรือชื่อรายการ"
-              value={search} // value = โชว์คำค้นในกล่อง search
-              onChange={(e) => setSearch(e.target.value)} // พิมพ์ → เก็บคำค้น → ตาราง rows กรองใหม่เอง
-            />
-          </label>
+          <SearchField
+            label="ค้นหาเลขที่เอกสารหรือรายการ"
+            value={search}
+            onChange={setSearch}
+            placeholder="ค้นหาเลขที่หรือชื่อรายการ"
+            className="sm:w-64 print:hidden"
+          />
         </div>
 
         {/* แท็บฝ่าย */}
@@ -476,7 +469,7 @@ export default function Report() {
                 <td className="py-3 font-semibold">{r.title}</td>
                 <td className="py-3">
                   <span className="flex items-center gap-1">
-                    <FileText size={16} className="shrink-0 text-[#94A3B8]" aria-hidden="true" /> {r.doc}
+                    <FileText size={16} className="shrink-0 text-[#64748B]" aria-hidden="true" /> {r.doc}
                   </span>
                 </td>
                 <td className="py-3 text-[#64748B]">{r.dept}</td>

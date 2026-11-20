@@ -1,5 +1,5 @@
 import { useRouter } from "next/navigation";
-import { getUsers, type Credential } from "@/data/credential";
+import { getUsers, withoutPassword, type Credential } from "@/data/credential";
 
 type Router = ReturnType<typeof useRouter>;
 
@@ -17,10 +17,7 @@ export const getCurrentUser = (): Credential | null => {
     // current_user เป็นภาพ ณ ตอน login → ถ้าข้อมูลผู้ใช้เปลี่ยนทีหลัง (เช่น เพิ่ม departmentId)
     // ให้ใช้ข้อมูลล่าสุดจากรายชื่อผู้ใช้ (ไม่รวมรหัสผ่าน)
     const latest = getUsers().find((u) => u.id === user.id);
-    if (!latest) return user;
-    const fresh: Credential = { ...latest };
-    delete (fresh as { password?: string }).password;
-    return fresh;
+    return latest ? withoutPassword(latest) : user;
   } catch {
     return null;
   }
@@ -53,15 +50,8 @@ export const checkGuest = (router: Router): boolean => {
   return true // ยังไม่ login อยู่หน้านี้ได้
 }
 
-export const getHomePath = (role: Credential["role"]) => {
-  if (role === "EMPLOYEE") return "/"
-  if (role === "HEAD") return "/home-department-head";
-  if (role === "ACCOUNTANT") return "/home-account";
-  if (role === "DIRECTOR") return "/home-director"
-  if (role === "FINANCE") return "/home-finance"
-  if (role === "MANAGING_DIRECTOR") return "/home-managing-director"
-  return "/";
-};
+// role ที่ไม่มีหน้าแดชบอร์ดของตัวเอง (เช่น ตำแหน่งที่เพิ่มเอง) → หน้าแรก
+export const getHomePath = (role: Credential["role"]): string => HOME_PATHS[role] ?? "/";
 
 export const HOME_PATHS: Record<Credential["role"], string> = {
   EMPLOYEE: "/",

@@ -100,11 +100,6 @@ export function getNotifications(userId: string, limit?: number) {
   return limit === undefined ? mine : mine.slice(0, limit);
 }
 
-// จำนวนที่ยังไม่อ่าน (จุดแดงบนกระดิ่ง)
-export function countUnread(userId: string) {
-  return loadNotifications().filter((n) => n.userId === userId && !n.read).length;
-}
-
 export function markAsRead(notificationId: string) {
   saveNotifications(
     loadNotifications().map((n) => (n.id === notificationId ? { ...n, read: true } : n)),

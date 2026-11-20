@@ -242,11 +242,11 @@ export function NotificationBell({ user }: { user: Credential }) {
           {/* รายการแจ้งเตือน */}
           {list.length === 0 ? (
             <div className="flex flex-col items-center gap-1.5 px-4 py-8 text-center">
-              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#F1F5F9] text-[#94A3B8]">
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#F1F5F9] text-[#64748B]">
                 <Bell1 size={20} aria-hidden={true} />
               </span>
               <p className="mt-1 text-sm font-medium text-[#334155]">ยังไม่มีการแจ้งเตือน</p>
-              <p className="text-xs text-[#94A3B8]">
+              <p className="text-xs text-[#64748B]">
                 ระบบจะแจ้งเตือนเมื่อมีคำขอรออนุมัติหรือสถานะคำขอเปลี่ยน
               </p>
             </div>
@@ -284,7 +284,7 @@ export function NotificationBell({ user }: { user: Credential }) {
                           )}
                         </div>
                         <p className="mt-0.5 text-xs text-[#475569]">{item.message}</p>
-                        <p className="mt-1 text-[11px] text-[#94A3B8]">
+                        <p className="mt-1 text-[11px] text-[#64748B]">
                           {item.requestId} · {formatTime(item.createdAt, openedAt)}
                         </p>
                       </div>

@@ -15,6 +15,7 @@ import { loadRequests, type SavedRequest } from "@/data/request";
 import { getDepartmentBudget, getSharedBudget } from "@/data/budget";
 import { loadOrganization } from "@/data/organization";
 import { bkkYear } from "@/utils/date";
+import { money } from "@/utils/format";
 
 /* ------------------------------------------------------------------
    ตั้งค่า
@@ -24,7 +25,6 @@ const MY_REQUEST_PATH = "/my-request"; // ปุ่ม "ดูทั้งหม
 /* ------------------------------------------------------------------
    ฟังก์ชันช่วย
 ------------------------------------------------------------------- */
-const money = (n: number) => n.toLocaleString("en-US");
 
 
 export default function Home() {

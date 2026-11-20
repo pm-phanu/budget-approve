@@ -5,7 +5,11 @@ import Link from "next/link";
 import { REQUESTS_KEY, loadRequests, type SavedRequest } from "@/data/request";
 import type { Credential } from "@/data/credential";
 import { getCurrentUser } from "@/utils/login";
-import { ArrowRight, Check, Close, InfoCircle, Search1 } from "@tailgrids/icons";
+import { onHeaderSearch, readSearchParam } from "@/utils/search";
+import { ArrowRight, Check, Close, InfoCircle } from "@tailgrids/icons";
+import { baht } from "@/utils/format";
+import { SearchField } from "@/components/search-field";
+import { thaiDate } from "@/utils/date";
 
 /* ------------------------------------------------------------------
    ตั้งค่า
@@ -31,30 +35,12 @@ type StepState = "done" | "rejected" | "current" | "pending";
    อ่านข้อมูลจาก localStorage (ผ่านฟังก์ชันกลางใน data/ และ utils/login)
 ------------------------------------------------------------------- */
 // ข้ามข้อมูลรูปแบบเก่าที่ไม่มีเส้นทางอนุมัติ
-function readRequests(): ExpenseRequest[] {
-  try {
-    return (loadRequests() as ExpenseRequest[]).filter((r) => r && Array.isArray(r.approvalSteps));
-  } catch {
-    return [];
-  }
-}
 
 /* ------------------------------------------------------------------
    ฟังก์ชันช่วย
 ------------------------------------------------------------------- */
-const baht = (n: number) => "฿" + n.toLocaleString("en-US");
 
 // "14 ต.ค. 2569"
-function thaiDate(iso: string) {
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return "-";
-  return d.toLocaleDateString("th-TH", { timeZone: "Asia/Bangkok",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-}
-
 // จัดคำขอเข้ากลุ่ม: ร่าง / ถูกตีกลับ / จ่ายเงินแล้ว (ผ่านครบทุกขั้น) / กำลังดำเนินการ
 function groupOf(r: ExpenseRequest): Group {
   if (r.status === "ร่าง") return "draft";
@@ -177,15 +163,22 @@ export default function MyRequest() {
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
 
+  // คำค้นจากช่องค้นหาบน header (?q= ตอนเปิดหน้า · event ตอนอยู่หน้านี้อยู่แล้ว) utils/search.ts
+  useEffect(() => {
+    /* eslint-disable-next-line react-hooks/set-state-in-effect -- ?q= อ่านได้หลังเปิดหน้าเท่านั้น */
+    setQuery(readSearchParam());
+    return onHeaderSearch(setQuery);
+  }, []);
+
   // โหลดใน useEffect เท่านั้น (ฝั่งเซิร์ฟเวอร์ไม่มี localStorage)
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect -- อ่านได้หลังเปิดหน้าเท่านั้น */
-    setRequests(readRequests());
+    setRequests(loadRequests());
     setMe(getCurrentUser());
     /* eslint-enable react-hooks/set-state-in-effect */
 
     const onStorage = (e: StorageEvent) => {
-      if (e.key === REQUESTS_KEY) setRequests(readRequests());
+      if (e.key === REQUESTS_KEY) setRequests(loadRequests());
       if (e.key === "current_user") setMe(getCurrentUser());
     };
     window.addEventListener("storage", onStorage);
@@ -307,17 +300,13 @@ export default function MyRequest() {
             {tabs.find((t) => t.key === filter)?.label}{" "}
             <span className="text-sm font-normal text-[#64748B]">{shown.length} รายการ</span>
           </h2>
-          <label className="flex w-full items-center gap-2 rounded-xl border border-[#E2E8F0] px-3 py-2 focus-within:border-[#059669] sm:w-72">
-            <Search1 size={18} className="shrink-0 text-[#94A3B8]" aria-hidden="true" />
-            <span className="sr-only">ค้นหาคำขอ</span>
-            <input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="ค้นหาชื่อคำขอหรือเลขที่"
-              className="w-full border-0 bg-transparent p-0 text-sm outline-none focus:ring-0"
-            />
-          </label>
+          <SearchField
+            label="ค้นหาคำขอ"
+            value={query}
+            onChange={setQuery}
+            placeholder="ค้นหาชื่อคำขอหรือเลขที่"
+            className="sm:w-72"
+          />
         </div>
 
         {shown.length === 0 ? (

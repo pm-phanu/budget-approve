@@ -177,7 +177,29 @@ export function getMyFinishedRequests(requests: SavedRequest[], userId: string) 
 
 // อ่านคำขอทั้งหมด (ยังไม่มี = ลิสต์ว่าง)
 export function loadRequests(): SavedRequest[] {
-  const stored = localStorage.getItem(REQUESTS_KEY);
-  if (!stored) return [];
-  return JSON.parse(stored);
+  try {
+    const stored = localStorage.getItem(REQUESTS_KEY);
+    const parsed: SavedRequest[] = stored ? JSON.parse(stored) : [];
+    return parsed.filter((r) => r && Array.isArray(r.approvalSteps)); // ข้ามแถวที่รูปแบบเสีย
+  } catch {
+    return []; // ข้อมูลในเครื่องเสีย → ไม่ให้ทุกหน้าพัง
+  }
+}
+
+// เวลาที่ส่งคำขอล่าสุด (ส่งครั้งแรก / ส่งใหม่หลังถูกตีกลับ) · ร่างที่บันทึกไว้ก่อนส่ง → ใช้เวลากดส่ง ไม่ใช่วันสร้างร่าง
+export function sentAt(r: SavedRequest) {
+  let latest = r.createdAt;
+  for (const h of r.history ?? []) {
+    const t = historyType(h);
+    if ((t === "ส่งคำขอ" || t === "ส่งใหม่") && h.at > latest) latest = h.at;
+  }
+  return latest;
+}
+
+// คำขอมาถึงขั้นปัจจุบันเมื่อไร = ขั้นก่อนหน้าอนุมัติ หรือส่ง/ส่งใหม่ (เอาที่หลังสุด) · ใช้นับ "รอนานเท่าไร"
+export function arrivedAt(r: SavedRequest) {
+  const prev = r.approvalSteps[r.currentStep - 1];
+  const sent = sentAt(r);
+  const base = prev?.at ?? sent;
+  return sent > base ? sent : base;
 }

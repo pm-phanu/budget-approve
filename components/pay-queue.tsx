@@ -16,13 +16,14 @@ import {
   TableRoot,
   TableRow,
 } from "@/components/tailgrids/core/table";
+import { baht } from "@/utils/format";
+export { baht }; // หน้าการเงินเดิม import baht จากไฟล์นี้
 
 // โอนเกินกี่วันถือว่า "เลยกำหนด"
 export const DUE_DAYS = 3;
 
 export const PAY_DETAIL_PATH = "/home-finance/pay";
 
-export const baht = (n: number) => "฿" + Number(n || 0).toLocaleString("en-US");
 
 // วันที่บัญชีตรวจผ่าน = เวลาของขั้นก่อนหน้าขั้นการเงิน
 export function checkedAt(r: SavedRequest) {

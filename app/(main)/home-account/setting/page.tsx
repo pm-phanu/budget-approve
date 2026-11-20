@@ -8,7 +8,8 @@ import {
   TableRoot,
   TableRow,
 } from "@/components/tailgrids/core/table";
-import { getUsers, updateUser, type Credential } from "@/data/credential";
+import { Pagination } from "@/components/tailgrids/core/pagination";
+import { getUsers, updateUser, withoutPassword, type Credential } from "@/data/credential";
 import { getCurrentUser } from "@/utils/login";
 import {
   DEFAULT_ORGANIZATION,
@@ -29,7 +30,6 @@ import {
   Close,
   InfoCircle,
   Locked3,
-  Search1,
   Trash1,
   UserMultiple4,
 } from "@tailgrids/icons";
@@ -57,6 +57,10 @@ import {
   type ApprovalRule,
   type StepRole,
 } from "@/data/approval";
+import { SearchField } from "@/components/search-field";
+import { ActionPopup } from "@/components/action-popup";
+
+const USERS_PER_PAGE = 10; // ตารางผู้ใช้: เกินนี้แบ่งหน้า
 
 export default function Account() {
   const [users, setUsers] = useState<Credential[]>([]);
@@ -66,6 +70,7 @@ export default function Account() {
   // คนที่ login อยู่: แก้ role / สิทธิ์ admin ของตัวเองไม่ได้ (กันตั้งสิทธิ์ให้ตัวเอง / ล็อกตัวเองออก)
   const [meId, setMeId] = useState("");
   const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1); // หน้าของตารางผู้ใช้ (ละ USERS_PER_PAGE คน)
   const [editing, setEditing] = useState<string | null>(null); // ผู้ใช้ที่เปิดแผงแก้สังกัดอยู่
   const [onlyUnassigned, setOnlyUnassigned] = useState(false);
   const [tab, setTab] = useState<"users" | "rules">("users");
@@ -74,7 +79,7 @@ export default function Account() {
     /* eslint-disable react-hooks/set-state-in-effect -- localStorage อ่านได้หลังเปิดหน้าเท่านั้น */
     try {
       setMeId(getCurrentUser()?.id ?? "");
-      setUsers(getUsers().map(({ password, ...rest }) => rest));
+      setUsers(getUsers().map(withoutPassword));
       setOrg(loadOrganization());
     } catch (e) {
       setError(e instanceof Error ? e.message : "โหลดข้อมูลไม่สำเร็จ");
@@ -154,6 +159,7 @@ export default function Account() {
   const [rules, setRules] = useState<ApprovalRule[]>(DEFAULT_RULES);
   const [ruleErrors, setRuleErrors] = useState<string[]>([]);
   const [ruleMessage, setRuleMessage] = useState("");
+  const [rulePopup, setRulePopup] = useState<{ title: string; message: string } | null>(null); // ป็อปอัพบันทึก/คืนค่ากฎสำเร็จ
   const [positions, setPositions] = useState<ApproverPosition[]>(DEFAULT_POSITIONS);
   // กฎที่แก้แล้วยังไม่กดบันทึก · ยืนยันก่อนคืนค่าเริ่มต้น
   const [rulesDirty, setRulesDirty] = useState(false);
@@ -251,6 +257,7 @@ export default function Account() {
       setRulesDirty(false);
       setRuleErrors([]);
       setRuleMessage("บันทึกแล้ว · คำขอใหม่จะใช้กฎนี้ทันที (คำขอที่ส่งไปแล้วใช้เส้นทางเดิม)");
+      setRulePopup({ title: "บันทึกกฎการอนุมัติแล้ว", message: "คำขอใหม่ใช้กฎนี้ทันที คำขอที่ส่งไปแล้วใช้เส้นทางเดิม" });
     } catch {
       setRuleErrors(validateApprovalRules(rules, positions));
       setRuleMessage("");
@@ -263,6 +270,7 @@ export default function Account() {
     setRulesDirty(false);
     setRuleErrors([]);
     setRuleMessage("คืนค่าเริ่มต้นตาม requirement แล้ว");
+    setRulePopup({ title: "คืนค่ากฎเริ่มต้นแล้ว", message: "กลับไปใช้วงเงินและผู้อนุมัติตาม requirement" });
   };
 
   // ชั้นสังกัดที่ยังขาด (ตามบทบาท): กรรมการผู้จัดการไม่ต้องสังกัด · ผอ.ฝ่าย ถึงฝ่ายพอ · คนอื่นต้องถึงแผนก
@@ -289,6 +297,11 @@ export default function Account() {
         u.id.toLowerCase().includes(q) ||
         (u.username ?? "").toLowerCase().includes(q)),
   );
+
+  // แบ่งหน้า · กรองแล้วเหลือน้อยลง → ไม่ให้ค้างหน้าที่ไม่มีแล้ว
+  const totalPages = Math.max(1, Math.ceil(shownUsers.length / USERS_PER_PAGE));
+  const currentPage = Math.min(page, totalPages);
+  const pageUsers = shownUsers.slice((currentPage - 1) * USERS_PER_PAGE, currentPage * USERS_PER_PAGE);
 
   const tabs = [
     { key: "users" as const, label: "ผู้ใช้และสังกัด", badge: unassignedCount > 0 ? `ไม่ครบ ${unassignedCount}` : String(users.length), warn: unassignedCount > 0 },
@@ -352,17 +365,16 @@ export default function Account() {
                 {shownUsers.length === users.length ? users.length : `${shownUsers.length} จาก ${users.length}`} คน
               </span>
             </h2>
-            <label className="flex w-full items-center gap-2 rounded-xl border border-[#E2E8F0] px-3 py-2 focus-within:border-[#059669] sm:w-72">
-              <Search1 size={18} className="shrink-0 text-[#94A3B8]" aria-hidden="true" />
-              <span className="sr-only">ค้นหาผู้ใช้</span>
-              <input
-                type="search"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="ค้นหาชื่อ รหัส หรือ username"
-                className="w-full border-0 bg-transparent p-0 text-sm outline-none focus:ring-0"
-              />
-            </label>
+            <SearchField
+              label="ค้นหาผู้ใช้"
+              value={query}
+              onChange={(v) => {
+                setQuery(v);
+                setPage(1);
+              }}
+              placeholder="ค้นหาชื่อ รหัส หรือ username"
+              className="sm:w-72"
+            />
           </div>
 
           {/* ยังไม่กำหนดสังกัด → กดเพื่อกรองเฉพาะคนกลุ่มนี้ */}
@@ -375,7 +387,10 @@ export default function Account() {
               <button
                 type="button"
                 aria-pressed={onlyUnassigned}
-                onClick={() => setOnlyUnassigned((v) => !v)}
+                onClick={() => {
+                  setOnlyUnassigned((v) => !v);
+                  setPage(1);
+                }}
                 className="rounded-lg bg-white px-3 py-1.5 text-xs font-semibold hover:bg-[#FEF3C7]"
               >
                 {onlyUnassigned ? "แสดงทุกคน" : "แสดงเฉพาะคนที่ยังไม่ครบ"}
@@ -424,7 +439,7 @@ export default function Account() {
                   </TableCell>
                 </TableRow>
               ) : (
-                shownUsers.map((u) => {
+                pageUsers.map((u) => {
                   const ids = affiliationIds(u);
                   const isMe = u.id === meId;
                   const isEditing = editing === u.id;
@@ -493,7 +508,7 @@ export default function Account() {
                                     )}
                                     {lv.name ? (
                                       <span className="rounded-md bg-[#F1F5F9] px-1.5 py-0.5 text-[#475569]">
-                                        <span className="text-[#94A3B8]">{lv.label} </span>
+                                        <span className="text-[#64748B]">{lv.label} </span>
                                         {lv.name}
                                       </span>
                                     ) : (
@@ -671,6 +686,15 @@ export default function Account() {
               )}
             </TableBody>
           </TableRoot>
+          {totalPages > 1 && (
+            <div className="mt-4 flex items-center gap-4">
+              <p className="shrink-0 text-sm text-[#64748B]">
+                แสดง {(currentPage - 1) * USERS_PER_PAGE + 1}–{(currentPage - 1) * USERS_PER_PAGE + pageUsers.length} จาก{" "}
+                {shownUsers.length} คน
+              </p>
+              <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setPage} sideLayout="icon" />
+            </div>
+          )}
         </section>
 
           </div>
@@ -743,7 +767,7 @@ export default function Account() {
                         const label = getRoleLabel(role, positions);
                         return (
                           <Fragment key={role}>
-                            <ArrowRight size={16} className="shrink-0 text-[#94A3B8]" aria-hidden="true" />
+                            <ArrowRight size={16} className="shrink-0 text-[#64748B]" aria-hidden="true" />
                             <span className="flex items-center gap-0.5 rounded-lg border border-[#A7F3D0] bg-[#ECFDF5] p-1 font-semibold text-[#047857]">
                               <button
                                 type="button"
@@ -777,7 +801,7 @@ export default function Account() {
                         );
                       })}
                       {/* ขั้นท้ายตายตัว: เปลี่ยนไม่ได้ */}
-                      <ArrowRight size={16} className="shrink-0 text-[#94A3B8]" aria-hidden="true" />
+                      <ArrowRight size={16} className="shrink-0 text-[#64748B]" aria-hidden="true" />
                       <span
                         className="flex items-center gap-1 rounded-lg border border-[#E2E8F0] bg-white px-3 py-1.5 text-[#475569]"
                         title="ขั้นนี้มีทุกเส้นทาง เปลี่ยนไม่ได้"
@@ -785,7 +809,7 @@ export default function Account() {
                         <Locked3 size={14} aria-hidden="true" />
                         {range.approvers.length === 0 ? "ส่งตรงฝ่ายบัญชี" : "ฝ่ายบัญชี"}
                       </span>
-                      <ArrowRight size={16} className="shrink-0 text-[#94A3B8]" aria-hidden="true" />
+                      <ArrowRight size={16} className="shrink-0 text-[#64748B]" aria-hidden="true" />
                       <span
                         className="flex items-center gap-1 rounded-lg border border-[#E2E8F0] bg-white px-3 py-1.5 text-[#475569]"
                         title="ขั้นนี้มีทุกเส้นทาง เปลี่ยนไม่ได้"
@@ -911,6 +935,12 @@ export default function Account() {
           </div>
         )}
       </div>
+      <ActionPopup
+        open={rulePopup !== null}
+        title={rulePopup?.title ?? ""}
+        message={rulePopup?.message}
+        onConfirm={() => setRulePopup(null)}
+      />
     </div>
   );
 }

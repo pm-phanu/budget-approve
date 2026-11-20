@@ -118,8 +118,8 @@
   --color-button-error-outline-hover-text: #b91c1c;
 
   /* Success */
-  --color-button-success-background: #16a34a;
-  --color-button-success-hover-background: #15803d;
+  --color-button-success-background: #15803d;
+  --color-button-success-hover-background: #166534;
   --color-button-success-border: #22c55e;
   --color-button-success-text: #ffffff;
   --color-button-success-focus-ring: rgba(22, 163, 74, 0.2);
@@ -587,6 +587,17 @@
 
 input[type="password"]::-ms-reveal,
 input[type="password"]::-ms-clear {
+  display: none;
+}
+
+/* ปุ่ม × ของเบราว์เซอร์ในช่องค้นหา: สีไม่เข้าธีม → ซ่อน ใช้ปุ่มล้างของ components/search-field.tsx แทน */
+input[type="search"]::-webkit-search-cancel-button,
+input[type="search"]::-webkit-search-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+  display: none;
+}
+input[type="search"]::-ms-clear {
   display: none;
 }
 
