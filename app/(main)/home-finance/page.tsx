@@ -15,6 +15,7 @@ import { getCurrentUser } from "@/utils/login";
 import { bkkDay, bkkMonth } from "@/utils/date";
 import type { Credential } from "@/data/credential";
 import MyRequestsCard from "@/components/my-requests-card";
+import NotificationsCard from "@/components/notifications-card";
 import { HeroCard } from "@/components/budget-card";
 import { DUE_DAYS, PAY_DETAIL_PATH, baht, getPayQueue, paidAt, payee, waitingDays } from "@/components/pay-queue";
 import { ArrowRight, Bank1, CheckCircle1, ClockThree } from "@tailgrids/icons";
@@ -234,8 +235,9 @@ export default function FinancePage() {
             )}
           </section>
 
-          {/* ขวา: คำขอของฉัน (การ์ดเดียวกับทุกหน้า) */}
-          <div className="col-span-2 self-start">
+          {/* ขวา: แจ้งเตือนล่าสุด แล้วต่อด้วยคำขอของฉัน (การ์ดเดียวกับทุกหน้า) */}
+          <div className="col-span-2 flex flex-col gap-5 self-start">
+            <NotificationsCard me={me} />
             <MyRequestsCard mine={mine} />
           </div>
         </div>

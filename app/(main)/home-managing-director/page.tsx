@@ -15,6 +15,7 @@ import { canApproveStep } from "@/data/approval";
 import type { Credential } from "@/data/credential";
 import { getCurrentUser } from "@/utils/login";
 import MyRequestsCard from "@/components/my-requests-card";
+import NotificationsCard from "@/components/notifications-card";
 import {
   ArrowRight,
   Check,
@@ -423,7 +424,11 @@ export default function MD() {
             </div>
           </div>
 
-          <MyRequestsCard mine={myRequests} className="col-span-2" />
+          {/* ขวา: แจ้งเตือนล่าสุด แล้วต่อด้วยคำขอของฉัน */}
+          <div className="col-span-2 flex flex-col gap-5 self-start">
+            <NotificationsCard me={me} />
+            <MyRequestsCard mine={myRequests} />
+          </div>
         </div>
         </div>
       </div>
