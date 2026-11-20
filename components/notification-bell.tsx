@@ -37,17 +37,17 @@ export const KIND_STYLE: Record<
 };
 
 const EMPTY: AppNotification[] = [];
-let snapshotKey = "";
-let snapshotList: AppNotification[] = EMPTY;
+// แคชแยกตาม userId: กระดิ่งกับการ์ดอ่านพร้อมกันคนละ id ได้ (แคชเดียวจะสลับกันทับ → array ใหม่ทุกครั้ง → render วนไม่จบ)
+const snapshots = new Map<string, { raw: string; list: AppNotification[] }>();
 
 function readUserNotifications(userId: string): AppNotification[] {
-  if (typeof window === "undefined") return EMPTY;
+  if (typeof window === "undefined" || !userId) return EMPTY;
   const raw = localStorage.getItem(NOTIFICATIONS_KEY) ?? "";
-  const nextKey = `${userId}\0${raw}`;
-  if (nextKey === snapshotKey) return snapshotList;
-  snapshotKey = nextKey;
-  snapshotList = getNotifications(userId);
-  return snapshotList;
+  const cached = snapshots.get(userId);
+  if (cached?.raw === raw) return cached.list;
+  const list = getNotifications(userId);
+  snapshots.set(userId, { raw, list });
+  return list;
 }
 
 function subscribeNotifications(onChange: () => void) {
