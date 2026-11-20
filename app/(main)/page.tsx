@@ -6,10 +6,9 @@ import {
   CheckCircle1,
 } from "@tailgrids/icons";
 import NextLink from "next/link";
-import { KIND_STYLE, formatTime, getNotificationHref, useNotifications } from "@/components/notification-bell";
-import { markAsRead } from "@/data/notification";
 import { useEffect, useState } from "react";
 import MyRequestsCard from "@/components/my-requests-card";
+import NotificationsCard from "@/components/notifications-card";
 import { getCurrentUser } from "@/utils/login";
 import type { Credential } from "@/data/credential";
 import { loadRequests, type SavedRequest } from "@/data/request";
@@ -33,8 +32,6 @@ export default function Home() {
   const [requests, setRequests] = useState<SavedRequest[]>([]);
   // ปีปัจจุบัน: ตั้งค่าใน useEffect (เลี่ยง new Date() ตอน prerender)
   const [year, setYear] = useState<number | null>(null);
-  const [now, setNow] = useState(0); // เวลาตอนเปิดหน้า สำหรับ "x นาทีที่แล้ว"
-  const notifications = useNotifications(me?.id ?? "");
 
   // localStorage อ่านได้เฉพาะฝั่ง browser จึงต้องโหลดใน useEffect
   useEffect(() => {
@@ -46,7 +43,6 @@ export default function Home() {
       setRequests([]);
     }
     setYear(bkkYear());
-    setNow(Date.now());
     /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
@@ -122,46 +118,8 @@ export default function Home() {
           <div className="grid grid-cols-1 gap-5 xl:grid-cols-4">
             <MyRequestsCard mine={mine} className="xl:col-span-2" />
 
-            {/* แจ้งเตือนล่าสุด 4 รายการ (ทั้งหมดดูที่กระดิ่งบน header) */}
-            <div className="flex flex-col justify-between rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl xl:col-span-2">
-              <div>
-                <h2 className="mb-2 text-base font-bold text-[#0F172A]">แจ้งเตือนล่าสุด</h2>
-
-                {notifications.length === 0 ? (
-                  <p className="py-8 text-center text-sm text-[#94A3B8]">ยังไม่มีการแจ้งเตือน</p>
-                ) : (
-                  <ul className="divide-y divide-gray-100">
-                    {notifications.slice(0, 4).map((n) => {
-                      const { bg, Icon } = KIND_STYLE[n.kind] ?? KIND_STYLE.progress;
-                      return (
-                        <li key={n.id}>
-                          <NextLink
-                            href={me ? getNotificationHref(n, me.role) : "#"}
-                            onClick={() => !n.read && markAsRead(n.id)}
-                            className="flex items-start gap-3 py-4 hover:bg-[#F8FAFC]"
-                          >
-                            <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${bg}`}>
-                              <Icon size={18} aria-hidden={true} />
-                            </span>
-                            <div className="text-sm text-[#334155]">
-                              <p>
-                                <strong className="text-[#0F172A]">{n.requestTitle}</strong> {n.message}
-                              </p>
-                              <p className="mt-0.5 text-xs text-[#64748B]">{formatTime(n.createdAt, now)}</p>
-                            </div>
-                          </NextLink>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </div>
-
-              <div className="mt-6 flex items-center gap-2.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3.5 text-xs text-[#64748B]">
-                <span>✓</span>
-                <span>ระบบจะแจ้งเตือนทุกครั้งที่สถานะคำขอเปลี่ยน</span>
-              </div>
-            </div>
+            {/* แจ้งเตือนล่าสุด (การ์ดตัวกลาง components/notifications-card.tsx) · employee วางข้างคำขอของฉัน */}
+            <NotificationsCard me={me} className="xl:col-span-2" />
           </div>
         </div>
       </div>
