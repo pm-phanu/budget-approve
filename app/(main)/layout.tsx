@@ -72,7 +72,7 @@ const approveItems: MenuItem[] = [
 ]
 
 const reportItems: MenuItem[] = [
-  { title: "รายงานงบประมาณ", url: "/home-account/report", icon: TrendUp2, roles: ["ACCOUNTANT_ADMIN"], group: "report" },
+  { title: "รายงานงบประมาณ", url: "/home-account/report", icon: TrendUp2, roles: ["ACCOUNTANT"], group: "report" },
 ]
 
 const payItems: MenuItem[] = [

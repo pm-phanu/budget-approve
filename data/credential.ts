@@ -4,7 +4,7 @@ export type BuiltInRole =
   | "HEAD"
   | "DIRECTOR"
   | "MANAGING_DIRECTOR"
-  | "ACCOUNTANT_ADMIN"
+  | "ACCOUNTANT"
   | "FINANCE";
 
 // บัญชีธนาคารสำหรับรับเงินคืน (คำขอแบบสำรองจ่าย)
@@ -106,7 +106,7 @@ export const users: User[] = [
     fullName: "กัญญา ทองดี",
     isAdmin: true, // ผู้ดูแลระบบคนเดียวในข้อมูลตัวอย่าง
     password: "pass",
-    role: "ACCOUNTANT_ADMIN",
+    role: "ACCOUNTANT",
     lineOfWorkId: "LW01",
     divisionId: "DV01",
     departmentId: "DP02",
@@ -141,7 +141,7 @@ export const users: User[] = [
     id: "u_07",
     username: "nattaya",
     fullName: "ณัฐยา สุขใจ",
-    role: "ACCOUNTANT_ADMIN",
+    role: "ACCOUNTANT",
     password: "pass",
     lineOfWorkId: "LW01",
     divisionId: "DV01",
@@ -262,6 +262,26 @@ export const renumberUsers = (list: User[], storage: Storage = localStorage): Us
   }
   return list.map((u) => ({ ...u, id: renames.get(u.id) ?? u.id }));
 };
+
+// ข้อมูลเก่า: role ฝ่ายบัญชีเคยชื่อ "ACCOUNTANT_ADMIN" → เปลี่ยนเป็น "ACCOUNTANT" ในทุก key ของ localStorage
+// (ผู้ใช้, current_user, ขั้นอนุมัติในคำขอ, กฎวงเงิน, ตำแหน่ง ฯลฯ) · แทนเฉพาะค่าที่มีเครื่องหมายคำพูดครอบทั้งก้อน
+// ทำตอนโหลดไฟล์นี้ (ฝั่ง browser) ครั้งเดียว → ก่อนทุกหน้าอ่านคำขอ/ผู้ใช้ใน useEffect
+const OLD_ACCOUNTANT_ROLE = '"ACCOUNTANT_ADMIN"';
+export const migrateRoleNames = (storage: Storage) => {
+  for (let i = 0; i < storage.length; i++) {
+    const key = storage.key(i);
+    const value = key === null ? null : storage.getItem(key);
+    if (key !== null && value?.includes(OLD_ACCOUNTANT_ROLE))
+      storage.setItem(key, value.split(OLD_ACCOUNTANT_ROLE).join('"ACCOUNTANT"'));
+  }
+};
+if (typeof window !== "undefined") {
+  try {
+    migrateRoleNames(localStorage);
+  } catch {
+    /* localStorage ใช้ไม่ได้ (เช่น โหมดส่วนตัวบางเบราว์เซอร์) → ข้าม */
+  }
+}
 
 export const getUsers = (): User[] => {
   if (typeof window === "undefined") return users.map((user) => ({ ...user }));

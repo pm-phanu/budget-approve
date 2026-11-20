@@ -251,7 +251,7 @@ function NewRequest({ openId }: { openId: string | null }) {
           // การเงินตีกลับ → ผู้ขอแก้ยอด/รายการได้ จึงให้บัญชีตรวจซ้ำก่อนถึงการเงิน
           const accountantIdx =
             s.role === "FINANCE"
-              ? draft.approvalSteps.findLastIndex((x, i) => i < idx && x.role === "ACCOUNTANT_ADMIN")
+              ? draft.approvalSteps.findLastIndex((x, i) => i < idx && x.role === "ACCOUNTANT")
               : -1;
           setResubmit({
             id: draft.id,
@@ -1005,7 +1005,7 @@ function NewRequest({ openId }: { openId: string | null }) {
                 );
               })}
             </ol>
-            {total > 0 && steps[0] === "ACCOUNTANT_ADMIN" && (
+            {total > 0 && steps[0] === "ACCOUNTANT" && (
               <p className="mt-1 rounded-lg bg-[#ECFDF5] px-3 py-2 text-xs text-[#047857]">
                 ยอดไม่เกิน ฿{money(rules[0].max ?? 0)} ไม่ต้องผ่านหัวหน้า
               </p>
@@ -1162,7 +1162,7 @@ const STEP_SUB: Record<StepRole, string> = {
   HEAD: "อนุมัติ",
   DIRECTOR: "อนุมัติ",
   MANAGING_DIRECTOR: "อนุมัติ",
-  ACCOUNTANT_ADMIN: "ตรวจสอบหลักฐาน",
+  ACCOUNTANT: "ตรวจสอบหลักฐาน",
   FINANCE: "ทำจ่าย",
 };
 

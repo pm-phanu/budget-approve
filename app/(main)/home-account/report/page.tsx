@@ -84,7 +84,7 @@ function toReportRow(r: SavedRequest, today: Date): ReportRow {
   const daysAgo = Math.floor((today.getTime() - created.getTime()) / oneDay);
 
   // ระยะเวลาอนุมัติ = ส่งคำขอ → ขั้นบัญชีกดผ่าน (ขั้นสุดท้ายก่อนการเงิน)
-  const checked = r.approvalSteps.find((s) => s.role === "ACCOUNTANT_ADMIN" && s.status === "อนุมัติ");
+  const checked = r.approvalSteps.find((s) => s.role === "ACCOUNTANT" && s.status === "อนุมัติ");
   const approveDays = checked?.at
     ? Math.max(0.1, (new Date(checked.at).getTime() - created.getTime()) / oneDay) // ภายในวันเดียว = 0.1 วัน
     : 0;
