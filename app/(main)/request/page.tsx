@@ -212,16 +212,14 @@ function NewRequest({ openId }: { openId: string | null }) {
     setBudget(addRequestsToBudget(loadRequests().filter((r) => r.id !== openId)));
 
     // ---------- [5.1] เปิดร่าง / เปิดคำขอที่ถูกตีกลับ มาแก้ต่อ ----------
-    // - ร่าง: เปิดได้
-    // - ตีกลับ: เปิดได้เฉพาะเจ้าของคำขอ (ผู้ขอคนเดิม)
+    // - ร่าง / ตีกลับ: เปิดได้เฉพาะเจ้าของคำขอ (ผู้ขอคนเดิม)
     const draft = loadRequests().find(
       (r) =>
         r.id === openId &&
-        (r.status === "ร่าง" ||
-          (r.status === "ตีกลับ" &&
-            !!me &&
-            r.requester != null &&
-            String(r.requester.id) === String(me.id))),
+        (r.status === "ร่าง" || r.status === "ตีกลับ") &&
+        !!me &&
+        r.requester != null &&
+        String(r.requester.id) === String(me.id),
     );
     if (draft) {
       setType(draft.type);
@@ -578,6 +576,17 @@ function NewRequest({ openId }: { openId: string | null }) {
   // กด "ยืนยัน" ในป็อปอัพ → บันทึกจริง → โชว์สำเร็จแป๊บนึง → ไปหน้าถัดไป
   // - คำขอใหม่ → แดชบอร์ด · ส่งใหม่ (เคยถูกตีกลับ) → หน้า "คำขอของฉัน"
   function confirmSubmit() {
+    // อ่านงบล่าสุดอีกรอบก่อนบันทึก: ระหว่างกรอก แท็บ/ผู้ใช้อื่นอาจใช้งบหมวดเดียวกันไปแล้ว
+    const fresh = addRequestsToBudget(loadRequests().filter((r) => r.id !== draftId));
+    const over = (fresh.find((p) => p.id === projectId)?.categories ?? []).filter(
+      (c) => (categoryAsked.get(c.id) ?? 0) > c.limit - c.used,
+    );
+    if (over.length > 0) {
+      setBudget(fresh);
+      setErrors(over.map((c) => c.name + " เกินงบคงเหลือ (เหลือ ฿" + money(c.limit - c.used) + ")"));
+      setPopup("closed");
+      return;
+    }
     const next = resubmit ? MY_REQUEST_PATH : "/"; // จำไว้ก่อน
     setGoingTo(resubmit ? "หน้าคำขอของฉัน" : "แดชบอร์ด");
     saveRequest("รออนุมัติ");

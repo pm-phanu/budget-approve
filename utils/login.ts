@@ -53,15 +53,8 @@ export const checkGuest = (router: Router): boolean => {
   return true // ยังไม่ login อยู่หน้านี้ได้
 }
 
-export const getHomePath = (role: Credential["role"]) => {
-  if (role === "EMPLOYEE") return "/"
-  if (role === "HEAD") return "/home-department-head";
-  if (role === "ACCOUNTANT") return "/home-account";
-  if (role === "DIRECTOR") return "/home-director"
-  if (role === "FINANCE") return "/home-finance"
-  if (role === "MANAGING_DIRECTOR") return "/home-managing-director"
-  return "/";
-};
+// role ที่ไม่มีหน้าแดชบอร์ดของตัวเอง (เช่น ตำแหน่งที่เพิ่มเอง) → หน้าแรก
+export const getHomePath = (role: Credential["role"]): string => HOME_PATHS[role] ?? "/";
 
 export const HOME_PATHS: Record<Credential["role"], string> = {
   EMPLOYEE: "/",

@@ -98,29 +98,12 @@ export const DEFAULT_ORGANIZATION: Organization = {
 };
 
 // ────────────────────────────────────────────────────────────
-//  อ่าน / บันทึก (localStorage "organization")
-//  ยังไม่มีข้อมูลในเครื่อง → ใช้ DEFAULT_ORGANIZATION แล้วบันทึกไว้ (แบบเดียวกับ getUsers)
+//  อ่านผังองค์กร: มาจากโค้ดเสมอ (ยังไม่มีหน้าแก้ผัง)
+//  ※ เดิมเก็บสำเนาใน localStorage "organization" → เครื่องที่เปิดก่อนผังเปลี่ยนค้างผังเก่า
+//  shortcut: ผังแก้ได้แค่ในโค้ด, ถ้าจะทำหน้าแก้ผัง → เก็บใน localStorage แล้ว merge กับ DEFAULT_ORGANIZATION แบบ getUsers
 // ────────────────────────────────────────────────────────────
-export const ORGANIZATION_KEY = "organization";
-
 export function loadOrganization(): Organization {
-  if (typeof window === "undefined") return DEFAULT_ORGANIZATION;
-
-  const stored = localStorage.getItem(ORGANIZATION_KEY);
-  if (stored === null) {
-    localStorage.setItem(ORGANIZATION_KEY, JSON.stringify(DEFAULT_ORGANIZATION));
-    return DEFAULT_ORGANIZATION;
-  }
-
-  try {
-    return JSON.parse(stored) as Organization;
-  } catch {
-    return DEFAULT_ORGANIZATION;
-  }
-}
-
-export function saveOrganization(org: Organization) {
-  localStorage.setItem(ORGANIZATION_KEY, JSON.stringify(org));
+  return DEFAULT_ORGANIZATION;
 }
 
 // ────────────────────────────────────────────────────────────

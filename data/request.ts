@@ -177,7 +177,11 @@ export function getMyFinishedRequests(requests: SavedRequest[], userId: string) 
 
 // อ่านคำขอทั้งหมด (ยังไม่มี = ลิสต์ว่าง)
 export function loadRequests(): SavedRequest[] {
-  const stored = localStorage.getItem(REQUESTS_KEY);
-  if (!stored) return [];
-  return JSON.parse(stored);
+  try {
+    const stored = localStorage.getItem(REQUESTS_KEY);
+    const parsed: SavedRequest[] = stored ? JSON.parse(stored) : [];
+    return parsed.filter((r) => r && Array.isArray(r.approvalSteps)); // ข้ามแถวที่รูปแบบเสีย
+  } catch {
+    return []; // ข้อมูลในเครื่องเสีย → ไม่ให้ทุกหน้าพัง
+  }
 }

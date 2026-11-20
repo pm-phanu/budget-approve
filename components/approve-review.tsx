@@ -30,6 +30,7 @@ import { actOnRequest, canApproveStep } from "@/data/approval";
 import { useReviewLock } from "@/components/use-review-lock";
 import { getCurrentUser } from "@/utils/login";
 import type { Credential } from "@/data/credential";
+import { baht } from "@/utils/format";
 
 /* ------------------------------------------------------------------
    ตั้งค่า
@@ -66,7 +67,6 @@ function loadAll(): Req[] {
 /* ------------------------------------------------------------------
    ฟังก์ชันช่วย
 ------------------------------------------------------------------- */
-const baht = (n: number) => "฿" + n.toLocaleString("en-US");
 
 function thaiDate(iso?: string | null) {
   if (!iso) return "-";

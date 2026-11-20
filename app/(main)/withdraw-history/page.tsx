@@ -20,13 +20,13 @@ import {
 import { getCurrentUser } from "@/utils/login";
 import type { Credential } from "@/data/credential";
 import { ArrowRight, ChevronRight, ClockThree, InfoCircle, Search1 } from "@tailgrids/icons";
+import { baht } from "@/utils/format";
 
 const DETAIL_PATH = "/my-request/detail";
 const NEW_REQUEST_PATH = "/request";
 
 type Filter = "all" | "paid" | "approved" | "rejected";
 
-const baht = (n: number) => "฿" + Number(n || 0).toLocaleString("en-US");
 
 function thaiDate(iso: string | null, withTime = false) {
   if (!iso) return "-";

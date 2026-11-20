@@ -7,6 +7,7 @@ import type { Credential } from "@/data/credential";
 import { getCurrentUser } from "@/utils/login";
 import { onHeaderSearch, readSearchParam } from "@/utils/search";
 import { ArrowRight, Check, Close, InfoCircle, Search1 } from "@tailgrids/icons";
+import { baht } from "@/utils/format";
 
 /* ------------------------------------------------------------------
    ตั้งค่า
@@ -32,18 +33,10 @@ type StepState = "done" | "rejected" | "current" | "pending";
    อ่านข้อมูลจาก localStorage (ผ่านฟังก์ชันกลางใน data/ และ utils/login)
 ------------------------------------------------------------------- */
 // ข้ามข้อมูลรูปแบบเก่าที่ไม่มีเส้นทางอนุมัติ
-function readRequests(): ExpenseRequest[] {
-  try {
-    return (loadRequests() as ExpenseRequest[]).filter((r) => r && Array.isArray(r.approvalSteps));
-  } catch {
-    return [];
-  }
-}
 
 /* ------------------------------------------------------------------
    ฟังก์ชันช่วย
 ------------------------------------------------------------------- */
-const baht = (n: number) => "฿" + n.toLocaleString("en-US");
 
 // "14 ต.ค. 2569"
 function thaiDate(iso: string) {
@@ -188,12 +181,12 @@ export default function MyRequest() {
   // โหลดใน useEffect เท่านั้น (ฝั่งเซิร์ฟเวอร์ไม่มี localStorage)
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect -- อ่านได้หลังเปิดหน้าเท่านั้น */
-    setRequests(readRequests());
+    setRequests(loadRequests());
     setMe(getCurrentUser());
     /* eslint-enable react-hooks/set-state-in-effect */
 
     const onStorage = (e: StorageEvent) => {
-      if (e.key === REQUESTS_KEY) setRequests(readRequests());
+      if (e.key === REQUESTS_KEY) setRequests(loadRequests());
       if (e.key === "current_user") setMe(getCurrentUser());
     };
     window.addEventListener("storage", onStorage);

@@ -18,6 +18,7 @@ import {
 import { getCurrentUser } from "@/utils/login";
 import type { Credential } from "@/data/credential";
 import { ArrowRight, CheckCircle1, Search1 } from "@tailgrids/icons";
+import { baht } from "@/utils/format";
 
 // หน้ารายละเอียดแยกตาม role (เหมือนหน้า "คำขอรออนุมัติทั้งหมด")
 const APPROVE_PATHS: Record<string, string> = {
@@ -28,7 +29,6 @@ const DEFAULT_APPROVE_PATH = "/home-department-head/approve";
 
 type Filter = "all" | "อนุมัติ" | "ตีกลับ";
 
-const baht = (n: number) => "฿" + Number(n || 0).toLocaleString("en-US");
 
 function thaiDateTime(iso: string | null) {
   if (!iso) return "-";

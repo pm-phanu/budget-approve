@@ -52,8 +52,8 @@ import { loadOrganization, type Organization } from "@/data/organization";
 import { loadRequests, type SavedRequest } from "@/data/request";
 import { getCurrentUser } from "@/utils/login";
 import { bkkYear } from "@/utils/date";
+import { baht } from "@/utils/format";
 
-const baht = (n: number) => "฿" + n.toLocaleString("en-US");
 const toBE = (year: number) => year + 543; // แสดงปีเป็น พ.ศ.
 // สีของแต่ละสายงานในแท่งงบบอร์ด (เขียวเข้ม → อ่อน ตามธีม)
 const LINE_SHADES = ["#047857", "#059669", "#34D399", "#6EE7B7", "#A7F3D0"];

@@ -17,6 +17,7 @@ import {
   Search1,
 } from "@tailgrids/icons";
 import { bkkYear } from "@/utils/date";
+import { baht, timeAgo } from "@/utils/format";
 
 /* ------------------------------------------------------------------
    ตั้งค่า
@@ -48,36 +49,17 @@ type CurrentUser = Credential;
    อ่านข้อมูลจาก localStorage (ผ่านฟังก์ชันกลางใน data/ และ utils/login)
 ------------------------------------------------------------------- */
 // ข้ามข้อมูลรูปแบบเก่าที่ไม่มีเส้นทางอนุมัติ
-function readRequests(): ExpenseRequest[] {
-  try {
-    return loadRequests().filter((r) => r && Array.isArray(r.approvalSteps));
-  } catch {
-    return [];
-  }
-}
 
 // งบของแผนกตัวเองปีนี้ (งบที่บัญชีแบ่งให้แผนก · data/budget.ts)
 function readBudget(user: CurrentUser | null) {
-  const { limit, used } = getDepartmentBudget(user?.departmentId, readRequests(), bkkYear());
+  const { limit, used } = getDepartmentBudget(user?.departmentId, loadRequests(), bkkYear());
   return { limit, used };
 }
 
 /* ------------------------------------------------------------------
    ฟังก์ชันช่วย
 ------------------------------------------------------------------- */
-const baht = (n: number) => "฿" + n.toLocaleString("en-US");
 
-function timeAgo(iso: string) {
-  const mins = Math.max(
-    0,
-    Math.floor((Date.now() - new Date(iso).getTime()) / 60000),
-  );
-  if (mins < 1) return "เมื่อสักครู่";
-  if (mins < 60) return `เมื่อ ${mins} นาทีที่แล้ว`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `เมื่อ ${hours} ชั่วโมงที่แล้ว`;
-  return `เมื่อ ${Math.floor(hours / 24)} วันที่แล้ว`;
-}
 
 // ป้ายเวลารอ: รอสักครู่ / รอ X นาที / รอ X ชม. / รอ X วัน
 function waitLabel(iso: string) {
@@ -140,7 +122,7 @@ export default function AllRequestDH() {
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect -- อ่านได้หลังเปิดหน้าเท่านั้น */
     const user = getCurrentUser();
-    setRequests(readRequests());
+    setRequests(loadRequests());
     setMe(user);
     setBudget(readBudget(user));
     setCurrentYear(bkkYear());
@@ -148,7 +130,7 @@ export default function AllRequestDH() {
 
     const onStorage = (e: StorageEvent) => {
       if (e.key === REQUESTS_KEY) {
-        setRequests(readRequests());
+        setRequests(loadRequests());
         setBudget(readBudget(getCurrentUser()));
       }
       if (e.key === "current_user") {

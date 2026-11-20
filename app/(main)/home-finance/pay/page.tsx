@@ -17,11 +17,11 @@ import { bkkDay } from "@/utils/date";
 import type { Credential } from "@/data/credential";
 import { HeroCard } from "@/components/budget-card";
 import { Bank1, Check, Eye, Xmark } from "@tailgrids/icons";
+import { baht } from "@/utils/format";
 
 const LIST_PATH = "/pay-request";
 
 // ---------- ฟังก์ชันช่วย ----------
-const baht = (n: number) => "฿" + n.toLocaleString("en-US");
 
 function thaiDate(iso: string | null) {
   if (!iso) return "-";
