@@ -87,6 +87,7 @@ type Item = {
 type ResubmitInfo = {
   id: string; // เลขที่คำขอ
   stepIndex: number; // ลำดับขั้นที่ตีกลับ ใน approvalSteps
+  restartIndex: number; // ส่งใหม่แล้วเริ่มที่ขั้นนี้ (ปกติ = stepIndex · การเงินตีกลับ = ขั้นบัญชี ให้ตรวจซ้ำ)
   oldSteps: SavedStep[]; // เส้นทางอนุมัติเดิม (ขั้นที่ผ่านแล้วจะคงสถานะไว้)
   label: string; // ชื่อขั้นที่ตีกลับ เช่น "หัวหน้าแผนก"
   by: string; // ชื่อคนที่ตีกลับ
@@ -227,9 +228,15 @@ export default function NewRequest() {
               ? `${extra.reject.status} — ${extra.reject.comment}`
               : extra.reject.status
             : s.note || extra.reviewComment || "-";
+          // การเงินตีกลับ → ผู้ขอแก้ยอด/รายการได้ จึงให้บัญชีตรวจซ้ำก่อนถึงการเงิน
+          const accountantIdx =
+            s.role === "FINANCE"
+              ? draft.approvalSteps.findLastIndex((x, i) => i < idx && x.role === "ACCOUNTANT_ADMIN")
+              : -1;
           setResubmit({
             id: draft.id,
             stepIndex: idx,
+            restartIndex: accountantIdx >= 0 ? accountantIdx : idx,
             oldSteps: draft.approvalSteps,
             label: s.label,
             by: s.by ?? "-",
@@ -292,7 +299,7 @@ export default function NewRequest() {
     if (it.categoryId)
       categoryAsked.set(it.categoryId, (categoryAsked.get(it.categoryId) ?? 0) + Number(it.amount || 0));
   }
-  // หมวดที่ขอเกินงบคงเหลือ → เตือนอย่างเดียว ยังส่งได้
+  // หมวดที่ขอเกินงบคงเหลือ → ส่งไม่ได้ (ดู validate)
   const overCategories = categories.filter((c) => (categoryAsked.get(c.id) ?? 0) > c.limit - c.used);
 
   // ส่งกลับไปหาคนที่ตีกลับได้หรือไม่:
@@ -305,7 +312,7 @@ export default function NewRequest() {
   // ปลายทางที่คำขอจะถูกส่งไป (ใช้แสดงข้อความ / ประวัติ)
   const targetLabel =
     resubmit && sameRoute
-      ? resubmit.label
+      ? resubmit.oldSteps[resubmit.restartIndex].label
       : steps[0]
         ? getRoleLabel(steps[0], positions)
         : "-";
@@ -397,7 +404,9 @@ export default function NewRequest() {
         list.push(row + ": แนบ" + fileLabel + "อย่างน้อย 1 ไฟล์");
     });
 
-    // ※ เกินงบคงเหลือของหมวด = แค่เตือน (ใต้แถว + ในป็อปอัพยืนยัน) ไม่บล็อกการส่ง
+    // เกินงบคงเหลือของหมวด → ห้ามส่ง (หลายแถวใช้หมวดเดียวกันได้ เลยเทียบยอดรวมต่อหมวด)
+    for (const c of overCategories)
+      list.push(c.name + " เกินงบคงเหลือ (เหลือ ฿" + money(c.limit - c.used) + ")");
     return list;
   }
 
@@ -447,13 +456,13 @@ export default function NewRequest() {
     let approvalSteps: SavedStep[];
     let currentStep = 0;
     if (resubmit && resubmitted && sameRoute) {
-      // ส่งกลับไปหาคนที่ตีกลับ: ขั้นที่ผ่านแล้วคงเดิม รีเซ็ตเฉพาะขั้นที่ถูกตีกลับให้กลับเป็น "รอ"
-      // และล็อกให้คนที่ตีกลับเป็นผู้อนุมัติขั้นนั้น
+      // ส่งกลับไปหาคนที่ตีกลับ: ขั้นก่อน restartIndex คงเดิม · ตั้งแต่ restartIndex ถึงขั้นที่ตีกลับ กลับเป็น "รอ"
+      // และล็อกให้คนที่ตีกลับเป็นผู้อนุมัติขั้นนั้น (ขั้นบัญชีที่ต้องตรวจซ้ำ ใครในบัญชีก็ได้ตามเดิม)
       approvalSteps = resubmit.oldSteps.map((s, i): SavedStep =>
-        i === resubmit.stepIndex
+        i >= resubmit.restartIndex && i <= resubmit.stepIndex
           ? {
               ...s,
-              approverId: s.byId ?? s.approverId ?? null,
+              approverId: i === resubmit.stepIndex ? (s.byId ?? s.approverId ?? null) : s.approverId,
               status: "รอ",
               by: null,
               byId: null,
@@ -462,7 +471,7 @@ export default function NewRequest() {
             }
           : s,
       );
-      currentStep = resubmit.stepIndex;
+      currentStep = resubmit.restartIndex;
     } else {
       // คำขอใหม่ / ร่าง / ยอดเปลี่ยนจนเส้นทางเปลี่ยน → เริ่มที่ขั้นแรก
       // ทุกขั้นเริ่มที่ "รอ" · หน้าอนุมัติเป็นคนเปลี่ยน · approverId = คนที่ต้องอนุมัติขั้นนั้น
@@ -592,7 +601,7 @@ export default function NewRequest() {
               </p>
               <p className="mt-1 text-xs text-rose-600">
                 {sameRoute
-                  ? `แก้ไขแล้วกด "แก้ไขแล้วส่งใหม่" ระบบจะส่งกลับไปให้ ${resubmit.label} พิจารณาต่อ`
+                  ? `แก้ไขแล้วกด "แก้ไขแล้วส่งใหม่" ระบบจะส่งกลับไปให้ ${targetLabel} พิจารณาต่อ`
                   : "ยอดเงินที่แก้ไขทำให้เส้นทางอนุมัติเปลี่ยน คำขอจะเริ่มอนุมัติใหม่ตั้งแต่ขั้นแรก"}
               </p>
             </div>
@@ -728,9 +737,9 @@ export default function NewRequest() {
                   <div className="flex gap-2">
                     <select
                       aria-label={`หมวด รายการที่ ${row}`}
-                      className={`${fieldClassFor(err.category)} w-40 shrink-0 cursor-pointer px-3 disabled:cursor-not-allowed`} // กดได้ = รูปมือ · ยังไม่เลือกโครงการ = รูปห้าม
+                      className={`${fieldClassFor(err.category || over)} w-40 shrink-0 cursor-pointer px-3 disabled:cursor-not-allowed`} // กดได้ = รูปมือ · ยังไม่เลือกโครงการ = รูปห้าม
                       value={it.categoryId}
-                      aria-invalid={err.category}
+                      aria-invalid={err.category || over}
                       onChange={(e) => changeItem(i, "categoryId", e.target.value)}
                       disabled={!project}
                     >
@@ -810,7 +819,7 @@ export default function NewRequest() {
                   {(left !== undefined || it.files.length > 0 || err.any) && (
                     <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 px-1 text-xs">
                       {left !== undefined && (
-                        <span className={over ? "font-semibold text-[#B45309]" : "text-[#64748B]"}>
+                        <span className={over ? "font-semibold text-[#BE123C]" : "text-[#64748B]"}>
                           {over
                             ? `เกินงบหมวดนี้ ฿${money(asked - left)} (เหลือ ฿${money(left)})`
                             : `งบหมวดนี้เหลือ ฿${money(left - asked)} หลังรายการนี้`}
@@ -951,7 +960,7 @@ export default function NewRequest() {
               {steps.map((role, i) => {
                 const acting = plan[i]?.actingRole;
                 const missing = missingSteps.includes(role);
-                const backHere = !!resubmit && sameRoute && i === resubmit.stepIndex;
+                const backHere = !!resubmit && sameRoute && i === resubmit.restartIndex;
                 return (
                   <Step
                     key={role}
@@ -1071,11 +1080,6 @@ export default function NewRequest() {
                     <b>{targetLabel}</b>
                   </div>
                 </div>
-                {overCategories.length > 0 && (
-                  <p role="alert" className="mt-3 rounded-xl border border-[#FDE68A] bg-[#FFFBEB] p-3 text-sm text-[#92400E]">
-                    เกินงบคงเหลือของหมวด {overCategories.map((c) => c.name).join(", ")} · ยังส่งได้
-                  </p>
-                )}
                 <div className="mt-5 flex gap-2">
                   <button
                     onClick={() => setPopup("closed")}
