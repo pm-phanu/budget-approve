@@ -10,6 +10,7 @@ import Link from "next/link";
 import { loadRequests, type SavedRequest } from "@/data/request";
 import { canApproveStep } from "@/data/approval";
 import { getCurrentUser } from "@/utils/login";
+import MyRequestsCard from "@/components/my-requests-card";
 
 // โอนเกินกี่วันถือว่า "เลยกำหนด"
 const DUE_DAYS = 3;
@@ -65,6 +66,7 @@ export default function FinancePage() {
   const [paid, setPaid] = useState<SavedRequest[]>([]); // จ่ายแล้ว
   const [tab, setTab] = useState<"all" | "advance" | "invoice">("all");
   const [search, setSearch] = useState("");
+  const [mine, setMine] = useState<SavedRequest[]>([]); // คำขอที่การเงินเป็นผู้ขอเอง
 
   // โหลดข้อมูลตอนเปิดหน้า
   useEffect(() => {
@@ -79,6 +81,7 @@ export default function FinancePage() {
     /* eslint-disable react-hooks/set-state-in-effect -- อ่าน localStorage ได้หลังเปิดหน้าเท่านั้น */
     setPending(waiting);
     setPaid(all.filter((r) => r.status === "จ่ายแล้ว"));
+    setMine(me ? all.filter((r) => r.requester && String(r.requester.id) === String(me.id)) : []);
     /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
@@ -209,6 +212,8 @@ export default function FinancePage() {
           );
         })}
       </div>
+
+      <MyRequestsCard mine={mine} className="mt-6" />
     </div>
   );
 }
