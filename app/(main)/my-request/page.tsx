@@ -23,7 +23,7 @@ type ExpenseRequest = SavedRequest & {
 };
 type CurrentUser = Credential;
 
-type Group = "progress" | "done" | "rejected";
+type Group = "draft" | "progress" | "done" | "rejected";
 type Filter = "all" | Group;
 type StepState = "done" | "rejected" | "current" | "pending";
 
@@ -55,8 +55,9 @@ function thaiDate(iso: string) {
   });
 }
 
-// จัดคำขอเข้ากลุ่ม: ถูกตีกลับ / จ่ายเงินแล้ว (ผ่านครบทุกขั้น) / กำลังดำเนินการ
+// จัดคำขอเข้ากลุ่ม: ร่าง / ถูกตีกลับ / จ่ายเงินแล้ว (ผ่านครบทุกขั้น) / กำลังดำเนินการ
 function groupOf(r: ExpenseRequest): Group {
+  if (r.status === "ร่าง") return "draft";
   if (r.status === "ตีกลับ" || r.approvalSteps.some((s) => s.status === "ตีกลับ")) {
     return "rejected";
   }
@@ -67,6 +68,7 @@ function groupOf(r: ExpenseRequest): Group {
 // ป้ายสถานะ: class ร่วมใน globals.css (status-*) · ข้อความเหมือนหน้าอื่น
 function badgeOf(r: ExpenseRequest) {
   const g = groupOf(r);
+  if (g === "draft") return { text: "ร่าง", cls: "status-draft" };
   if (g === "rejected") return { text: "ถูกตีกลับ", cls: "status-rejected" };
   if (r.status === "จ่ายแล้ว") return { text: "จ่ายแล้ว", cls: "status-paid" };
   if (g === "done") return { text: "อนุมัติแล้ว", cls: "status-approved" };
@@ -98,7 +100,7 @@ function rejectReason(r: ExpenseRequest) {
 ------------------------------------------------------------------- */
 function Stepper({ r }: { r: ExpenseRequest }) {
   const nodes: { label: string; state: StepState }[] = [
-    { label: "ส่งคำขอ", state: "done" },
+    { label: "ส่งคำขอ", state: r.status === "ร่าง" ? "current" : "done" },
     ...r.approvalSteps.map((s, i) => ({
       label: s.label,
       state: stepState(r, i),
@@ -190,16 +192,11 @@ export default function MyRequest() {
     return () => window.removeEventListener("storage", onStorage);
   }, []);
 
-  // เฉพาะคำขอที่ตัวเองสร้าง (ส่งแล้ว ไม่รวมร่าง) ใหม่สุดอยู่บนสุด
+  // เฉพาะคำขอที่ตัวเองสร้าง (รวมร่าง เหมือนการ์ดบนแดชบอร์ด) ใหม่สุดอยู่บนสุด
   const mine = !me
     ? []
     : requests
-        .filter(
-          (r) =>
-            r.status !== "ร่าง" &&
-            r.requester != null &&
-            String(r.requester.id) === String(me.id),
-        )
+        .filter((r) => r.requester != null && String(r.requester.id) === String(me.id))
         .sort(
           (a, b) =>
             new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
@@ -209,6 +206,7 @@ export default function MyRequest() {
   const count = (g: Group) => mine.filter((r) => groupOf(r) === g).length;
   const counts = {
     all: mine.length,
+    draft: count("draft"),
     progress: count("progress"),
     done: count("done"),
     rejected: count("rejected"),
@@ -230,6 +228,7 @@ export default function MyRequest() {
     { key: "progress", label: "กำลังดำเนินการ" },
     { key: "done", label: "อนุมัติ/จ่ายแล้ว" },
     { key: "rejected", label: "ถูกตีกลับ" },
+    { key: "draft", label: "ร่าง" },
   ];
 
   return (
@@ -245,7 +244,7 @@ export default function MyRequest() {
       </header>
 
       {/* การ์ดสรุป = ตัวกรอง (กดแล้วกรองรายการด้านล่าง · การ์ดที่เลือกมีขอบเขียว) */}
-      <div className="grid grid-cols-2 gap-5 lg:grid-cols-4" role="group" aria-label="กรองตามสถานะ">
+      <div className="grid grid-cols-2 gap-5 lg:grid-cols-5" role="group" aria-label="กรองตามสถานะ">
         {tabs.map((t) => {
           const active = filter === t.key;
           const tone =
@@ -323,7 +322,11 @@ export default function MyRequest() {
             {shown.map((r) => {
               const badge = badgeOf(r);
               const rejected = groupOf(r) === "rejected";
-              const detail = `${DETAIL_PATH}?id=${encodeURIComponent(r.id)}`;
+              const draft = r.status === "ร่าง";
+              // ร่างยังไม่มีหน้ารายละเอียด → เปิดฟอร์มแก้ต่อ (แบบเดียวกับการ์ดบนแดชบอร์ด)
+              const detail = draft
+                ? `${NEW_REQUEST_PATH}?id=${encodeURIComponent(r.id)}`
+                : `${DETAIL_PATH}?id=${encodeURIComponent(r.id)}`;
               return (
                 <li key={r.id} className="py-5">
                   <div className="flex flex-wrap items-start justify-between gap-4">
@@ -333,7 +336,7 @@ export default function MyRequest() {
                         {r.title}
                       </Link>
                       <p className="text-xs text-[#64748B]">
-                        {r.id}, ส่งเมื่อ {thaiDate(r.createdAt)}
+                        {r.id}, {draft ? `บันทึกร่างเมื่อ ${thaiDate(r.updatedAt ?? r.createdAt)}` : `ส่งเมื่อ ${thaiDate(r.createdAt)}`}
                       </p>
                       <Stepper r={r} />
                     </div>
@@ -346,7 +349,7 @@ export default function MyRequest() {
                         href={detail}
                         className="flex items-center gap-1 text-xs font-semibold text-[#047857] hover:underline"
                       >
-                        ดูรายละเอียด <ArrowRight size={14} aria-hidden="true" />
+                        {draft ? "แก้ไขต่อ" : "ดูรายละเอียด"} <ArrowRight size={14} aria-hidden="true" />
                       </Link>
                     </div>
                   </div>
