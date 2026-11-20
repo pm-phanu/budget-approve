@@ -145,7 +145,7 @@ export default function Account() {
     };
   };
   // บทบาทที่เลือกได้ = role ในตัว + ตำแหน่งผู้อนุมัติที่เพิ่มเอง (data/approval.ts)
-  const BUILT_IN_ROLES = ["EMPLOYEE", "HEAD", "DIRECTOR", "MANAGING_DIRECTOR", "ACCOUNTANT_ADMIN", "FINANCE"];
+  const BUILT_IN_ROLES = ["EMPLOYEE", "HEAD", "DIRECTOR", "MANAGING_DIRECTOR", "ACCOUNTANT", "FINANCE"];
   const roleLabel = (r: string) => (r === "EMPLOYEE" ? "พนักงาน" : getRoleLabel(r, positions));
 
   // ════════════════════════════════════════

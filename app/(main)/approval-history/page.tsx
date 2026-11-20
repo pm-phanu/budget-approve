@@ -22,7 +22,7 @@ import { ArrowRight, CheckCircle1, Search1 } from "@tailgrids/icons";
 // หน้ารายละเอียดแยกตาม role (เหมือนหน้า "คำขอรออนุมัติทั้งหมด")
 const APPROVE_PATHS: Record<string, string> = {
   HEAD: "/home-department-head/approve",
-  ACCOUNTANT_ADMIN: "/home-account/approve",
+  ACCOUNTANT: "/home-account/approve",
 };
 const DEFAULT_APPROVE_PATH = "/home-department-head/approve";
 

@@ -128,7 +128,7 @@ export function clearUserNotifications(userId: string) {
 
 // คำกริยาของแต่ละขั้น (ใช้ต่อท้าย "รอ...")
 function waitingText(step: SavedStep) {
-  if (step.role === "ACCOUNTANT_ADMIN") return `รอ${step.label}ตรวจ`;
+  if (step.role === "ACCOUNTANT") return `รอ${step.label}ตรวจ`;
   if (step.role === "FINANCE") return `รอ${step.label}ทำจ่าย`;
   return `รอ${step.label}อนุมัติ`;
 }
