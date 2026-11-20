@@ -265,9 +265,19 @@ export default function Account() {
     setRuleMessage("คืนค่าเริ่มต้นตาม requirement แล้ว");
   };
 
-  // ยังไม่กำหนดสังกัด (กรรมการผู้จัดการไม่ต้องสังกัด) → เตือนให้ตั้งก่อนใช้งาน
-  const needsAffiliation = (u: Credential) =>
-    !u.departmentId && !u.divisionId && u.role !== "MANAGING_DIRECTOR";
+  // ชั้นสังกัดที่ยังขาด (ตามบทบาท): กรรมการผู้จัดการไม่ต้องสังกัด · ผอ.ฝ่าย ถึงฝ่ายพอ · คนอื่นต้องถึงแผนก
+  const missingLevels = (u: Credential) => {
+    if (u.role === "MANAGING_DIRECTOR") return [];
+    const a = getUserAffiliation(org, u);
+    const need = [
+      { label: "สายงาน", has: !!a.lineOfWork },
+      { label: "ฝ่าย", has: !!a.division },
+      ...(u.role === "DIRECTOR" ? [] : [{ label: "แผนก", has: !!a.department }]),
+    ];
+    return need.filter((x) => !x.has).map((x) => x.label);
+  };
+  // ยังกำหนดสังกัดไม่ครบ → เตือนให้ตั้งก่อนใช้งาน
+  const needsAffiliation = (u: Credential) => missingLevels(u).length > 0;
   const unassignedCount = users.filter(needsAffiliation).length;
   // ค้นหาผู้ใช้: ชื่อ / รหัสพนักงาน / username
   const q = query.trim().toLowerCase();
@@ -281,7 +291,7 @@ export default function Account() {
   );
 
   const tabs = [
-    { key: "users" as const, label: "ผู้ใช้และสังกัด", badge: unassignedCount > 0 ? `ยังไม่กำหนด ${unassignedCount}` : String(users.length), warn: unassignedCount > 0 },
+    { key: "users" as const, label: "ผู้ใช้และสังกัด", badge: unassignedCount > 0 ? `ไม่ครบ ${unassignedCount}` : String(users.length), warn: unassignedCount > 0 },
     { key: "rules" as const, label: "วงเงินและสายการอนุมัติ", badge: rulesDirty ? "ยังไม่บันทึก" : `${ranges.length} ช่วง`, warn: false },
   ];
 
@@ -360,7 +370,7 @@ export default function Account() {
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-[#FFFBEB] px-3.5 py-2.5 text-sm text-[#B45309]">
               <p className="flex items-start gap-2">
                 <InfoCircle size={18} className="mt-0.5 shrink-0" aria-hidden="true" />
-                มีผู้ใช้ {unassignedCount} คนยังไม่กำหนดสังกัด คำขอของคนกลุ่มนี้จะหาผู้อนุมัติไม่เจอ
+                มีผู้ใช้ {unassignedCount} คนกำหนดสังกัดยังไม่ครบ คำขอของคนกลุ่มนี้จะหาผู้อนุมัติไม่เจอ
               </p>
               <button
                 type="button"
@@ -368,7 +378,7 @@ export default function Account() {
                 onClick={() => setOnlyUnassigned((v) => !v)}
                 className="rounded-lg bg-white px-3 py-1.5 text-xs font-semibold hover:bg-[#FEF3C7]"
               >
-                {onlyUnassigned ? "แสดงทุกคน" : "แสดงเฉพาะคนที่ยังไม่กำหนด"}
+                {onlyUnassigned ? "แสดงทุกคน" : "แสดงเฉพาะคนที่ยังไม่ครบ"}
               </button>
             </div>
           )}
@@ -419,7 +429,13 @@ export default function Account() {
                   const isMe = u.id === meId;
                   const isEditing = editing === u.id;
                   const a = getUserAffiliation(org, u);
-                  const path = [a.lineOfWork?.name, a.division?.name, a.department?.name].filter(Boolean);
+                  const missing = missingLevels(u);
+                  // 3 ชั้น: มีชื่อ = กำหนดแล้ว · null = ยังไม่กำหนด · ผอ. ไม่ต้องมีแผนก
+                  const levels = [
+                    { label: "สายงาน", name: a.lineOfWork?.name ?? null },
+                    { label: "ฝ่าย", name: a.division?.name ?? null },
+                    ...(u.role === "DIRECTOR" && !a.department ? [] : [{ label: "แผนก", name: a.department?.name ?? null }]),
+                  ];
                   const nameOf = (id: string | null | undefined) => users.find((x) => x.id === id)?.fullName;
                   return (
                     <Fragment key={u.id}>
@@ -452,19 +468,43 @@ export default function Account() {
                           </div>
                         </TableCell>
 
-                        {/* สังกัด: สายงาน › ฝ่าย › แผนก (ข้อความ) */}
-                        <TableCell className="min-w-48 text-sm">
-                          {path.length > 0 ? (
-                            <>
-                              <p className="font-medium">{path[path.length - 1]}</p>
-                              {path.length > 1 && (
-                                <p className="text-xs text-[#64748B]">{path.slice(0, -1).join(" › ")}</p>
-                              )}
-                            </>
-                          ) : needsAffiliation(u) ? (
-                            <span className="text-[#B45309]">ยังไม่กำหนดสังกัด</span>
+                        {/* สังกัด: บรรทัดบน = สถานะ (ครบ / ขาดชั้นไหน) · บรรทัดล่าง = ทีละชั้น ชั้นที่ขาดเป็นกรอบประสีเหลือง */}
+                        <TableCell className="min-w-72 text-sm">
+                          {u.role === "MANAGING_DIRECTOR" && !a.lineOfWork ? (
+                            <span className="text-[#64748B]">ระดับบริษัท ไม่ต้องกำหนดสังกัด</span>
                           ) : (
-                            <span className="text-[#64748B]">ระดับบริษัท</span>
+                            <>
+                              <p
+                                className={`font-semibold ${
+                                  missing.length === 0 ? "text-[#0F172A]" : "text-[#B45309]"
+                                }`}
+                              >
+                                {missing.length === 0
+                                  ? levels[levels.length - 1].name
+                                  : missing.length === levels.length
+                                    ? "ยังไม่ได้กำหนดสังกัดเลย"
+                                    : `ยังไม่ได้กำหนด${missing.join("และ")}`}
+                              </p>
+                              <ol className="mt-1 flex flex-wrap items-center gap-1 text-xs" aria-label="สังกัดทีละชั้น">
+                                {levels.map((lv, i) => (
+                                  <li key={lv.label} className="flex items-center gap-1">
+                                    {i > 0 && (
+                                      <ChevronRight size={12} className="text-[#CBD5E1]" aria-hidden="true" />
+                                    )}
+                                    {lv.name ? (
+                                      <span className="rounded-md bg-[#F1F5F9] px-1.5 py-0.5 text-[#475569]">
+                                        <span className="text-[#94A3B8]">{lv.label} </span>
+                                        {lv.name}
+                                      </span>
+                                    ) : (
+                                      <span className="rounded-md border border-dashed border-[#F59E0B] bg-[#FFFBEB] px-1.5 py-0.5 font-semibold text-[#B45309]">
+                                        {lv.label}: ยังไม่กำหนด
+                                      </span>
+                                    )}
+                                  </li>
+                                ))}
+                              </ol>
+                            </>
                           )}
                         </TableCell>
 
@@ -513,9 +553,13 @@ export default function Account() {
                             aria-expanded={isEditing}
                             aria-controls={`edit-${u.id}`}
                             onClick={() => setEditing(isEditing ? null : u.id)}
-                            className="whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-bold text-[#047857] hover:bg-[#ECFDF5]"
+                            className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-bold ${
+                              missing.length > 0 && !isEditing
+                                ? "bg-[#FFFBEB] text-[#B45309] hover:bg-[#FEF3C7]"
+                                : "text-[#047857] hover:bg-[#ECFDF5]"
+                            }`}
                           >
-                            {isEditing ? "เสร็จ" : "แก้ไขสังกัด"}
+                            {isEditing ? "เสร็จ" : missing.length > 0 ? "กำหนดสังกัด" : "แก้ไขสังกัด"}
                           </button>
                         </TableCell>
                       </TableRow>
