@@ -67,7 +67,7 @@ export default function MyRequestsCard({
   return (
     <section
       aria-labelledby="my-requests-title"
-      className={`self-start rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl ${className}`}
+      className={`w-full self-start rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl ${className}`}
     >
       <div className="mb-2 flex items-center justify-between">
         <h2 id="my-requests-title" className="text-lg font-bold">
