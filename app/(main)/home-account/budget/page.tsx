@@ -12,7 +12,8 @@
 // ════════════════════════════════════════════════════════════
 
 import { Fragment, useEffect, useState } from "react";
-import { ArrowRight, Check, ChevronRight, Close, Copy1, Locked3, Plus, Trash1 } from "@tailgrids/icons";
+import { Check, ChevronRight, Close, Copy1, Locked3, Plus, Trash1 } from "@tailgrids/icons";
+import { TransferModal, type TransferItem } from "@/components/budget-transfer-modal";
 
 import {
   TableBody,
@@ -86,14 +87,9 @@ export default function BudgetSetting() {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [selDept, setSelDept] = useState<string | null>(null);
 
-  // ประวัติการแก้งบ + ฟอร์มโอนงบ (หมวด = "projectId/categoryId")
+  // ประวัติการแก้งบ + ป๊อปอัพโอนงบ (components/budget-transfer-modal.tsx)
   const [history, setHistory] = useState<BudgetChange[]>([]);
-  const [tFrom, setTFrom] = useState("");
-  const [tTo, setTTo] = useState("");
-  const [tAmount, setTAmount] = useState("");
-  const [tNote, setTNote] = useState("");
-  const [tError, setTError] = useState("");
-  const [tMessage, setTMessage] = useState("");
+  const [transferOpen, setTransferOpen] = useState(false);
   const [tab, setTab] = useState<"setup" | "transfer" | "history">("setup");
 
   // localStorage มีแค่ในเบราว์เซอร์ → อ่านหลังเปิดหน้า
@@ -424,36 +420,33 @@ export default function BudgetSetting() {
   }
 
   // โอนงบกลางปี: บันทึกทันที (ไม่ผ่าน draft) → ต้องไม่มีการแก้ค้าง จะได้ไม่ปนกัน
-  function handleTransfer() {
-    setTMessage("");
-    const [fp, fc] = tFrom.split("/");
-    const [tp, tc] = tTo.split("/");
+  // เรียกจากป๊อปอัพ (หมวด = "projectId/categoryId") · คืนข้อความผิด หรือ null = สำเร็จ
+  function handleTransfer(fromKey: string, toKey: string, amount: number, note: string): string | null {
+    const [fp, fc] = fromKey.split("/");
+    const [tp, tc] = toKey.split("/");
     const fromCat = saved.find((p) => p.id === fp)?.categories.find((c) => c.id === fc);
     const available = fromCat ? fromCat.limit - usedOf(fromCat.id) : 0;
     const res = transferBudget(
       saved,
       { projectId: fp ?? "", categoryId: fc ?? "" },
       { projectId: tp ?? "", categoryId: tc ?? "" },
-      Number(tAmount.replace(/,/g, "")),
+      amount,
       Math.max(0, available),
-      tNote,
+      note,
       changeBase(),
     );
-    if (!res.ok) return setTError(res.error);
+    if (!res.ok) return res.error;
     // โอนข้ามแผนกแล้วโครงการรวมเกินงบแผนก → ไม่ให้โอน (ต้องแบ่งงบแผนกใหม่ในขั้นที่ 2 ก่อน)
     const yearAlloc = savedAlloc.find((a) => a.year === year);
     const errs = org && yearAlloc ? validateAllocation(yearAlloc, org, res.projects) : [];
-    if (errs.length > 0) return setTError(errs.join(" · "));
+    if (errs.length > 0) return errs.join(" · ");
 
     saveProjects(res.projects);
     setSaved(res.projects);
     setDraft(res.projects);
     appendBudgetHistory([res.entry]);
     setHistory(loadBudgetHistory());
-    setTError("");
-    setTAmount("");
-    setTNote("");
-    setTMessage(`โอนงบแล้ว: ${res.entry.item} ${baht(res.entry.amount)}`);
+    return null;
   }
 
   function handleDiscard() {
@@ -659,19 +652,17 @@ export default function BudgetSetting() {
       : 0;
   const historyCount = history.filter((h) => h.year === year).length;
 
-  // ฟอร์มโอนงบ: ยอดที่โอนออกได้จากหมวดต้นทาง
-  const [fromP, fromC] = tFrom.split("/");
-  const fromCat = saved.find((p) => p.id === fromP)?.categories.find((c) => c.id === fromC);
-  const fromLeft = fromCat ? Math.max(0, fromCat.limit - usedOf(fromCat.id)) : null;
-  const categoryOptions = saved
+  // ป๊อปอัพโอนงบ: หมวดของปีที่เลือก + วงเงินที่ยังไม่ได้ใช้ (โอนออกได้สูงสุด)
+  const transferItems: TransferItem[] = saved
     .filter((p) => p.year === year)
     .flatMap((p) =>
-      p.categories.map((c) => (
-        <NativeSelectOption key={`${p.id}/${c.id}`} value={`${p.id}/${c.id}`}>
-          {p.dept} › {p.name} › {c.name} (เหลือ {baht(Math.max(0, c.limit - usedOf(c.id)))})
-        </NativeSelectOption>
-      )),
+      p.categories.map((c) => ({
+        key: `${p.id}/${c.id}`,
+        name: `${p.dept} › ${p.name} › ${c.name}`,
+        remaining: Math.max(0, c.limit - usedOf(c.id)),
+      })),
     );
+  const transferCount = history.filter((h) => h.year === year && h.kind === "โอนงบ").length;
 
   const tabs = [
     { key: "setup" as const, label: "แบ่งงบและโครงการ", badge: dirty ? "ยังไม่บันทึก" : overSpots > 0 ? `เกิน ${overSpots} จุด` : "", warn: overSpots > 0 },
@@ -1102,55 +1093,26 @@ export default function BudgetSetting() {
               มีการแก้ไขที่ยังไม่บันทึก บันทึกหรือยกเลิกการแก้ไขก่อน จึงจะโอนงบได้
             </p>
           ) : (
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-end">
-              <label className="text-xs font-semibold text-[#475569]">
-                จากหมวด
-                <NativeSelect className="mt-1" value={tFrom} onChange={(e) => setTFrom(e.target.value)}>
-                  <NativeSelectOption value="">เลือกหมวดต้นทาง</NativeSelectOption>
-                  {categoryOptions}
-                </NativeSelect>
-              </label>
-              <ArrowRight size={20} className="mx-auto hidden text-[#94A3B8] md:mb-2.5 md:block" aria-hidden="true" />
-              <label className="text-xs font-semibold text-[#475569]">
-                ไปหมวด
-                <NativeSelect className="mt-1" value={tTo} onChange={(e) => setTTo(e.target.value)}>
-                  <NativeSelectOption value="">เลือกหมวดปลายทาง</NativeSelectOption>
-                  {categoryOptions}
-                </NativeSelect>
-              </label>
-              <div>
-                <TextField aria-label="จำนวนเงินที่โอน (บาท)" value={tAmount} onChange={setTAmount}>
-                  <Input inputMode="numeric" placeholder="จำนวนเงิน (บาท)" className="money text-right" />
-                </TextField>
-                {fromLeft !== null && (
-                  <p className="money mt-1 text-xs text-[#64748B]">โอนออกได้สูงสุด {baht(fromLeft)}</p>
-                )}
-              </div>
-              <span className="hidden md:block" />
-              <TextField aria-label="เหตุผลการโอนงบ" value={tNote} onChange={setTNote}>
-                <Input placeholder="เหตุผล เช่น ย้ายงบเดินทางไปค่าโฆษณา Q4" />
-              </TextField>
-              <div className="flex flex-wrap items-center gap-3 md:col-span-3">
-                {tError && (
-                  <p role="alert" className="mr-auto rounded-xl bg-[#FFF1F2] px-3 py-2 text-sm text-[#9F1239]">
-                    {tError}
-                  </p>
-                )}
-                {tMessage && !tError && (
-                  <p role="status" className="mr-auto rounded-xl bg-[#ECFDF5] px-3 py-2 text-sm text-[#047857]">
-                    {tMessage}
-                  </p>
-                )}
-                <button
-                  type="button"
-                  onClick={handleTransfer}
-                  className="ml-auto rounded-xl bg-[#059669] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#047857]"
-                >
-                  โอนงบ
-                </button>
-              </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <p className="mr-auto text-sm text-[#64748B]">
+                โอนงบไปแล้วปีนี้ {transferCount} รายการ · ดูรายละเอียดได้ที่แท็บ &quot;ประวัติการแก้งบ&quot;
+              </p>
+              <button
+                type="button"
+                onClick={() => setTransferOpen(true)}
+                className="rounded-xl bg-[#059669] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#047857]"
+              >
+                ⇆ โอนงบ
+              </button>
             </div>
           )}
+          <TransferModal
+            open={transferOpen}
+            onClose={() => setTransferOpen(false)}
+            items={transferItems}
+            transferCount={transferCount}
+            onSubmit={handleTransfer}
+          />
         </section>
 
           </div>
