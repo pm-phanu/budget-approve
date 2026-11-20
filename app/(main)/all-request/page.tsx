@@ -24,7 +24,7 @@ import { bkkYear } from "@/utils/date";
 // หน้าตรวจสอบแยกตาม role (หน้านี้ใช้ได้ทั้งหัวหน้าและฝ่ายบัญชี)
 const APPROVE_PATHS: Record<string, string> = {
   HEAD: "/home-department-head/approve",
-  ACCOUNTANT_ADMIN: "/home-account/approve",
+  ACCOUNTANT: "/home-account/approve",
 };
 const DEFAULT_APPROVE_PATH = "/home-department-head/approve";
 const ROW_H = 72; // ความสูงแถว (px) ต้องตรงกับ min-h-[72px] ใน ROW_GRID

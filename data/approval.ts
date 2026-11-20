@@ -55,14 +55,14 @@ export const DEFAULT_POSITIONS: ApproverPosition[] = [
 ];
 
 // ขั้นท้ายที่ต่อให้เสมอ
-export const FINAL_STEPS: StepRole[] = ["ACCOUNTANT_ADMIN", "FINANCE"];
+export const FINAL_STEPS: StepRole[] = ["ACCOUNTANT", "FINANCE"];
 
 // ชื่อ role ในตัว (ตำแหน่งที่เพิ่มเองใช้ getRoleLabel)
 export const ROLE_LABEL: Record<string, string> = {
   HEAD: "หัวหน้าแผนก",
   DIRECTOR: "ผอ.ฝ่าย",
   MANAGING_DIRECTOR: "กรรมการผู้จัดการ",
-  ACCOUNTANT_ADMIN: "ฝ่ายบัญชี",
+  ACCOUNTANT: "ฝ่ายบัญชี",
   FINANCE: "การเงิน",
 };
 

@@ -68,8 +68,9 @@ export function getNotificationHref(item: AppNotification, role: Credential["rol
 
   if (item.kind === "waiting_you") {
     if (role === "FINANCE") return `/home-finance/pay?id=${encodedId}`;
-    if (role === "ACCOUNTANT_ADMIN") return `/home-account/approve?id=${encodedId}`;
+    if (role === "ACCOUNTANT") return `/home-account/approve?id=${encodedId}`;
     if (role === "DIRECTOR") return `/home-director/approve?id=${encodedId}`;
+    if (role === "MANAGING_DIRECTOR") return `/home-managing-director/approve?id=${encodedId}`;
     return `/home-department-head/approve?id=${encodedId}`;
   }
 

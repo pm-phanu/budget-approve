@@ -29,7 +29,7 @@ function statusBadge(r: SavedRequest): { text: string; cls: string } {
   const cur = r.approvalSteps[r.currentStep];
   if (!cur) return { text: "รออนุมัติ", cls: "bg-amber-100 text-amber-700" };
   const verb =
-    cur.role === "ACCOUNTANT_ADMIN" ? "ตรวจสอบ" : cur.role === "FINANCE" ? "ทำจ่าย" : "อนุมัติ";
+    cur.role === "ACCOUNTANT" ? "ตรวจสอบ" : cur.role === "FINANCE" ? "ทำจ่าย" : "อนุมัติ";
   return { text: `รอ${cur.label}${verb}`, cls: "bg-amber-100 text-amber-700" };
 }
 

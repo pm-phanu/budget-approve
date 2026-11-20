@@ -56,7 +56,7 @@ export const checkGuest = (router: Router): boolean => {
 export const getHomePath = (role: Credential["role"]) => {
   if (role === "EMPLOYEE") return "/"
   if (role === "HEAD") return "/home-department-head";
-  if (role === "ACCOUNTANT_ADMIN") return "/home-account";
+  if (role === "ACCOUNTANT") return "/home-account";
   if (role === "DIRECTOR") return "/home-director"
   if (role === "FINANCE") return "/home-finance"
   if (role === "MANAGING_DIRECTOR") return "/home-managing-director"
@@ -68,6 +68,6 @@ export const HOME_PATHS: Record<Credential["role"], string> = {
   HEAD: "/home-department-head",
   DIRECTOR: "/home-director",
   MANAGING_DIRECTOR: "/home-managing-director",
-  ACCOUNTANT_ADMIN: "/home-account",
+  ACCOUNTANT: "/home-account",
   FINANCE: "/home-finance",
 }
