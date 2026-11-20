@@ -59,7 +59,7 @@ export const getHomePath = (role: Credential["role"]) => {
   if (role === "ACCOUNTANT_ADMIN") return "/home-account";
   if (role === "DIRECTOR") return "/home-director"
   if (role === "FINANCE") return "/home-finance"
-  if (role === "MANAGING_DIRECTOR") return "#"
+  if (role === "MANAGING_DIRECTOR") return "/home-managing-director"
   return "/";
 };
 
@@ -67,7 +67,7 @@ export const HOME_PATHS: Record<Credential["role"], string> = {
   EMPLOYEE: "/",
   HEAD: "/home-department-head",
   DIRECTOR: "/home-director",
-  MANAGING_DIRECTOR: "#",
+  MANAGING_DIRECTOR: "/home-managing-director",
   ACCOUNTANT_ADMIN: "/home-account",
   FINANCE: "/home-finance",
 }
