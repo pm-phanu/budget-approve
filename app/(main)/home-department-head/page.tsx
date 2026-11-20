@@ -13,12 +13,13 @@ import { getDepartmentBudget } from "@/data/budget";
 import { canApproveStep } from "@/data/approval";
 import type { Credential } from "@/data/credential";
 import { getCurrentUser } from "@/utils/login";
-import MyRequestsCard from "@/components/my-requests-card";
 import {
   ArrowRight,
   Check,
   CheckCircle1,
   ClockThree,
+  Plus,
+  Wallet2,
 } from "@tailgrids/icons";
 
 /* ------------------------------------------------------------------
@@ -27,10 +28,21 @@ import {
 type ExpenseRequest = SavedRequest;
 type CurrentUser = Credential;
 
+// ฟิลด์เสริมที่หน้าอนุมัติบันทึกตอนตีกลับ (ไม่อยู่ใน SavedRequest)
+type RejectExtras = {
+  reject?: { status: string; comment: string };
+  reviewComment?: string;
+};
+
 const APPROVED_PATH = "/home-department-head/approve"; // ← path หน้าตรวจสอบ ต้องตรงกับชื่อโฟลเดอร์
+const MY_REQUEST_PATH = "/my-request"; // หน้า "คำขอของฉัน" (ดูทั้งหมด)
+const NEW_REQUEST_PATH = "/request/new"; // หน้าสร้างคำขอ
+
 // แสดงสูงสุดกี่รายการ ทั้ง "รอคุณตรวจสอบ" และ "อนุมัติล่าสุด"
 // ความสูงการ์ดเป็น auto ตามจำนวนรายการ (1 รายการ = เตี้ย · มากสุด 5) เริ่มจากบนสุดเสมอ
 const LIST_LIMIT = 5;
+// แสดงในการ์ด "คำขอของฉัน" สูงสุดกี่รายการ (ใหม่สุดอยู่บนสุด)
+const MY_LIMIT = 3;
 
 // ความกว้างคอลัมน์ของแถวรายการ ใช้ร่วมกันทั้ง "รอคุณตรวจสอบ" และ "อนุมัติล่าสุด"
 // (ชื่อ | ป้ายรอ | ยอดเงิน | ปุ่ม/สถานะ) ถ้าจะปรับความกว้าง แก้ที่นี่ที่เดียว
@@ -74,6 +86,13 @@ function timeAgo(iso: string) {
   return `เมื่อ ${Math.floor(hours / 24)} วันที่แล้ว`;
 }
 
+// "14 ต.ค."
+function shortDate(iso: string) {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "-";
+  return d.toLocaleDateString("th-TH", { day: "numeric", month: "short" });
+}
+
 // ป้ายเวลารอ: ละเอียดตามช่วงเวลา ไม่บังคับขั้นต่ำ 1 วัน
 //   < 1 นาที  → "รอสักครู่"
 //   < 1 ชม.   → "รอ X นาที"
@@ -112,6 +131,106 @@ function statusBadge(r: ExpenseRequest) {
   if (r.status === "ตีกลับ") return { text: "ตีกลับ", cls: "status status-rejected" };
   const next = r.approvalSteps[r.currentStep];
   return { text: next ? `รอ${next.label}` : "กำลังดำเนินการ", cls: "status status-pending" };
+}
+
+// ป้ายสถานะในการ์ด "คำขอของฉัน" (ขนาดใหญ่ตามแบบ)
+function myBadge(r: ExpenseRequest) {
+  if (r.status === "ตีกลับ")
+    return { text: "ถูกตีกลับ", cls: "bg-rose-100 text-rose-600" };
+  if (r.status === "อนุมัติแล้ว" || r.status === "จ่ายแล้ว")
+    return { text: "อนุมัติแล้ว", cls: "bg-emerald-100 text-emerald-700" };
+  return { text: "รออนุมัติ", cls: "bg-amber-100 text-amber-700" };
+}
+
+// เหตุผลที่ถูกตีกลับ (จาก key reject ถ้าไม่มีใช้ความเห็นของขั้นที่ตีกลับ)
+function rejectReason(r: ExpenseRequest) {
+  const extra = r as ExpenseRequest & RejectExtras;
+  if (extra.reject) {
+    return extra.reject.comment
+      ? `${extra.reject.status} — ${extra.reject.comment}`
+      : extra.reject.status;
+  }
+  const step = r.approvalSteps.find((s) => s.status === "ตีกลับ");
+  return step?.note || extra.reviewComment || "-";
+}
+
+type StepState = "done" | "rejected" | "current" | "pending";
+
+// สถานะของแต่ละขั้นใน stepper
+function stepState(r: ExpenseRequest, i: number): StepState {
+  const s = r.approvalSteps[i];
+  if (s.status === "ตีกลับ") return "rejected";
+  if (s.status === "อนุมัติ") return "done";
+  return i === r.currentStep && r.status === "รออนุมัติ" ? "current" : "pending";
+}
+
+/* ------------------------------------------------------------------
+   Stepper: ส่งคำขอ → ทุกขั้นในเส้นทางอนุมัติของคำขอนั้น
+------------------------------------------------------------------- */
+function Stepper({ r }: { r: ExpenseRequest }) {
+  const nodes: { label: string; state: StepState }[] = [
+    { label: "ส่งคำขอ", state: "done" },
+    ...r.approvalSteps.map((s, i) => ({ label: s.label, state: stepState(r, i) })),
+  ];
+  const n = nodes.length;
+
+  return (
+    <div
+      className="mt-3 grid w-full"
+      style={{ gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))` }}
+    >
+      {nodes.map((node, i) => {
+        // เส้นซ้าย: เขียวเมื่อขั้นก่อนหน้าผ่านแล้ว / เส้นขวา: เขียวเมื่อขั้นนี้ผ่านแล้ว
+        const leftGreen = i > 0 && nodes[i - 1].state === "done";
+        const rightGreen = node.state === "done";
+        return (
+          <div key={i} className="flex flex-col items-center">
+            <div className="relative flex h-6 w-full items-center justify-center">
+              {i > 0 && (
+                <span
+                  className={`absolute left-0 right-1/2 top-1/2 h-0.5 -translate-y-1/2 ${
+                    leftGreen ? "bg-emerald-600" : "bg-gray-200"
+                  }`}
+                />
+              )}
+              {i < n - 1 && (
+                <span
+                  className={`absolute left-1/2 right-0 top-1/2 h-0.5 -translate-y-1/2 ${
+                    rightGreen ? "bg-emerald-600" : "bg-gray-200"
+                  }`}
+                />
+              )}
+              <span
+                className={`relative z-10 flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold ${
+                  node.state === "done"
+                    ? "bg-emerald-600 text-white"
+                    : node.state === "rejected"
+                      ? "border-2 border-red-500 bg-white text-red-500"
+                      : node.state === "current"
+                        ? "border-2 border-dashed border-emerald-500 bg-white"
+                        : "border-2 border-gray-300 bg-white"
+                }`}
+              >
+                {node.state === "done" && "✓"}
+                {node.state === "rejected" && "✕"}
+              </span>
+            </div>
+            <span
+              className={`mt-1 text-center text-xs ${
+                node.state === "current"
+                  ? "font-bold text-slate-800"
+                  : node.state === "rejected"
+                    ? "font-bold text-red-600"
+                    : "text-gray-400"
+              }`}
+            >
+              {node.label}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 /* ------------------------------------------------------------------
@@ -190,9 +309,19 @@ export default function DH() {
   const barWidth = Math.min(100, Math.max(0, usedPct)); // หลอดไม่เกิน 100%
   const overBudget = budget.limit > 0 && budget.used > budget.limit;
 
-  // คำขอที่คนที่ login เป็นผู้ขอเอง → การ์ด "คำขอของฉัน"
+  // คำขอที่คนที่ login เป็นผู้ขอเอง (ส่งแล้ว ไม่รวมร่าง) ใหม่สุดอยู่บนสุด → การ์ด "คำขอของฉัน"
   const myRequests = me
-    ? requests.filter((r) => r.requester && String(r.requester.id) === String(me.id))
+    ? requests
+        .filter(
+          (r) =>
+            r.status !== "ร่าง" &&
+            r.requester &&
+            String(r.requester.id) === String(me.id),
+        )
+        .sort(
+          (a, b) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        )
     : [];
 
   return (
@@ -216,37 +345,41 @@ export default function DH() {
         <div className="flex flex-col gap-9">
         {/* card1 */}
         <div className="grid grid-cols-4 gap-5">
-          {/* งบประมาณคงเหลือ (ข้อมูลงบรายปีจริง + หลอด progress) */}
-          <div className="bg-[#0e4b3e] text-white relative flex justify-between p-6 overflow-hidden flex-col col-span-2 rounded-xl shadow-2xl">
-            <div>
-              <div className="items-center flex justify-between mb-1">
-                <div>
-                  <span>งบประมาณคงเหลือ</span>
-                </div>
-                <span>
+          {/* งบแผนกคงเหลือ (ข้อมูลงบรายปีจริง + หลอด progress) ไล่สี + วงกลมตกแต่ง */}
+          <div className="relative col-span-2 flex flex-col justify-between overflow-hidden rounded-xl bg-gradient-to-br from-[#0b1f2a] via-[#0e4b3e] to-[#0a8f5f] p-6 text-white shadow-2xl">
+            {/* ลวดลายวงกลมตกแต่ง */}
+            <div className="pointer-events-none absolute -right-12 -top-16 h-56 w-56 rounded-full border border-white/10" />
+            <div className="pointer-events-none absolute -right-4 -top-8 h-40 w-40 rounded-full border border-white/10" />
+
+            <div className="relative z-10">
+              <div className="mb-1 flex items-center justify-between">
+                <span className="flex items-center gap-2 text-sm">
+                  <Wallet2 className="h-5 w-5 text-emerald-300" />
+                  งบแผนกคงเหลือ
+                </span>
+                <span className="rounded-full bg-white/10 px-3 py-0.5 text-xs">
                   {currentYear !== null ? `ปี ${currentYear + 543}` : ""}
                 </span>
               </div>
-              <div>
-                <div className="text-3xl font-bold tracking-tight">
-                  {baht(remaining)}
-                </div>
-                <div className="text-xs text-emerald-300/80 mt-1">
-                  จากงบทั้งปี {baht(budget.limit)}
-                </div>
+              <div className="text-3xl font-bold tracking-tight">
+                {baht(remaining)}
               </div>
-              <div className="relative z-10">
-                <div className="flex justify-between text-xs text-emerald-200 mb-1.5">
+              <div className="mt-1 text-xs text-emerald-300/80">
+                จากงบทั้งปี {baht(budget.limit)}
+              </div>
+
+              <div className="mt-3">
+                <div className="mb-1.5 flex justify-between text-xs text-emerald-200">
                   <span>{overBudget ? "ใช้งบเกินวงเงิน" : ""}</span>
                   <span>ใช้ไปแล้ว {usedPct}%</span>
                 </div>
-                <div className="w-full bg-emerald-950/60 h-2 rounded-full overflow-hidden">
+                <div className="h-2 w-full overflow-hidden rounded-full bg-white/15">
                   <div
                     className={`h-full rounded-full transition-all duration-500 ${
-                      overBudget ? "bg-rose-400" : "bg-[#00e699]"
+                      overBudget ? "bg-rose-400" : "bg-[#34e0a1]"
                     }`}
                     style={{ width: `${barWidth}%` }}
-                  ></div>
+                  />
                 </div>
               </div>
             </div>
@@ -437,7 +570,83 @@ export default function DH() {
             </div>
           </div>
 
-          <MyRequestsCard mine={myRequests} className="col-span-2" />
+          {/* คำขอของฉัน: คำขอที่ตัวเองสร้าง + stepper + เหตุผลที่ถูกตีกลับ (ข้อมูลจริง) */}
+          <div className="col-span-2 flex flex-col self-start rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl">
+            <div className="mb-1 flex items-center justify-between">
+              <h2 className="text-base font-bold text-gray-800">คำขอของฉัน</h2>
+              <Link
+                href={MY_REQUEST_PATH}
+                className="flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:underline"
+              >
+                ดูทั้งหมด →
+              </Link>
+            </div>
+
+            {myRequests.length === 0 ? (
+              <div className="flex flex-col items-center justify-center gap-3 py-10 text-sm text-[#64748B]">
+                <span>ยังไม่มีคำขอเบิก</span>
+                <Link
+                  href={NEW_REQUEST_PATH}
+                  className="flex items-center gap-2 rounded-xl bg-[#059669] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#047857]"
+                >
+                  <Plus size={16} /> สร้างคำขอ
+                </Link>
+              </div>
+            ) : (
+              <div className="divide-y divide-gray-100">
+                {myRequests.slice(0, MY_LIMIT).map((r) => {
+                  const badge = myBadge(r);
+                  const rejected = r.status === "ตีกลับ";
+                  return (
+                    <div key={r.id} className="py-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-bold text-gray-900">
+                            {r.title}
+                          </div>
+                          <div className="mt-0.5 text-xs text-[#64748B]">
+                            ส่งเมื่อ {shortDate(r.createdAt)}{" "}
+                            <span className="font-bold text-gray-800">
+                              {baht(r.total)}
+                            </span>
+                          </div>
+                        </div>
+                        <span
+                          className={`shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-xs font-bold ${badge.cls}`}
+                        >
+                          {badge.text}
+                        </span>
+                      </div>
+
+                      <Stepper r={r} />
+
+                      {/* เหตุผลที่ถูกตีกลับ */}
+                      {rejected && (
+                        <div className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-xs">
+                          <span className="min-w-0 truncate text-rose-700">
+                            <strong>เหตุผล:</strong> {rejectReason(r)}
+                          </span>
+                          <Link
+                            href={MY_REQUEST_PATH}
+                            className="shrink-0 font-bold text-rose-700 hover:underline"
+                          >
+                            ดูทั้งหมด →
+                          </Link>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {myRequests.length > 0 && (
+              <div className="mt-2 flex items-center gap-2.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3.5 text-xs text-[#64748B]">
+                <CheckCircle1 className="h-5 w-5 shrink-0" />
+                <span>คำขอของคุณจะถูกส่งให้ผู้อนุมัติตามลำดับขั้นอนุมัติ</span>
+              </div>
+            )}
+          </div>
         </div>
         </div>
       </div>
