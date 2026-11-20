@@ -147,7 +147,12 @@ export default function NewRequestPage() {
 
 function NewRequestKeyed() {
   const openId = useSearchParams().get("id");
-  return <NewRequest key={openId ?? ""} openId={openId} />;
+  // Next เก็บหน้านี้ไว้ (ซ่อน) ตอนออกไปหน้าอื่น → กลับมาแล้วฟอร์ม + เลขที่ใบเดิมยังอยู่ กดส่งจะทับใบเดิม
+  // effect รันใหม่ทุกครั้งที่หน้าถูกแสดงอีกรอบ → นับรอบเข้าหน้า แล้วใช้เป็น key = ฟอร์มใหม่ทุกครั้ง
+  const [visit, setVisit] = useState(0);
+  /* eslint-disable-next-line react-hooks/set-state-in-effect -- ต้องรู้ว่าหน้าเพิ่งถูกแสดงอีกรอบ */
+  useEffect(() => setVisit((v) => v + 1), []);
+  return <NewRequest key={`${openId ?? ""}#${visit}`} openId={openId} />;
 }
 
 function NewRequest({ openId }: { openId: string | null }) {
