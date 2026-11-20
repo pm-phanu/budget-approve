@@ -23,11 +23,11 @@ import { useEffect, useState } from "react";
 import { bkkMonth, bkkYear, monthLabel, shiftMonth } from "@/utils/date";
 import {
   FileText,
-  Wallet2,
   Search1,
   ClockThree,
-  TrendUp2,
+  ErrorCircle,
 } from "@tailgrids/icons";
+import { BudgetCard } from "@/components/budget-card";
 import {
   projectLimit,
   projectUsed,
@@ -67,6 +67,9 @@ const periods = [
   { label: "รายปี", days: 365 },
 ];
 
+
+// ใช้งบถึงกี่ % ถือว่าใกล้หมด (หลอดเป็นสีแดง + นับในการ์ด)
+const WARN_PERCENT = 80;
 
 // ════════════════════════════════════════
 //  [3] ฟังก์ชันช่วย
@@ -122,7 +125,7 @@ export default function Report() {
   // ---------- [4.1] state ----------
   // [ของ, setของ] = useState(ค่าเริ่มต้น) · ค่าในกล่องเปลี่ยน → หน้าจอวาดใหม่ → ตัวเลขทุกอย่างข้างล่างคิดใหม่เอง
   const [days, setDays] = useState(30); // แท็บที่เลือก (เริ่มที่รายเดือน)
-  const [dept, setDept] = useState(""); // แผนกที่เลือกในตาราง ("" = ยังไม่เลือก → ใช้แผนกแรก)
+  const [dept, setDept] = useState(""); // แผนกที่เลือกในตาราง ("" = ทุกแผนก)
   const [search, setSearch] = useState(""); // คำค้นเลขที่เอกสาร
   const [all, setAll] = useState<ReportRow[]>([]); // คำขอที่จ่ายแล้ว (แปลงเป็นแถวรายงานแล้ว)
   const [budget, setBudget] = useState<Project[]>([]); // โครงการปีนี้ + ยอดใช้ไป
@@ -157,7 +160,6 @@ export default function Report() {
   const yearTotal = all
     .filter((r) => r.monthKey.startsWith(`${YEAR}-`)) // ปีงบเดียวกับงบบอร์ด (ไม่ใช่ย้อน 365 วัน)
     .reduce((sum, r) => sum + r.amount, 0);
-  const remaining = boardTotal - yearTotal; // งบคงเหลือทั้งหมด
   const count = list.length; // จำนวนคำขอ
   // เวลาอนุมัติเฉลี่ย: นับเฉพาะใบที่อนุมัติเสร็จแล้ว (approveDays > 0)
   const finished = list.filter((r) => r.approveDays > 0);
@@ -165,8 +167,6 @@ export default function Report() {
   // ทางแยก ? : → มีใบที่เสร็จ = รวมวัน ÷ จำนวนใบ (toFixed(1) = ทศนิยม 1 ตำแหน่ง) · ไม่มี = "0" (กันหารด้วย 0)
   const avgDays =
     finished.length > 0 ? (sumDays / finished.length).toFixed(1) : "0";
-  // Math.round = ปัดเป็นจำนวนเต็ม
-  const usedPercent = boardTotal > 0 ? Math.round((yearTotal / boardTotal) * 100) : 0; // ใช้งบทั้งปีไปกี่ % (ยังไม่ตั้งงบ = 0 กันหารด้วย 0)
 
   // ---------- [4.4] เบิกสูงสุด 4 อันดับ ----------
   // ต้อง [...list] ก๊อปก่อน เพราะ sort จะไปเปลี่ยนลิสต์เดิม · b.amount - a.amount = เรียงมากไปน้อย
@@ -175,12 +175,16 @@ export default function Report() {
   // ---------- [4.5] ตารางรายแผนก: แผนกที่เลือก + คำค้น ----------
   // แท็บ = แผนกที่มีคำขอในช่วงนี้ (new Set = ตัดชื่อซ้ำ)
   const depts = [...new Set(list.map((r) => r.dept))];
-  const currentDept = depts.includes(dept) ? dept : (depts[0] ?? ""); // ยังไม่เลือก / แผนกนั้นไม่มีในช่วงนี้ → ใช้แผนกแรก
-  const rows = list.filter(
-    (r) =>
-      // === dept = ฝ่ายตรงกับแท็บ · && = ต้องจริงทั้งคู่ · includes = มีคำที่ค้นอยู่ในเลขเอกสารไหม · toLowerCase = ทำเป็นตัวเล็กหมด จะได้ไม่สนตัวพิมพ์ใหญ่/เล็ก
-      r.dept === currentDept && r.doc.toLowerCase().includes(search.toLowerCase()),
-  );
+  const currentDept = depts.includes(dept) ? dept : ""; // "" = ทุกแผนก (แผนกที่เลือกไม่มีในช่วงนี้ → กลับเป็นทุกแผนก)
+  const rows = list
+    .filter(
+      (r) =>
+        // แผนกตรงกับแท็บ (ทุกแผนก = ผ่านหมด) · และเลขเอกสาร/ชื่อรายการมีคำที่ค้น (ไม่สนตัวพิมพ์ใหญ่/เล็ก)
+        (!currentDept || r.dept === currentDept) &&
+        (r.doc + r.title).toLowerCase().includes(search.toLowerCase()),
+    )
+    .sort((a, b) => a.daysAgo - b.daysAgo); // ใหม่ → เก่า
+  const rowsTotal = rows.reduce((sum, r) => sum + r.amount, 0);
 
   // ---------- [4.6] กราฟ 6 เดือน ----------
   // แต่ละเดือน: เก็บคำขอที่ปี-เดือนตรงกัน → บวกยอด
@@ -196,11 +200,14 @@ export default function Report() {
   // ---------- [4.7] สรุปงบตามโครงการ / หมวด ----------
   // ※ % ใช้ = used ÷ limit · ปัดเป็นจำนวนเต็ม
   // ※ ใช้ budget (รวมคำขอจริงแล้ว) ไม่ใช่ projects ตรง ๆ
-  const projectRows = budget.map((p) => ({
-    ...p,
-    limit: projectLimit(p),
-    used: projectUsed(p),
-  }));
+  const projectRows = budget
+    .map((p) => {
+      const limit = projectLimit(p);
+      const used = projectUsed(p);
+      return { ...p, limit, used, percent: limit > 0 ? Math.round((used / limit) * 100) : used > 0 ? 100 : 0 };
+    })
+    .sort((a, b) => b.percent - a.percent); // ใช้มากสุดขึ้นก่อน → เห็นโครงการที่ใกล้หมดทันที
+  const warnCount = projectRows.filter((p) => p.percent >= WARN_PERCENT).length;
 
   // ════════════════════════════════════════
   //  [5] หน้าจอ
@@ -241,7 +248,7 @@ export default function Report() {
         {/* เงื่อนไขของรายงาน: โชว์เฉพาะตอนพิมพ์ (คนอ่านกระดาษไม่เห็นแท็บที่เลือก) */}
         <p className="mt-3 hidden text-sm text-[#334155] print:block">
           <b>ช่วงเวลา:</b> {periods.find((p) => p.days === days)?.label} ({days} วันล่าสุด)
-          · <b>ตารางรายการ:</b> {currentDept || "-"}
+          · <b>ตารางรายการ:</b> {currentDept || "ทุกแผนก"}
           {search && <> · <b>ค้นหา:</b> {search}</>}
           · <b>พิมพ์โดย:</b> {printedBy}
         </p>
@@ -256,7 +263,7 @@ export default function Report() {
             aria-pressed={days === p.days}
             onClick={() => setDays(p.days)} // กดแท็บ → เปลี่ยนจำนวนวันในกล่อง days → ตัวเลขทั้งหน้าคิดใหม่
             // แท็บที่เลือกอยู่ → พื้นสีเข้ม
-            className={`rounded-lg px-4 py-2 text-sm font-semibold ${days === p.days ? "bg-[#0F172A] text-white" : "text-[#64748B] hover:bg-[#F1F5F9]"}`}
+            className={`rounded-lg px-4 py-2 text-sm font-semibold ${days === p.days ? "bg-[#059669] text-white" : "text-[#64748B] hover:bg-[#ECFDF5] hover:text-[#047857]"}`}
           >
             {p.label}
           </button>
@@ -268,19 +275,8 @@ export default function Report() {
       <div className="flex flex-col gap-9 print:gap-4">
       {/* ---------- [5.3] การ์ด 4 ใบ ---------- */}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
-        {/* การ์ดใบแรก สีเข้ม */}
-        <div className="rounded-xl bg-gradient-to-br from-[#0F172A] via-[#0F172A] to-[#047857] p-6 text-white shadow-2xl print:p-4 print:shadow-none">
-          <p className="flex items-center gap-2 text-sm text-[#CBD5E1]">
-            <Wallet2 size={16} className="text-[#34D399]" aria-hidden="true" /> งบคงเหลือทั้งหมด
-          </p>
-          <p className="money my-2 text-3xl font-bold">฿{money(remaining)}</p>
-          <div className="h-1.5 rounded-full bg-white/15" role="img" aria-label={`เหลือ ${boardTotal > 0 ? Math.max(0, 100 - usedPercent) : 0}% ของงบ`}>
-            <div
-              className="h-1.5 rounded-full bg-[#34D399]"
-              style={{ width: `${boardTotal > 0 ? Math.min(100, Math.max(0, 100 - usedPercent)) : 0}%` }} // ความยาวหลอด = % งบที่เหลือ · ยังไม่ตั้งงบ = หลอดว่าง
-            />
-          </div>
-        </div>
+        {/* การ์ดใบแรก: งบทั้งปี (การ์ดเดียวกับทุกหน้า components/budget-card.tsx) */}
+        <BudgetCard label="งบคงเหลือทั้งหมด" limit={boardTotal} used={yearTotal} year={YEAR} />
         <Card
           icon={<FileText size={16} />}
           label="คำขอเบิกในช่วงนี้"
@@ -294,10 +290,11 @@ export default function Report() {
           unit="วัน"
         />
         <Card
-          icon={<TrendUp2 size={16} />}
-          label="ใช้งบไปแล้ว (ทั้งปี)"
-          value={boardTotal > 0 ? usedPercent + "%" : "—"}
-          unit={boardTotal > 0 ? "฿" + money(yearTotal) : "ยังไม่ตั้งงบ"}
+          icon={<ErrorCircle size={16} />}
+          label={`โครงการใช้งบเกิน ${WARN_PERCENT}%`}
+          value={String(warnCount)}
+          unit={`จาก ${projectRows.length} โครงการ`}
+          tone={warnCount > 0 ? "text-[#BE123C]" : undefined}
         />
       </div>
 
@@ -383,8 +380,19 @@ export default function Report() {
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {projectRows.map((p) => (
             <div key={p.id} className="rounded-xl border border-[#E2E8F0] p-4">
-              <p className="text-xs text-[#64748B]">{p.dept}</p>
-              <p className="font-bold">{p.name}</p>
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-xs text-[#64748B]">{p.dept}</p>
+                  <p className="font-bold">{p.name}</p>
+                </div>
+                <span
+                  className={`money shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${
+                    p.percent >= WARN_PERCENT ? "bg-[#FFF1F2] text-[#BE123C]" : "bg-[#ECFDF5] text-[#047857]"
+                  }`}
+                >
+                  ใช้ {p.percent}%
+                </span>
+              </div>
               <p className="money mb-3 mt-1 text-sm text-[#64748B]">
                 ใช้ไป <b className="text-[#0F172A]">฿{money(p.used)}</b> จาก ฿
                 {money(p.limit)}
@@ -402,7 +410,7 @@ export default function Report() {
                     </div>
                     <div className="mt-1 h-1.5 rounded-full bg-[#F1F5F9]" role="img" aria-label={`${c.name} ใช้ไป ${percent}%`}>
                       <div
-                        className={`h-1.5 rounded-full ${percent >= 80 ? "bg-[#E11D48]" : "bg-[#059669]"}`} // ใช้เกิน 80% = แดง
+                        className={`h-1.5 rounded-full ${percent >= WARN_PERCENT ? "bg-[#E11D48]" : "bg-[#059669]"}`} // ใช้ถึงเกณฑ์ = แดง
                         style={{ width: `${Math.min(100, percent)}%` }}
                       />
                     </div>
@@ -420,11 +428,11 @@ export default function Report() {
           <h2 className="text-lg font-bold">รายการเบิกจ่าย</h2>
           <label className="flex w-full items-center gap-2 rounded-xl border border-[#E2E8F0] px-3 focus-within:border-[#059669] sm:w-64 print:hidden">
             <Search1 size={18} className="shrink-0 text-[#94A3B8]" aria-hidden="true" />
-            <span className="sr-only">ค้นหาเลขที่เอกสาร</span>
+            <span className="sr-only">ค้นหาเลขที่เอกสารหรือรายการ</span>
             <input
               type="search"
               className="w-full border-0 bg-transparent py-2 text-sm outline-none focus:ring-0"
-              placeholder="ค้นหาเลขที่เอกสาร"
+              placeholder="ค้นหาเลขที่หรือชื่อรายการ"
               value={search} // value = โชว์คำค้นในกล่อง search
               onChange={(e) => setSearch(e.target.value)} // พิมพ์ → เก็บคำค้น → ตาราง rows กรองใหม่เอง
             />
@@ -433,16 +441,16 @@ export default function Report() {
 
         {/* แท็บฝ่าย */}
         <div className="mb-4 inline-flex flex-wrap gap-1 rounded-xl border border-[#E2E8F0] p-1 print:hidden" role="group" aria-label="แผนก">
-          {/* map = สร้างปุ่มแท็บฝ่ายทีละฝ่าย */}
-          {depts.map((d) => (
+          {/* แท็บแรก "ทุกแผนก" (value "") ตามด้วยแผนกที่มีคำขอในช่วงนี้ */}
+          {["", ...depts].map((d) => (
             <button
-              key={d}
+              key={d || "all"}
               type="button"
               aria-pressed={currentDept === d}
               onClick={() => setDept(d)} // กดแท็บ → เปลี่ยนแผนกในกล่อง dept
-              className={`rounded-lg px-4 py-1.5 text-sm font-semibold ${currentDept === d ? "bg-[#0F172A] text-white" : "text-[#64748B] hover:bg-[#F1F5F9]"}`}
+              className={`rounded-lg px-4 py-1.5 text-sm font-semibold ${currentDept === d ? "bg-[#059669] text-white" : "text-[#64748B] hover:bg-[#ECFDF5] hover:text-[#047857]"}`}
             >
-              {d}
+              {d || "ทุกแผนก"}
             </button>
           ))}
         </div>
@@ -455,6 +463,7 @@ export default function Report() {
               <th className="py-2 font-semibold">วันที่</th>
               <th className="py-2 font-semibold">รายการ</th>
               <th className="py-2 font-semibold">เลขที่เอกสาร</th>
+              <th className="py-2 font-semibold">แผนก</th>
               <th className="py-2 font-semibold">ผู้ขอ</th>
               <th className="py-2 text-right font-semibold">จำนวนเงิน</th>
             </tr>
@@ -470,6 +479,7 @@ export default function Report() {
                     <FileText size={16} className="shrink-0 text-[#94A3B8]" aria-hidden="true" /> {r.doc}
                   </span>
                 </td>
+                <td className="py-3 text-[#64748B]">{r.dept}</td>
                 <td className="py-3">{r.requester}</td>
                 <td className="money py-3 text-right font-bold">
                   ฿{money(r.amount)}
@@ -477,12 +487,26 @@ export default function Report() {
               </tr>
             ))}
           </tbody>
+          {rows.length > 0 && (
+            <tfoot>
+              <tr className="border-t-2 border-[#E2E8F0]">
+                <td colSpan={5} className="py-3 font-bold">
+                  รวม {rows.length} รายการ
+                </td>
+                <td className="money py-3 text-right text-base font-bold text-[#047857]">฿{money(rowsTotal)}</td>
+              </tr>
+            </tfoot>
+          )}
         </table>
         </div>
         {/* ค้นแล้วไม่เจอ → โชว์ "ไม่พบรายการ" */}
         {rows.length === 0 && (
           <p className="py-6 text-center text-sm text-[#64748B]">
-            {search ? `ไม่พบเลขที่เอกสาร “${search}” ในแผนก${currentDept}` : `ไม่มีรายการของแผนก${currentDept}ในช่วงนี้`}
+            {search
+              ? `ไม่พบ “${search}” ใน${currentDept ? `แผนก${currentDept}` : "ทุกแผนก"}`
+              : currentDept
+                ? `ไม่มีรายการของแผนก${currentDept}ในช่วงนี้`
+                : "ไม่มีรายการที่จ่ายแล้วในช่วงนี้"}
           </p>
         )}
       </section>
@@ -501,18 +525,20 @@ function Card({
   label,
   value,
   unit,
+  tone,
 }: {
   icon: React.ReactNode;
   label: string;
   value: string;
   unit: string;
+  tone?: string; // สีตัวเลข (เช่น แดงเมื่อมีเรื่องต้องดู)
 }) {
   return (
     <div className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl print:p-4 print:shadow-none">
       <p className="flex items-center gap-2 text-sm text-[#64748B]">
         {icon} {label}
       </p>
-      <p className="money mt-2 text-3xl font-bold">
+      <p className={`money mt-2 text-3xl font-bold ${tone ?? ""}`}>
         {value}{" "}
         <span className="text-sm font-normal text-[#64748B]">{unit}</span>
       </p>

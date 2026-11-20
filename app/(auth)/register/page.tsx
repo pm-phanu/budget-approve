@@ -1,8 +1,6 @@
 "use client";
 
-import Image from "next/image";
-import bgCircleR from "@/app/img/bgCircleR.svg";
-import bgCircleL from "@/app/img/bgCircleL.svg";
+import AuthAside from "../auth-aside";
 import { Button } from "@/components/tailgrids/core/button";
 import { Link } from "@/components/tailgrids/core/link";
 import { ArrowRight, CheckCircle1, Eye, EyeDisabled, InfoCircle, Shield1Check } from "@tailgrids/icons";
@@ -79,28 +77,8 @@ export default function Register() {
   return (
     <div className="min-h-screen bg-[#F5F7FA] text-[#0F172A]">
       <div className="grid min-h-screen lg:grid-cols-2">
-        {/* ซ้าย: แนะนำระบบ (จอเล็กซ่อน เหลือแค่ฟอร์ม) */}
-        <div className="relative hidden overflow-hidden bg-[#DCFCE7] lg:block">
-          <div className="pointer-events-none absolute right-0" aria-hidden="true">
-            <Image src={bgCircleR} alt="" />
-          </div>
-          <div className="pointer-events-none absolute bottom-0" aria-hidden="true">
-            <Image src={bgCircleL} alt="" />
-          </div>
-          <div className="relative flex h-full max-w-3xl flex-col justify-between p-16">
-            <p className="text-base font-semibold capitalize">budget approval system</p>
-            <div>
-              <p className="mb-4 text-5xl font-bold leading-tight">ระบบอนุมัติงบประมาณ</p>
-              <p className="max-w-md text-balance text-base text-[#475569]">
-                ยื่นคำขอ ติดตามสถานะ และอนุมัติงบประมาณได้ในที่เดียว โปร่งใส
-                ตรวจสอบได้ทุกขั้นตอน
-              </p>
-            </div>
-            <p className="text-[13px] text-[#64748B]">
-              © 2026 Budget Approval System. สงวนลิขสิทธิ์
-            </p>
-          </div>
-        </div>
+        {/* ซ้าย: แนะนำระบบ (ใช้ร่วมกับอีกหน้า app/(auth)/auth-aside.tsx) */}
+        <AuthAside />
 
         {/* ขวา: ฟอร์มลงทะเบียน */}
         <main className="flex items-center justify-center px-4 py-12">

@@ -65,6 +65,7 @@ export type SavedRequest = {
   bankAccount: string | null; // บัญชีรับเงินคืน (เฉพาะสำรองจ่าย)
   approvalSteps: SavedStep[];
   currentStep: number; // ขั้นที่ต้องทำต่อ (ลำดับใน approvalSteps)
+  payment?: { ref: string; date: string }; // การเงินบันทึกตอนทำจ่าย (home-finance/pay) · ยังไม่จ่าย = ไม่มี
   history: HistoryEntry[]; // บันทึกว่าใครทำอะไรเมื่อไหร่ (เพิ่มต่อท้ายเสมอ ไม่ลบ ไม่แก้)
 };
 

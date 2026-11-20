@@ -1,7 +1,7 @@
 "use client";
 
+import { BudgetCard } from "@/components/budget-card";
 import {
-  Wallet2,
   ClockThree,
   CheckCircle1,
 } from "@tailgrids/icons";
@@ -72,12 +72,10 @@ export default function Home() {
   const budget = me
     ? getDepartmentBudget(me.departmentId, requests, year ?? undefined)
     : { limit: 0, used: 0, remaining: 0 };
-  const remaining = budget.remaining;
   // งบร่วมที่แผนกอื่นแชร์มา (แสดงแยก ไม่รวมในวงเงินแผนก)
   const shared = me
     ? getSharedBudget(me.departmentId, requests, loadOrganization(), year ?? undefined)
     : { remaining: 0, projects: [] };
-  const usedPct = budget.limit > 0 ? Math.round((budget.used / budget.limit) * 100) : 0;
 
   return (
     <div>
@@ -92,45 +90,17 @@ export default function Home() {
         <div className="flex flex-col gap-9">
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
             {/* การ์ดหลักของหน้า: งบแผนกคงเหลือ */}
-            <section
-              aria-labelledby="budget-title"
-              className="rounded-xl bg-[linear-gradient(160deg,#0F172A_0%,#0F172A_55%,#0C3136_70%,#047857_100%)] p-6 text-white shadow-2xl md:col-span-2"
-            >
-              <div className="flex items-center justify-between gap-3">
-                <h2 id="budget-title" className="flex items-center gap-2 text-lg font-semibold">
-                  <Wallet2 size={24} className="text-[#34D399]" aria-hidden="true" />
-                  งบแผนกคงเหลือ
-                </h2>
-                <span className="rounded-full border border-white/20 bg-white/10 px-2.5 py-0.5 text-sm">
-                  ปี {year !== null ? year + 543 : "-"}
-                </span>
-              </div>
-              <p className="money mt-2 text-[clamp(2.5rem,4.5vw,4rem)] font-bold leading-tight">
-                ฿{money(remaining)}
-              </p>
-              <div className="mt-3 flex items-center justify-between text-sm text-[#CBD5E1]">
-                <span>
-                  จากงบทั้งปี <span className="money">฿{money(budget.limit)}</span>
-                </span>
-                <span>ใช้ไปแล้ว {usedPct}%</span>
-              </div>
-              {shared.projects.length > 0 && (
-                <p className="mt-1 text-sm text-[#A7F3D0]">
-                  + งบร่วมจากแผนกอื่น <span className="money">฿{money(shared.remaining)}</span> ({shared.projects.length} โครงการ)
-                </p>
-              )}
-              {/* หลอด: ความยาวสีเขียว = % ที่ใช้ไปแล้ว */}
-              <div
-                className="mt-2 h-2 w-full overflow-hidden rounded-full bg-white/15"
-                role="img"
-                aria-label={`ใช้งบไปแล้ว ${usedPct}%`}
-              >
-                <div
-                  className={`h-full rounded-full ${usedPct > 90 ? "bg-[#FB7185]" : "bg-[#34D399]"}`}
-                  style={{ width: `${Math.min(usedPct, 100)}%` }}
-                />
-              </div>
-            </section>
+            <BudgetCard
+              className="md:col-span-2"
+              limit={budget.limit}
+              used={budget.used}
+              year={year}
+              note={
+                shared.projects.length > 0
+                  ? `+ งบร่วมจากแผนกอื่น ฿${money(shared.remaining)} (${shared.projects.length} โครงการ)`
+                  : undefined
+              }
+            />
 
             {/* ตัวเลขสรุป: ตัวเลขเด่น ป้ายเล็ก */}
             <StatCard

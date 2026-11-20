@@ -28,6 +28,7 @@ import {
   CheckCircle1,
   TrendUp2,
   Bank1,
+  Dollar,
 } from "@tailgrids/icons";
 import { forwardRef, Suspense, SVGProps, useEffect, useState } from "react";
 import { mergeProps } from "react-aria";
@@ -76,13 +77,16 @@ const reportItems: MenuItem[] = [
 ]
 
 const payItems: MenuItem[] = [
-  { title: "คำขอรอทำจ่าย", url: "/home-finance/pay", icon: Bank1, roles: ["FINANCE"], group: "pay"}
+  // การเงินทำงานแบบเดียวกับผู้อนุมัติ: รายการรอทำ + ประวัติที่ตัวเองทำ (ไม่มีกลุ่ม "การอนุมัติ")
+  { title: "คำขอทำจ่าย", url: "/pay-request", icon: Bank1, roles: ["FINANCE"], group: "pay" },
+  { title: "ประวัติการทำจ่าย", url: "/pay-history", icon: Dollar, roles: ["FINANCE"], group: "pay" },
 ]
 
 // ผู้ใช้นี้เห็น / เข้าเมนูนี้ได้ไหม (ใช้ทั้งใน sidebar และ route guard)
 function canAccess(item: MenuItem, user: { role: string; isAdmin?: boolean }) {
   if (item.adminOnly) return !!user.isAdmin
-  if (item.approverOnly) return isApproverRole(user.role)
+  // การเงินอนุมัติด้วยการทำจ่าย → ใช้เมนูกลุ่ม "การทำจ่าย" แทน
+  if (item.approverOnly) return isApproverRole(user.role) && user.role !== "FINANCE"
   return !item.roles || item.roles.includes(user.role)
 }
 
@@ -167,11 +171,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const isApprovePage = pathname.endsWith("/approve")
   // รายละเอียดคำขอของฉัน: แดชบอร์ด / คำขอของฉัน / รหัสคำขอ
   const isMyRequestDetail = pathname === "/my-request/detail"
+  // รายละเอียดทำจ่าย: แดชบอร์ด / คำขอทำจ่าย / รหัสคำขอ
+  const isPayDetail = pathname === "/home-finance/pay"
   const currentTitle =
     pathname !== homePath
       ? items.find((item) => item.url === pathname)?.title
       : undefined
-  const isHome = !currentTitle && !isApprovePage && !isMyRequestDetail
+  const isHome = !currentTitle && !isApprovePage && !isMyRequestDetail && !isPayDetail
 
   const handleLogout = () => doLogout(router)
 
@@ -304,7 +310,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     </Link>
                   </>
                 )}
-                {(isApprovePage || isMyRequestDetail) && (
+                {isPayDetail && (
+                  <>
+                    <span className="text-[#64748B]">/</span>
+                    <Link href="/pay-request" className="text-[#64748B] hover:text-[#047857] hover:underline">
+                      คำขอทำจ่าย
+                    </Link>
+                  </>
+                )}
+                {(isApprovePage || isMyRequestDetail || isPayDetail) && (
                   <Suspense fallback={null}>
                     <RequestIdCrumb />
                   </Suspense>

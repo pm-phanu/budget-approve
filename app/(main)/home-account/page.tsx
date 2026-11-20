@@ -10,13 +10,12 @@ import { loadOrganization } from "@/data/organization";
 import { getCurrentUser } from "@/utils/login";
 import { bkkMonth, bkkYear, shiftMonth } from "@/utils/date";
 import MyRequestsCard from "@/components/my-requests-card";
+import { BudgetCard } from "@/components/budget-card";
 import {
   ArrowRight,
-  Calendar,
   Check,
   CheckCircle1,
   ClockThree,
-  Wallet2,
 } from "@tailgrids/icons";
 
 /* ------------------------------------------------------------------
@@ -177,23 +176,27 @@ const AVATARS = [
 ------------------------------------------------------------------- */
 function StatCard({
   icon,
+  tone,
   label,
   value,
   sub,
 }: {
   icon: React.ReactNode;
+  tone: string; // สีกล่องไอคอน
   label: string;
   value: string;
   sub: React.ReactNode;
 }) {
   return (
-    <div className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl">
-      <div className="flex items-center gap-2 text-xs text-[#64748B]">
-        <span className="text-[#64748B]">{icon}</span>
-        {label}
+    <div className="flex flex-col justify-between rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl">
+      <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${tone}`} aria-hidden="true">
+        {icon}
       </div>
-      <div className="mt-2 text-3xl font-bold text-[#0F172A]">{value}</div>
-      <div className="mt-1 text-xs text-[#64748B]">{sub}</div>
+      <div className="mt-4">
+        <div className="text-sm text-[#64748B]">{label}</div>
+        <div className="money mt-1 text-3xl font-bold text-[#0F172A]">{value}</div>
+        <div className="mt-1 text-xs text-[#64748B]">{sub}</div>
+      </div>
     </div>
   );
 }
@@ -295,9 +298,6 @@ export default function AccountantHome() {
   const depts = year > 0 ? readDeptBudgets(requests, year) : [];
   const totalLimit = depts.reduce((s, x) => s + x.limit, 0);
   const totalUsed = depts.reduce((s, x) => s + x.used, 0);
-  const remaining = totalLimit - totalUsed;
-  const remainPct =
-    totalLimit > 0 ? Math.round((remaining / totalLimit) * 100) : 0;
 
   // คำขอที่คนที่ login เป็นผู้ขอเอง → การ์ด "คำขอของฉัน"
   const myRequests = me
@@ -305,54 +305,55 @@ export default function AccountantHome() {
     : [];
 
   return (
-    <div className="text-slate-800">
+    <div className="text-[#0F172A]">
       <div>
         {/* ===== หัวหน้า ===== */}
         <header className="mb-9 flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h1 className="text-[32px] font-bold text-[#111]">
+            <h1 className="text-[32px] font-bold">
               สวัสดี {me ? me.fullName : "-"}
             </h1>
-            <p className="mt-1 text-sm text-[#64748B]">{today}</p>
+            <p className="mt-3 text-sm text-[#64748B]">
+              {today} · คำขอรอคุณตรวจ{" "}
+              <span className="font-semibold text-[#047857]">{pending.length} รายการ</span>
+            </p>
           </div>
         </header>
 
         {/* แต่ละส่วนห่างกัน 36px เหมือนหน้า employee */}
         <div className="flex flex-col gap-9">
-        {/* ===== การ์ดสรุป 4 ใบ ===== */}
+        {/* ===== การ์ดสรุป: งบทั้งปี (การ์ดเดียวกับทุกหน้า) + รอตรวจ + ตรวจแล้วเดือนนี้ ===== */}
         <div className="grid grid-cols-4 gap-5">
+          <BudgetCard
+            className="col-span-2"
+            label="งบคงเหลือทั้งปี (ทุกแผนก)"
+            limit={totalLimit}
+            used={totalUsed}
+            year={year > 0 ? year : null}
+            note={`ยอดเบิกเดือนนี้ ${baht(monthTotal)} · เดือนก่อน ${baht(prevTotal)}`}
+          />
           <StatCard
-            icon={<ClockThree className="h-4 w-4" />}
+            icon={<ClockThree className="h-5 w-5" />}
+            tone="bg-amber-50 text-amber-600"
             label="คำขอรอตรวจ"
             value={`${pending.length} คำขอ`}
             sub={
               <>
-                ยอดรวม {baht(pendingTotal)}
+                ยอดรวม <span className="money">{baht(pendingTotal)}</span>
                 {overdueCount > 0 && (
-                  <span className="ml-2 font-semibold text-rose-600">
-                    รอนาน {OVERDUE_DAYS} วัน {overdueCount} คำขอ
+                  <span className="mt-0.5 block font-semibold text-[#BE123C]">
+                    รอเกิน {OVERDUE_DAYS} วัน {overdueCount} คำขอ
                   </span>
                 )}
               </>
             }
           />
           <StatCard
-            icon={<Check className="h-4 w-4" />}
-            label="ตรวจแล้ว"
+            icon={<Check className="h-5 w-5" />}
+            tone="bg-emerald-100 text-emerald-700"
+            label="ตรวจแล้วเดือนนี้"
             value={`${doneThisMonth.length} คำขอ`}
-            sub={`ผ่าน ${passed} ตีกลับ ${rejected}`}
-          />
-          <StatCard
-            icon={<Wallet2 className="h-4 w-4" />}
-            label="ยอดเบิกเดือนนี้"
-            value={baht(monthTotal)}
-            sub={`เดือนก่อน ${baht(prevTotal)}`}
-          />
-          <StatCard
-            icon={<Calendar className="h-4 w-4" />}
-            label="งบคงเหลือทั้งปี"
-            value={baht(remaining)}
-            sub={`${remainPct}% ของงบ ${baht(totalLimit)}`}
+            sub={`ผ่าน ${passed} · ตีกลับ ${rejected}`}
           />
         </div>
 
@@ -370,9 +371,9 @@ export default function AccountantHome() {
                   {pending.length}
                 </span>
               </div>
-              <Link href="/all-request" className="flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:underline">
-                  ดูทั้งหมด →
-                </Link>
+              <Link href="/all-request" className="flex items-center gap-1 text-xs font-semibold text-[#047857] hover:underline">
+                ดูทั้งหมด <ArrowRight size={14} aria-hidden="true" />
+              </Link>
             </div>
 
             {/* สูงตามจำนวนรายการ มากสุด PENDING_LIMIT */}
@@ -454,10 +455,10 @@ export default function AccountantHome() {
             {/* อนุมัติล่าสุด (เฉพาะที่ฝ่ายบัญชีดำเนินการ) */}
             <div className="mt-5">
               <div className="mb-1 flex items-center justify-between">
-                <span className="text-md font-bold">อนุมัติล่าสุด</span>
-                <button className="flex items-center gap-1 text-xs font-bold text-green-700">
-                  ดูประวัติ <ArrowRight size={16} />
-                </button>
+                <span className="text-md font-bold">ตรวจล่าสุด</span>
+                <Link href="/approval-history" className="flex items-center gap-1 text-xs font-semibold text-[#047857] hover:underline">
+                  ดูประวัติ <ArrowRight size={14} aria-hidden="true" />
+                </Link>
               </div>
             </div>
 
@@ -466,7 +467,7 @@ export default function AccountantHome() {
               {recent.length === 0 ? (
                 <div className="flex flex-col items-center justify-center gap-2 py-8 text-[#64748B]">
                   <CheckCircle1 />
-                  <span className="text-sm">ยังไม่มีรายการที่ดำเนินการ</span>
+                  <span className="text-sm">ยังไม่มีคำขอที่คุณตรวจ</span>
                 </div>
               ) : (
                 recent.map(({ r, at, result }, i) => {
@@ -480,7 +481,7 @@ export default function AccountantHome() {
                           <div className="truncate font-bold">{r.title}</div>
                           <div className="truncate text-xs text-[#64748B]">
                             {name} ·{" "}
-                            {result === "ตีกลับ" ? "ตีกลับ" : "อนุมัติ"}
+                            {result === "ตีกลับ" ? "ตีกลับ" : "ตรวจผ่าน"}
                             {timeAgo(at)}
                           </div>
                         </div>

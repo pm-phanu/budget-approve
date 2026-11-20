@@ -66,7 +66,9 @@ import {
   User2,
   Plus,
   FileText,
+  Xmark,
 } from "@tailgrids/icons";
+import { HeroCard } from "@/components/budget-card";
 import { bkkYear } from "@/utils/date";
 
 // ✅ เพิ่ม: path หน้า "คำขอของฉัน" (ตรงกับลิงก์ในหน้า Home)
@@ -606,10 +608,10 @@ function NewRequest({ openId }: { openId: string | null }) {
         {resubmit ? "แก้ไขคำขอที่ถูกตีกลับ" : "สร้างคำขอเบิก"}
       </h1>
 
-      {/* จอกว้าง (≥1280px) = ฟอร์ม 3 : สรุป 1 เหมือนเดิม · จอแคบ = สรุปต่อท้ายฟอร์ม */}
+      {/* จอกว้าง (≥1280px) = ฟอร์ม 3 : สรุป 1 (แถวรายการค่าใช้จ่ายต้องการที่กว้าง) · จอแคบ = สรุปต่อท้ายฟอร์ม */}
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-4">
         {/* ===== คอลัมน์ซ้าย: ฟอร์ม ===== */}
-        <section className="min-w-0 rounded-xl xl:col-span-3 border border-[#E2E8F0] bg-white p-6 shadow-2xl">
+        <section className="min-w-0 rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl xl:col-span-3">
           {/* ---------- กล่องแจ้ง: คำขอนี้ถูกตีกลับ ---------- */}
           {resubmit && (
             <div role="note" className="mb-6 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
@@ -864,9 +866,9 @@ function NewRequest({ openId }: { openId: string | null }) {
                             type="button"
                             onClick={() => removeFile(i, f)}
                             aria-label={`ลบไฟล์ ${name}`}
-                            className="rounded px-1 text-[#94A3B8] hover:text-[#DC2626]"
+                            className="rounded p-0.5 text-[#94A3B8] hover:text-[#DC2626]"
                           >
-                            ×
+                            <Xmark size={12} aria-hidden="true" />
                           </button>
                         </span>
                       ))}
@@ -918,11 +920,8 @@ function NewRequest({ openId }: { openId: string | null }) {
         {/* ===== คอลัมน์ขวา: สรุป ===== */}
         <section className="flex min-w-0 flex-col gap-5 xl:col-span-1">
           {/* ---------- [6.6] การ์ดสรุป: ยอดขอ + ผลต่องบโครงการ ---------- */}
-          <div className="rounded-xl bg-gradient-to-br from-[#0F172A] via-[#0F172A] to-[#047857] p-6 text-white shadow-2xl">
-            <p className="flex items-center gap-2 text-sm text-[#CBD5E1]">
-              <Wallet2 size={18} className="shrink-0 text-[#34D399]" aria-hidden="true" />
-              ยอดที่ขอเบิก
-            </p>
+          {/* การ์ดหลักแบบเดียวกับการ์ดงบทุกหน้า (components/budget-card.tsx) */}
+          <HeroCard label="ยอดที่ขอเบิก">
             <p className="money my-1 text-[clamp(1.75rem,2.6vw,2.25rem)] font-bold leading-tight">฿{money(total)}</p>
             <p className="text-sm text-[#A7F3D0]">
               {items.length} รายการ, {fileLabel} {fileCount} ไฟล์
@@ -965,7 +964,7 @@ function NewRequest({ openId }: { openId: string | null }) {
             <p className="mt-4 rounded-lg bg-white/10 px-3 py-2 text-xs text-[#D1FAE5]">
               {isAdvance ? "ได้รับเงินคืนเมื่อการเงินทำจ่าย" : "การเงินโอนให้ผู้ขายตามใบแจ้งหนี้"}
             </p>
-          </div>
+          </HeroCard>
 
           {/* ---------- [6.7] เส้นทางอนุมัติ (เปลี่ยนตามยอดเงิน) ---------- */}
           <div className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl">

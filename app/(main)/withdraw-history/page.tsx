@@ -95,7 +95,10 @@ export default function WithdrawHistory() {
 
   const mine = me ? getMyFinishedRequests(requests, me.id) : [];
   const count = (f: Filter) => (f === "all" ? mine.length : mine.filter((r) => filterOf(r) === f).length);
-  const paidTotal = mine.filter((r) => filterOf(r) === "paid").reduce((s, r) => s + Number(r.total || 0), 0);
+  // ยอดเงินรวมต่อกลุ่ม (ใต้ตัวเลขบนการ์ด เหมือนหน้าคำขอของฉัน)
+  const sumOf = (f: Filter) =>
+    mine.filter((r) => f === "all" || filterOf(r) === f).reduce((s, r) => s + Number(r.total || 0), 0);
+  const paidTotal = sumOf("paid");
 
   const q = query.trim().toLowerCase();
   const shown = mine.filter(
@@ -151,6 +154,7 @@ export default function WithdrawHistory() {
             >
               <span className="block text-sm text-[#64748B]">{t.label}</span>
               <span className={`money mt-1 block text-3xl font-bold ${t.tone}`}>{count(t.key)}</span>
+              <span className="money mt-0.5 block text-xs text-[#64748B]">{baht(sumOf(t.key))}</span>
             </button>
           );
         })}
@@ -226,6 +230,17 @@ export default function WithdrawHistory() {
                           <span className={`status ${badge.cls}`}>{badge.text}</span>
                         </div>
                       </div>
+
+                      {/* จ่ายแล้ว: วันที่โอน + เลขอ้างอิง (การเงินบันทึกตอนทำจ่าย) ไว้เทียบกับบัญชีธนาคาร */}
+                      {filterOf(r) === "paid" && r.payment && (
+                        <p className="mt-2 text-xs text-[#047857]">
+                          โอนเมื่อ {thaiDate(r.payment.date)} · เลขที่อ้างอิง{" "}
+                          <span className="money font-semibold">{r.payment.ref}</span>
+                        </p>
+                      )}
+                      {filterOf(r) === "approved" && (
+                        <p className="mt-2 text-xs text-[#64748B]">อนุมัติครบแล้ว รอการเงินโอนเงิน</p>
+                      )}
 
                       {filterOf(r) === "rejected" && (
                         <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-[#FFF1F2] px-3.5 py-2.5 text-sm">

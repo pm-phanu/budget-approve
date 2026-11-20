@@ -15,8 +15,10 @@ import { useReviewLock } from "@/components/use-review-lock";
 import { getCurrentUser } from "@/utils/login";
 import { bkkDay } from "@/utils/date";
 import type { Credential } from "@/data/credential";
+import { HeroCard } from "@/components/budget-card";
+import { Bank1, Check, Eye, Xmark } from "@tailgrids/icons";
 
-const LIST_PATH = "/home-finance";
+const LIST_PATH = "/pay-request";
 
 // ---------- ฟังก์ชันช่วย ----------
 const baht = (n: number) => "฿" + n.toLocaleString("en-US");
@@ -74,7 +76,7 @@ function PayContent() {
       <div className="py-24 text-center text-slate-500">
         <p className="text-lg font-semibold">ไม่พบคำขอนี้</p>
         <Link href={LIST_PATH} className="text-sm text-emerald-700 hover:underline">
-          กลับไปรายการรอทำจ่าย
+          กลับไปคำขอทำจ่าย
         </Link>
       </div>
     );
@@ -107,7 +109,7 @@ function PayContent() {
     }
     setRequest(result.request);
     setPopup("done");
-    setTimeout(() => router.push(LIST_PATH), 1200); // โชว์สำเร็จแป๊บนึงแล้วกลับหน้าหลัก (แบบเดียวกับหน้าส่งคำขอ)
+    setTimeout(() => router.push(LIST_PATH), 1200); // โชว์สำเร็จแป๊บนึงแล้วกลับไปคิวทำจ่าย (แบบเดียวกับหน้าส่งคำขอ)
   }
 
   // ---- กด "ยืนยันตีกลับ" → ส่งคำขอกลับไปหาพนักงาน ----
@@ -124,12 +126,8 @@ function PayContent() {
 
   return (
     <div className="font-sans text-slate-800">
-      {/* breadcrumb + หัวข้อ */}
-      <p className="text-sm text-slate-500">
-        <Link href={LIST_PATH} className="hover:underline">‹ รายการรอทำจ่าย</Link> /{" "}
-        <b className="text-emerald-700">{r.id}</b>
-      </p>
-      <div className="mt-3 flex items-center gap-3">
+      {/* หัวข้อ (breadcrumb อยู่บน header ของ layout แล้ว) */}
+      <div className="flex items-center gap-3">
         <h1 className="text-[28px] font-bold">{r.title}</h1>
         {/* ป้ายสถานะตามคำขอจริง (เปิดใบที่จ่ายแล้ว/ถูกตีกลับ ต้องไม่ขึ้นว่ารอ) */}
         <span
@@ -171,7 +169,9 @@ function PayContent() {
                   <div key={f} className="mt-2 flex w-fit items-center gap-2 rounded-lg border border-slate-200 px-2 py-1.5">
                     <span className="rounded bg-rose-100 px-1.5 py-0.5 text-[10px] font-bold text-rose-600">PDF</span>
                     <span className="text-xs">{f}</span>
-                    <span title="ยังไม่มีที่เก็บไฟล์ (รอเชื่อมระบบหลังบ้าน)" className="cursor-not-allowed opacity-40">👁</span>
+                    <span title="ยังไม่มีที่เก็บไฟล์ (รอเชื่อมระบบหลังบ้าน)" className="cursor-not-allowed opacity-40">
+                      <Eye size={14} aria-label="เปิดดูไฟล์ (ยังไม่พร้อม)" />
+                    </span>
                   </div>
                 ))}
               </div>
@@ -202,15 +202,15 @@ function PayContent() {
 
         {/* ===== ช่อง 3: ยอดที่ต้องโอน + ฟอร์ม ===== */}
         <div className="space-y-4">
-          <div className="rounded-2xl bg-gradient-to-br from-[#0F172A] via-[#0F172A] to-[#047857] p-6 text-white">
-            <p className="text-sm text-emerald-200">ยอดที่ต้องโอน</p>
-            <p className="mt-1 text-4xl font-bold tabular-nums">{baht(r.total)}</p>
+          {/* การ์ดยอดหลัก: แบบเดียวกับการ์ดงบทุกหน้า (components/budget-card.tsx) */}
+          <HeroCard label="ยอดที่ต้องโอน" icon={<Bank1 className="h-5 w-5 text-emerald-300" aria-hidden="true" />}>
+            <p className="money text-4xl font-bold tracking-tight">{baht(r.total)}</p>
             <div className="mt-4 space-y-2 text-sm">
               <Row label="โอนเข้า" value={r.bankAccount ?? "ดูในใบแจ้งหนี้"} />
               <Row label="ชื่อบัญชี" value={payee(r)} />
-              <Row label="ฝ่าย" value={r.requester?.department ?? "-"} />
+              <Row label="แผนก" value={r.requester?.department ?? "-"} />
             </div>
-          </div>
+          </HeroCard>
 
           {canPay && lockedBy ? (
             // มีคนอื่นกำลังตรวจสอบใบนี้อยู่ → กดไม่ได้
@@ -281,7 +281,9 @@ function PayContent() {
       {/* ===== ป๊อปอัพสำเร็จ ===== */}
       {popup === "done" && (
         <Popup>
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-2xl text-emerald-700">✓</div>
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+            <Check size={32} aria-hidden="true" />
+          </div>
           <p className="mt-3 text-center text-lg font-bold">บันทึกการจ่ายเงินแล้ว</p>
           <p className="text-center text-xs text-slate-500">สถานะคำขอเปลี่ยนเป็น &quot;จ่ายแล้ว&quot;</p>
           <p className="mt-2 text-center text-3xl font-bold tabular-nums">{baht(r.total)}</p>
@@ -291,7 +293,7 @@ function PayContent() {
             <Row label="เลขที่อ้างอิง" value={ref} dark />
             <Row label="วันที่โอน" value={thaiDate(payDate)} dark />
           </div>
-          <p className="text-center text-sm text-slate-500" role="status">กำลังพาไปหน้าหลัก…</p>
+          <p className="text-center text-sm text-slate-500" role="status">กำลังพากลับไปคำขอทำจ่าย…</p>
         </Popup>
       )}
 
@@ -330,7 +332,7 @@ function PayContent() {
 function Row({ label, value, dark }: { label: string; value: string; dark?: boolean }) {
   return (
     <div className="flex justify-between gap-4">
-      <span className={dark ? "text-slate-500" : "text-slate-300"}>{label}</span>
+      <span className={dark ? "text-slate-500" : "text-emerald-100/80"}>{label}</span>
       <span className="text-right font-semibold">{value}</span>
     </div>
   );
@@ -347,7 +349,7 @@ function Step({ state, title, sub }: { state: "done" | "now" | "rejected" | "wai
   return (
     <li className="flex gap-3">
       <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] ${circle}`}>
-        {state === "done" ? "✓" : state === "rejected" ? "✕" : ""}
+        {state === "done" ? <Check size={12} aria-hidden="true" /> : state === "rejected" ? <Xmark size={12} aria-hidden="true" /> : null}
       </span>
       <div>
         <p className="text-sm font-semibold">{title}</p>
