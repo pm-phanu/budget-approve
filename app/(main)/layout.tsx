@@ -28,6 +28,7 @@ import {
   FileTextMultiple,
   CheckCircle1,
   TrendUp2,
+  Bank1,
 } from "@tailgrids/icons";
 import { forwardRef, Suspense, SVGProps, useEffect, useState } from "react";
 import { mergeProps } from "react-aria";
@@ -49,7 +50,7 @@ type MenuItem = {
   approverOnly?: boolean
   // true = เฉพาะผู้ดูแลระบบ (user.isAdmin) ไม่ดู role
   adminOnly?: boolean
-  group: "main" | "approval" | "manage" | "report"
+  group: "main" | "approval" | "manage" | "report" | "pay"
 }
 
 const mainItems: MenuItem[] = [
@@ -72,7 +73,10 @@ const approveItems: MenuItem[] = [
 
 const reportItems: MenuItem[] = [
   { title: "รายงานงบประมาณ", url: "/home-account/report", icon: TrendUp2, roles: ["ACCOUNTANT_ADMIN"], group: "report" },
+]
 
+const payItems: MenuItem[] = [
+  { title: "ทำจ่าย", url: "/home-finance/pay", icon: Bank1, roles: ["FINANCE"], group: "pay"}
 ]
 
 // ผู้ใช้นี้เห็น / เข้าเมนูนี้ได้ไหม (ใช้ทั้งใน sidebar และ route guard)
@@ -83,7 +87,7 @@ function canAccess(item: MenuItem, user: { role: string; isAdmin?: boolean }) {
 }
 
 // รวมทุกหมวดเป็นก้อนเดียว: route guard กับ breadcrumb ใช้ค้นหาเมนูจาก pathname
-const items: MenuItem[] = [...mainItems, ...approveItems, ...manageItems, ...reportItems]
+const items: MenuItem[] = [...mainItems, ...approveItems, ...manageItems, ...reportItems, ...payItems]
 
 function renderMenuItems(list: MenuItem[]) {
   return list.map((item) => (
@@ -156,6 +160,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const approvalItems = visibleItems.filter((item) => item.group === "approval")
   const manageUserItems = visibleItems.filter((item) => item.group === "manage")
   const report = visibleItems.filter((item) => item.group === "report")
+  const pay = visibleItems.filter((item) => item.group === "pay")
 
   // breadcrumb บน header: "แดชบอร์ด / ชื่อหน้าปัจจุบัน" (ชื่อหน้าดึงจาก items)
   const homePath = getHomePath(user.role)
@@ -200,6 +205,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
                 <SidebarGroupContent>
                   <SidebarMenu>{renderMenuItems(manageUserItems)}</SidebarMenu>
+                </SidebarGroupContent>
+              </SidebarGroup>
+            )}
+
+            {pay.length > 0 && (
+              <SidebarGroup>
+                <SidebarGroupLabel className="text-[16px] font-bold">
+                  การทำจ่าย
+                </SidebarGroupLabel>
+
+                <SidebarGroupContent>
+                  <SidebarMenu>{renderMenuItems(pay)}</SidebarMenu>
                 </SidebarGroupContent>
               </SidebarGroup>
             )}
