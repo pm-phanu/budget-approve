@@ -8,6 +8,7 @@ import {
   TableRoot,
   TableRow,
 } from "@/components/tailgrids/core/table";
+import { Pagination } from "@/components/tailgrids/core/pagination";
 import { getUsers, updateUser, withoutPassword, type Credential } from "@/data/credential";
 import { getCurrentUser } from "@/utils/login";
 import {
@@ -59,6 +60,8 @@ import {
 import { SearchField } from "@/components/search-field";
 import { ActionPopup } from "@/components/action-popup";
 
+const USERS_PER_PAGE = 10; // ตารางผู้ใช้: เกินนี้แบ่งหน้า
+
 export default function Account() {
   const [users, setUsers] = useState<Credential[]>([]);
   const [error, setError] = useState("");
@@ -67,6 +70,7 @@ export default function Account() {
   // คนที่ login อยู่: แก้ role / สิทธิ์ admin ของตัวเองไม่ได้ (กันตั้งสิทธิ์ให้ตัวเอง / ล็อกตัวเองออก)
   const [meId, setMeId] = useState("");
   const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1); // หน้าของตารางผู้ใช้ (ละ USERS_PER_PAGE คน)
   const [editing, setEditing] = useState<string | null>(null); // ผู้ใช้ที่เปิดแผงแก้สังกัดอยู่
   const [onlyUnassigned, setOnlyUnassigned] = useState(false);
   const [tab, setTab] = useState<"users" | "rules">("users");
@@ -294,6 +298,11 @@ export default function Account() {
         (u.username ?? "").toLowerCase().includes(q)),
   );
 
+  // แบ่งหน้า · กรองแล้วเหลือน้อยลง → ไม่ให้ค้างหน้าที่ไม่มีแล้ว
+  const totalPages = Math.max(1, Math.ceil(shownUsers.length / USERS_PER_PAGE));
+  const currentPage = Math.min(page, totalPages);
+  const pageUsers = shownUsers.slice((currentPage - 1) * USERS_PER_PAGE, currentPage * USERS_PER_PAGE);
+
   const tabs = [
     { key: "users" as const, label: "ผู้ใช้และสังกัด", badge: unassignedCount > 0 ? `ไม่ครบ ${unassignedCount}` : String(users.length), warn: unassignedCount > 0 },
     { key: "rules" as const, label: "วงเงินและสายการอนุมัติ", badge: rulesDirty ? "ยังไม่บันทึก" : `${ranges.length} ช่วง`, warn: false },
@@ -359,7 +368,10 @@ export default function Account() {
             <SearchField
               label="ค้นหาผู้ใช้"
               value={query}
-              onChange={setQuery}
+              onChange={(v) => {
+                setQuery(v);
+                setPage(1);
+              }}
               placeholder="ค้นหาชื่อ รหัส หรือ username"
               className="sm:w-72"
             />
@@ -375,7 +387,10 @@ export default function Account() {
               <button
                 type="button"
                 aria-pressed={onlyUnassigned}
-                onClick={() => setOnlyUnassigned((v) => !v)}
+                onClick={() => {
+                  setOnlyUnassigned((v) => !v);
+                  setPage(1);
+                }}
                 className="rounded-lg bg-white px-3 py-1.5 text-xs font-semibold hover:bg-[#FEF3C7]"
               >
                 {onlyUnassigned ? "แสดงทุกคน" : "แสดงเฉพาะคนที่ยังไม่ครบ"}
@@ -424,7 +439,7 @@ export default function Account() {
                   </TableCell>
                 </TableRow>
               ) : (
-                shownUsers.map((u) => {
+                pageUsers.map((u) => {
                   const ids = affiliationIds(u);
                   const isMe = u.id === meId;
                   const isEditing = editing === u.id;
@@ -671,6 +686,15 @@ export default function Account() {
               )}
             </TableBody>
           </TableRoot>
+          {totalPages > 1 && (
+            <div className="mt-4 flex items-center gap-4">
+              <p className="shrink-0 text-sm text-[#64748B]">
+                แสดง {(currentPage - 1) * USERS_PER_PAGE + 1}–{(currentPage - 1) * USERS_PER_PAGE + pageUsers.length} จาก{" "}
+                {shownUsers.length} คน
+              </p>
+              <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setPage} sideLayout="icon" />
+            </div>
+          )}
         </section>
 
           </div>
