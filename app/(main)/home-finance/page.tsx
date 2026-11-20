@@ -1,216 +1,139 @@
 "use client";
 
 // ════════════════════════════════════════════════════════════
-//  หน้า "รายการรอทำจ่าย" ของฝ่ายการเงิน (/home-finance)
-//  แสดงคำขอที่บัญชีตรวจผ่านแล้ว รอการเงินโอนเงิน
+//  แดชบอร์ดการเงิน (/home-finance)
+//  ภาพรวม: ยอดรอทำจ่าย + จ่ายแล้ววันนี้/เดือนนี้ → คิวที่ต้องทำก่อน (5 รายการ) → คำขอของฉัน
+//  รายการเต็มอยู่ที่ "คำขอทำจ่าย" (/pay-request) · ที่ทำไปแล้วอยู่ "ประวัติการทำจ่าย" (/pay-history)
 // ════════════════════════════════════════════════════════════
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { loadRequests, type SavedRequest } from "@/data/request";
-import { canApproveStep } from "@/data/approval";
+import { REQUESTS_KEY, loadRequests, type SavedRequest } from "@/data/request";
 import { getCurrentUser } from "@/utils/login";
-import { bkkDay, bkkDaysAgo, bkkMonth } from "@/utils/date";
+import { bkkDay, bkkMonth } from "@/utils/date";
+import type { Credential } from "@/data/credential";
 import MyRequestsCard from "@/components/my-requests-card";
+import { HeroCard } from "@/components/budget-card";
+import { DUE_DAYS, PayQueueTable, baht, getPayQueue, paidAt, waitingDays } from "@/components/pay-queue";
+import { ArrowRight, Bank1, CheckCircle1, ClockThree } from "@tailgrids/icons";
 
-// โอนเกินกี่วันถือว่า "เลยกำหนด"
-const DUE_DAYS = 3;
+const QUEUE_LIMIT = 5;
 
-// ---------- ฟังก์ชันช่วย ----------
-const baht = (n: number) => "฿" + n.toLocaleString("en-US");
-
-// นับว่าผ่านมากี่วันแล้ว (นับเป็นวัน ไม่สนชั่วโมง)
-function daysAgo(iso: string | null) {
-  return iso ? bkkDaysAgo(iso) : 0;
-}
-
-// วันที่บัญชีตรวจผ่าน = เวลาของขั้นก่อนหน้าขั้นการเงิน
-function checkedAt(r: SavedRequest) {
-  return r.approvalSteps[r.currentStep - 1]?.at ?? null;
-}
-
-// วันที่การเงินจ่าย = เวลาของขั้นการเงิน
-function paidAt(r: SavedRequest) {
-  return r.approvalSteps.find((s) => s.role === "FINANCE")?.at ?? "";
-}
-
-// ชื่อผู้รับเงิน: สำรองจ่าย = ผู้ขอ (โอนคืน) · ใบแจ้งหนี้ = ผู้ขายตามใบแจ้งหนี้
-function payee(r: SavedRequest) {
-  return r.type === "advance" ? (r.requester?.fullName ?? "-") : "ผู้ขายตามใบแจ้งหนี้";
-}
-
-// ป้าย "x วันก่อน": 0–1 วัน เทา · 2–3 วัน เหลือง · เกิน 3 วัน แดง
-function DaysBadge({ days }: { days: number }) {
-  if (days > DUE_DAYS) {
-    return (
-      <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-700">
-        ⚠ {days} วันก่อน เลยกำหนด
-      </span>
-    );
-  }
-  const color = days >= 2 ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-600";
-  return (
-    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${color}`}>
-      {days === 0 ? "วันนี้" : `${days} วันก่อน`}
-    </span>
-  );
-}
-
-// ---------- หน้าหลัก ----------
 export default function FinancePage() {
-  const [pending, setPending] = useState<SavedRequest[]>([]); // รอทำจ่าย
-  const [paid, setPaid] = useState<SavedRequest[]>([]); // จ่ายแล้ว
-  const [tab, setTab] = useState<"all" | "advance" | "invoice">("all");
-  const [search, setSearch] = useState("");
-  const [mine, setMine] = useState<SavedRequest[]>([]); // คำขอที่การเงินเป็นผู้ขอเอง
+  const [me, setMe] = useState<Credential | null>(null);
+  const [all, setAll] = useState<SavedRequest[]>([]);
 
-  // โหลดข้อมูลตอนเปิดหน้า
   useEffect(() => {
-    const me = getCurrentUser();
-    const all = loadRequests();
-
-    // รอทำจ่าย = ขั้นปัจจุบันเป็นการเงิน และคนที่ login มีสิทธิ์กด
-    const waiting = all
-      .filter((r) => r.approvalSteps[r.currentStep]?.role === "FINANCE" && canApproveStep(r, me))
-      .sort((a, b) => (checkedAt(a) ?? "").localeCompare(checkedAt(b) ?? "")); // เก่าสุดขึ้นก่อน
-
     /* eslint-disable react-hooks/set-state-in-effect -- อ่าน localStorage ได้หลังเปิดหน้าเท่านั้น */
-    setPending(waiting);
-    setPaid(all.filter((r) => r.status === "จ่ายแล้ว"));
-    setMine(me ? all.filter((r) => r.requester && String(r.requester.id) === String(me.id)) : []);
+    setMe(getCurrentUser());
+    setAll(loadRequests());
     /* eslint-enable react-hooks/set-state-in-effect */
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === REQUESTS_KEY) setAll(loadRequests());
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
   }, []);
 
-  // ---------- ตัวเลขบนการ์ด ----------
-  const pendingTotal = pending.reduce((sum, r) => sum + r.total, 0);
-  const overdueCount = pending.filter((r) => daysAgo(checkedAt(r)) > DUE_DAYS).length;
+  const pending = getPayQueue(all, me);
+  const pendingTotal = pending.reduce((s, r) => s + r.total, 0);
+  const overdue = pending.filter((r) => waitingDays(r) > DUE_DAYS).length;
 
   // วัน/เดือนตามเวลาไทย (utils/date.ts) ไม่ขึ้นกับ Time Zone ของเครื่อง
+  const paid = all.filter((r) => r.status === "จ่ายแล้ว");
   const today = bkkDay();
   const thisMonth = bkkMonth();
   const paidToday = paid.filter((r) => bkkDay(paidAt(r)) === today);
   const paidMonth = paid.filter((r) => bkkMonth(paidAt(r)) === thisMonth);
   const sum = (list: SavedRequest[]) => list.reduce((s, r) => s + r.total, 0);
 
-  // ---------- กรองตามแท็บ + ช่องค้นหา ----------
-  const keyword = search.trim().toLowerCase();
-  const rows = pending.filter((r) => {
-    if (tab !== "all" && r.type !== tab) return false;
-    if (!keyword) return true;
-    return (r.id + r.title + payee(r)).toLowerCase().includes(keyword);
+  const mine = me ? all.filter((r) => r.requester && String(r.requester.id) === String(me.id)) : [];
+
+  const todayLabel = new Date().toLocaleDateString("th-TH", {
+    timeZone: "Asia/Bangkok",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
   });
 
-  const tabs = [
-    { key: "all", label: "ทั้งหมด", count: pending.length },
-    { key: "advance", label: "สำรองจ่าย", count: pending.filter((r) => r.type === "advance").length },
-    { key: "invoice", label: "ใบแจ้งหนี้", count: pending.filter((r) => r.type === "invoice").length },
-  ] as const;
-
   return (
-    <div className="font-sans text-slate-800">
-      {/* หัวข้อ */}
-      <h1 className="text-[28px] font-bold">รายการรอทำจ่าย</h1>
-      <p className="mt-1 text-sm text-slate-500">
-        บัญชีตรวจแล้ว ให้โอนเงินภายใน {DUE_DAYS} วันทำการ แล้วบันทึกการจ่ายที่นี่
-      </p>
+    <div className="text-[#0F172A]">
+      <header className="mb-9">
+        <h1 className="text-[32px] font-bold">สวัสดี {me ? me.fullName : "-"}</h1>
+        <p className="mt-3 text-sm text-[#64748B]">
+          {todayLabel} · คำขอรอคุณทำจ่าย{" "}
+          <span className="font-semibold text-[#047857]">{pending.length} รายการ</span>
+        </p>
+      </header>
 
-      {/* การ์ดสรุป 3 ใบ */}
-      <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-[2fr_1fr_1fr]">
-        <div className="rounded-2xl bg-gradient-to-br from-[#0F172A] via-[#0F172A] to-[#047857] p-7 text-white">
-          <p className="text-sm text-emerald-200">ยอดรอทำจ่าย</p>
-          <p className="mt-1 text-4xl font-bold tabular-nums">{baht(pendingTotal)}</p>
-          <p className="mt-2 text-sm text-slate-300">
-            {pending.length} รายการ
-            {overdueCount > 0 && <span className="ml-3 text-rose-300">เลยกำหนด {overdueCount} รายการ</span>}
-          </p>
+      <div className="flex flex-col gap-9">
+        {/* การ์ดสรุป: การ์ดหลักแบบเดียวกับการ์ดงบของหัวหน้า + ตัวเลข 2 ใบ */}
+        <div className="grid grid-cols-4 gap-5">
+          <HeroCard
+            className="col-span-2 justify-between"
+            label="ยอดรอทำจ่าย"
+            icon={<Bank1 className="h-5 w-5 text-emerald-300" aria-hidden="true" />}
+          >
+            <p className="money text-3xl font-bold tracking-tight">{baht(pendingTotal)}</p>
+            <p className="mt-1 text-xs text-emerald-300/80">
+              {pending.length} รายการ · โอนภายใน {DUE_DAYS} วันทำการหลังบัญชีตรวจ
+            </p>
+            <p className="mt-auto pt-3 text-xs">
+              {overdue > 0 ? (
+                <span className="rounded-full bg-rose-500/90 px-2.5 py-1 font-semibold text-white">
+                  เลยกำหนด {overdue} รายการ
+                </span>
+              ) : (
+                <span className="text-emerald-200">ไม่มีรายการเลยกำหนด</span>
+              )}
+            </p>
+          </HeroCard>
+
+          <Stat icon={<ClockThree />} tone="bg-amber-50 text-amber-600" label="จ่ายแล้ววันนี้" value={baht(sum(paidToday))} sub={`${paidToday.length} รายการ`} />
+          <Stat icon={<CheckCircle1 />} tone="bg-emerald-100 text-emerald-700" label="จ่ายแล้วเดือนนี้" value={baht(sum(paidMonth))} sub={`${paidMonth.length} รายการ`} />
         </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-6">
-          <p className="text-sm text-slate-500">จ่ายแล้ววันนี้</p>
-          <p className="mt-2 text-[28px] font-bold tabular-nums">{baht(sum(paidToday))}</p>
-          <p className="mt-1 text-sm text-slate-500">{paidToday.length} รายการ</p>
-        </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-6">
-          <p className="text-sm text-slate-500">จ่ายแล้วเดือนนี้</p>
-          <p className="mt-2 text-[28px] font-bold tabular-nums">{baht(sum(paidMonth))}</p>
-          <p className="mt-1 text-sm text-slate-500">{paidMonth.length} รายการ</p>
-        </div>
+
+        {/* คิวที่ต้องทำก่อน */}
+        <section aria-labelledby="queue-title" className="overflow-hidden rounded-xl border border-[#E2E8F0] bg-white shadow-2xl">
+          <div className="flex items-center justify-between px-6 py-4">
+            <h2 id="queue-title" className="text-lg font-bold">
+              รอคุณทำจ่าย{" "}
+              {pending.length > 0 && (
+                <span className="ml-1 rounded-full bg-[#FEF3C7] px-2 py-0.5 text-xs font-semibold text-[#92400E]">{pending.length}</span>
+              )}
+            </h2>
+            {pending.length > 0 && (
+              <Link href="/pay-request" className="flex items-center gap-1 text-sm font-semibold text-[#047857] hover:underline">
+                ดูทั้งหมด <ArrowRight size={16} aria-hidden="true" />
+              </Link>
+            )}
+          </div>
+          <PayQueueTable rows={pending.slice(0, QUEUE_LIMIT)} empty="ไม่มีคำขอรอทำจ่าย" />
+          {pending.length > QUEUE_LIMIT && (
+            <p className="border-t border-[#E2E8F0] px-6 py-3 text-sm text-[#64748B]">
+              แสดง {QUEUE_LIMIT} รายการที่รอนานที่สุด จากทั้งหมด {pending.length} รายการ
+            </p>
+          )}
+        </section>
+
+        <MyRequestsCard mine={mine} />
       </div>
+    </div>
+  );
+}
 
-      {/* ตาราง */}
-      <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white">
-        {/* แท็บ + ค้นหา */}
-        <div className="flex flex-wrap items-center gap-2 px-6 py-4">
-          {tabs.map((t) => (
-            <button
-              key={t.key}
-              type="button"
-              onClick={() => setTab(t.key)}
-              className={`cursor-pointer rounded-full px-4 py-1.5 text-sm font-semibold ${
-                tab === t.key ? "bg-[#0F172A] text-white" : "bg-slate-100 text-slate-600"
-              }`}
-            >
-              {t.label} {t.count}
-            </button>
-          ))}
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="ค้นหาเลขที่เอกสาร / ผู้รับเงิน"
-            className="ml-auto h-10 w-64 rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-emerald-600"
-          />
-        </div>
-
-        {/* หัวตาราง */}
-        <div className="grid grid-cols-[2fr_2fr_1.5fr_1fr_1fr] border-t border-slate-200 bg-slate-50 px-6 py-3 text-xs font-semibold text-slate-500">
-          <span>คำขอ</span>
-          <span>ผู้รับเงิน / บัญชี</span>
-          <span>บัญชีตรวจเมื่อ</span>
-          <span>ยอดโอน</span>
-          <span />
-        </div>
-
-        {/* แถวข้อมูล */}
-        {rows.length === 0 && (
-          <p className="border-t border-slate-100 py-12 text-center text-sm text-slate-400">ไม่มีรายการรอทำจ่าย</p>
-        )}
-        {rows.map((r) => {
-          const days = daysAgo(checkedAt(r));
-          return (
-            <div
-              key={r.id}
-              className={`grid grid-cols-[2fr_2fr_1.5fr_1fr_1fr] items-center border-t border-slate-100 px-6 py-3 ${
-                days > DUE_DAYS ? "bg-rose-50" : ""
-              }`}
-            >
-              <div>
-                <p className="font-semibold">{r.title}</p>
-                <p className="text-xs text-slate-500">
-                  {r.id}{" "}
-                  <b className={r.type === "advance" ? "text-emerald-700" : "text-blue-700"}>{r.typeLabel}</b>
-                </p>
-              </div>
-              <div>
-                <p className="text-sm">{payee(r)}</p>
-                <p className="text-xs text-slate-500">{r.bankAccount ?? "ดูในใบแจ้งหนี้"}</p>
-              </div>
-              <div>
-                <DaysBadge days={days} />
-              </div>
-              <p className="font-bold tabular-nums">{baht(r.total)}</p>
-              <div className="text-right">
-                <Link
-                  href={`/home-finance/pay?id=${r.id}`}
-                  className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800"
-                >
-                  ดูและจ่าย
-                </Link>
-              </div>
-            </div>
-          );
-        })}
+function Stat({ icon, tone, label, value, sub }: { icon: React.ReactNode; tone: string; label: string; value: string; sub: string }) {
+  return (
+    <div className="flex flex-col justify-between rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl">
+      <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${tone}`} aria-hidden="true">
+        {icon}
       </div>
-
-      <MyRequestsCard mine={mine} className="mt-6" />
+      <div className="mt-4">
+        <div className="text-sm text-[#64748B]">{label}</div>
+        <div className="money mt-1 text-3xl font-bold text-[#0F172A]">{value}</div>
+        <div className="text-sm text-[#64748B]">{sub}</div>
+      </div>
     </div>
   );
 }

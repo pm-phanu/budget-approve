@@ -1,5 +1,6 @@
 "use client";
 
+import { BudgetCard } from "@/components/budget-card";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
@@ -20,7 +21,6 @@ import {
   Check,
   CheckCircle1,
   ClockThree,
-  Wallet2,
 } from "@tailgrids/icons";
 import { bkkYear } from "@/utils/date";
 
@@ -191,12 +191,6 @@ export default function DH() {
     )
     .reduce((sum, m) => sum + Number(m.r.total || 0), 0);
 
-  // งบประมาณคงเหลือ + เปอร์เซ็นต์ที่ใช้ไป
-  const remaining = Math.max(0, budget.limit - budget.used);
-  const usedPct =
-    budget.limit > 0 ? Math.round((budget.used / budget.limit) * 100) : 0;
-  const barWidth = Math.min(100, Math.max(0, usedPct)); // หลอดไม่เกิน 100%
-  const overBudget = budget.limit > 0 && budget.used > budget.limit;
 
   // คำขอที่คนที่ login เป็นผู้ขอเอง → การ์ด "คำขอของฉัน"
   const myRequests = me
@@ -224,50 +218,18 @@ export default function DH() {
         <div className="flex flex-col gap-9">
         {/* card1 */}
         <div className="grid grid-cols-4 gap-5">
-          {/* งบแผนกคงเหลือ (ข้อมูลงบรายปีจริง + หลอด progress) ไล่สี + วงกลมตกแต่ง */}
-          <div className="relative col-span-2 flex flex-col justify-between overflow-hidden rounded-xl bg-gradient-to-br from-[#0b1f2a] via-[#0e4b3e] to-[#0a8f5f] p-6 text-white shadow-2xl">
-            {/* ลวดลายวงกลมตกแต่ง */}
-            <div className="pointer-events-none absolute -right-12 -top-16 h-56 w-56 rounded-full border border-white/10" />
-            <div className="pointer-events-none absolute -right-4 -top-8 h-40 w-40 rounded-full border border-white/10" />
-
-            <div className="relative z-10">
-              <div className="mb-1 flex items-center justify-between">
-                <span className="flex items-center gap-2 text-sm">
-                  <Wallet2 className="h-5 w-5 text-emerald-300" />
-                  งบแผนกคงเหลือ
-                </span>
-                <span className="rounded-full bg-white/10 px-3 py-0.5 text-xs">
-                  {currentYear !== null ? `ปี ${currentYear + 543}` : ""}
-                </span>
-              </div>
-              <div className="text-3xl font-bold tracking-tight">
-                {baht(remaining)}
-              </div>
-              <div className="mt-1 text-xs text-emerald-300/80">
-                จากงบทั้งปี {baht(budget.limit)}
-              </div>
-              {budget.sharedCount > 0 && (
-                <div className="mt-1 text-xs text-emerald-200">
-                  + งบร่วมจากแผนกอื่น {baht(budget.shared)} ({budget.sharedCount} โครงการ)
-                </div>
-              )}
-
-              <div className="mt-3">
-                <div className="mb-1.5 flex justify-between text-xs text-emerald-200">
-                  <span>{overBudget ? "ใช้งบเกินวงเงิน" : ""}</span>
-                  <span>ใช้ไปแล้ว {usedPct}%</span>
-                </div>
-                <div className="h-2 w-full overflow-hidden rounded-full bg-white/15">
-                  <div
-                    className={`h-full rounded-full transition-all duration-500 ${
-                      overBudget ? "bg-rose-400" : "bg-[#34e0a1]"
-                    }`}
-                    style={{ width: `${barWidth}%` }}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
+          {/* งบแผนกคงเหลือ (components/budget-card.tsx · ต้นแบบของทุกหน้า) */}
+          <BudgetCard
+            className="col-span-2"
+            limit={budget.limit}
+            used={budget.used}
+            year={currentYear}
+            note={
+              budget.sharedCount > 0
+                ? `+ งบร่วมจากแผนกอื่น ${baht(budget.shared)} (${budget.sharedCount} โครงการ)`
+                : undefined
+            }
+          />
 
           {/* card2 */}
           <div className="bg-white relative flex justify-between p-6 flex-col rounded-xl border border-[#E2E8F0] shadow-2xl">

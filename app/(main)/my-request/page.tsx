@@ -5,7 +5,7 @@ import Link from "next/link";
 import { REQUESTS_KEY, loadRequests, type SavedRequest } from "@/data/request";
 import type { Credential } from "@/data/credential";
 import { getCurrentUser } from "@/utils/login";
-import { ArrowRight, InfoCircle, Plus, Search1 } from "@tailgrids/icons";
+import { ArrowRight, Check, Close, InfoCircle, Search1 } from "@tailgrids/icons";
 
 /* ------------------------------------------------------------------
    ตั้งค่า
@@ -146,8 +146,8 @@ function Stepper({ r }: { r: ExpenseRequest }) {
                         : "border border-[#CBD5E1] bg-white"
                 }`}
               >
-                {node.state === "done" && "✓"}
-                {node.state === "rejected" && "✕"}
+                {node.state === "done" && <Check className="h-3 w-3" aria-hidden="true" />}
+                {node.state === "rejected" && <Close className="h-3 w-3" aria-hidden="true" />}
               </span>
             </div>
             <span
@@ -212,7 +212,11 @@ export default function MyRequest() {
     rejected: count("rejected"),
   };
 
-  // กรองตามแท็บ + ค้นหา
+  // ยอดเงินรวมต่อกลุ่ม (ใต้ตัวเลขบนการ์ด)
+  const sumOf = (g: Filter) =>
+    mine.filter((r) => g === "all" || groupOf(r) === g).reduce((s, r) => s + Number(r.total || 0), 0);
+
+  // กรองตามแท็บ + ค้นหา · แท็บ "ทั้งหมด": ถูกตีกลับขึ้นก่อน (ต้องแก้) แล้วค่อยใหม่ → เก่า
   const q = query.trim().toLowerCase();
   const shown = mine
     .filter((r) => filter === "all" || groupOf(r) === filter)
@@ -221,7 +225,9 @@ export default function MyRequest() {
         !q ||
         r.title.toLowerCase().includes(q) ||
         r.id.toLowerCase().includes(q),
-    );
+    )
+    // sort คงลำดับเดิมเมื่อเท่ากัน → ภายในกลุ่มยังใหม่ → เก่า
+    .sort((a, b) => Number(groupOf(b) === "rejected") - Number(groupOf(a) === "rejected"));
 
   const tabs: { key: Filter; label: string }[] = [
     { key: "all", label: "ทั้งหมด" },
@@ -233,15 +239,33 @@ export default function MyRequest() {
 
   return (
     <div className="text-[#0F172A]">
-      <header className="mb-9 flex flex-wrap items-center justify-between gap-4">
+      {/* ปุ่ม "สร้างคำขอ" อยู่บน header ของ layout ทุกหน้าแล้ว → หน้านี้ไม่ใส่ซ้ำ */}
+      <header className="mb-9">
         <h1 className="text-[32px] font-bold">คำขอของฉัน</h1>
-        <Link
-          href={NEW_REQUEST_PATH}
-          className="flex items-center gap-1.5 rounded-xl bg-[#059669] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#047857]"
-        >
-          <Plus size={16} aria-hidden="true" /> สร้างคำขอ
-        </Link>
+        <p className="mt-1 text-sm text-[#64748B]">ทุกคำขอที่คุณสร้าง ติดตามได้ว่าตอนนี้อยู่ขั้นไหน</p>
       </header>
+
+      {/* ถูกตีกลับ = ต้องทำอะไรต่อ → เตือนบนสุด กดแล้วกรองเฉพาะกลุ่มนี้ */}
+      {counts.rejected > 0 && filter !== "rejected" && (
+        <div
+          role="status"
+          className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#FECDD3] bg-[#FFF1F2] px-4 py-3 text-sm text-[#9F1239]"
+        >
+          <p className="flex items-center gap-2">
+            <InfoCircle size={18} className="shrink-0" aria-hidden="true" />
+            <span>
+              มี <strong>{counts.rejected} คำขอ</strong>ถูกตีกลับ แก้ไขแล้วส่งใหม่เพื่อให้อนุมัติต่อ
+            </span>
+          </p>
+          <button
+            type="button"
+            onClick={() => setFilter("rejected")}
+            className="rounded-lg bg-white px-3 py-1.5 text-xs font-bold text-[#BE123C] hover:bg-[#FFE4E6]"
+          >
+            ดูคำขอที่ถูกตีกลับ
+          </button>
+        </div>
+      )}
 
       {/* การ์ดสรุป = ตัวกรอง (กดแล้วกรองรายการด้านล่าง · การ์ดที่เลือกมีขอบเขียว) */}
       <div className="grid grid-cols-2 gap-5 lg:grid-cols-5" role="group" aria-label="กรองตามสถานะ">
@@ -267,6 +291,7 @@ export default function MyRequest() {
             >
               <span className="block text-sm text-[#64748B]">{t.label}</span>
               <span className={`money mt-1 block text-3xl font-bold ${tone}`}>{counts[t.key]}</span>
+              <span className="money mt-0.5 block text-xs text-[#64748B]">{baht(sumOf(t.key))}</span>
             </button>
           );
         })}

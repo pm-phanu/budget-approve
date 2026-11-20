@@ -1,5 +1,6 @@
 "use client";
 
+import { BudgetCard } from "@/components/budget-card";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
@@ -207,12 +208,6 @@ export default function DirectorHome() {
     )
     .reduce((sum, m) => sum + Number(m.r.total || 0), 0);
 
-  // งบประมาณคงเหลือ + เปอร์เซ็นต์ที่ใช้ไป
-  const remaining = Math.max(0, budget.limit - budget.used);
-  const usedPct =
-    budget.limit > 0 ? Math.round((budget.used / budget.limit) * 100) : 0;
-  const barWidth = Math.min(100, Math.max(0, usedPct)); // หลอดไม่เกิน 100%
-  const overBudget = budget.limit > 0 && budget.used > budget.limit;
 
   // คำขอที่ผอ.เป็นผู้ขอเอง → การ์ด "คำขอของฉัน"
   const myRequests = me
@@ -240,41 +235,8 @@ export default function DirectorHome() {
         <div className="flex flex-col gap-9">
           {/* card1 */}
           <div className="grid grid-cols-4 gap-5">
-            {/* งบประมาณคงเหลือ (ข้อมูลงบรายปีจริง + หลอด progress) */}
-            <div className="bg-[#0e4b3e] text-white relative flex justify-between p-6 overflow-hidden flex-col col-span-2 rounded-xl shadow-2xl">
-              <div>
-                <div className="items-center flex justify-between mb-1">
-                  <div>
-                    <span>งบประมาณคงเหลือ</span>
-                  </div>
-                  <span>
-                    {currentYear !== null ? `ปี ${currentYear + 543}` : ""}
-                  </span>
-                </div>
-                <div>
-                  <div className="text-3xl font-bold tracking-tight">
-                    {baht(remaining)}
-                  </div>
-                  <div className="text-xs text-emerald-300/80 mt-1">
-                    จากงบทั้งปี {baht(budget.limit)}
-                  </div>
-                </div>
-                <div className="relative z-10">
-                  <div className="flex justify-between text-xs text-emerald-200 mb-1.5">
-                    <span>{overBudget ? "ใช้งบเกินวงเงิน" : ""}</span>
-                    <span>ใช้ไปแล้ว {usedPct}%</span>
-                  </div>
-                  <div className="w-full bg-emerald-950/60 h-2 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all duration-500 ${
-                        overBudget ? "bg-rose-400" : "bg-[#00e699]"
-                      }`}
-                      style={{ width: `${barWidth}%` }}
-                    ></div>
-                  </div>
-                </div>
-              </div>
-            </div>
+            {/* งบประมาณคงเหลือ */}
+            <BudgetCard className="col-span-2" label="งบประมาณคงเหลือ" limit={budget.limit} used={budget.used} year={currentYear} />
 
             {/* card2: กำลังดำเนินการ */}
             <div className="bg-white relative flex justify-between p-6 flex-col rounded-xl border border-[#E2E8F0] shadow-2xl">
