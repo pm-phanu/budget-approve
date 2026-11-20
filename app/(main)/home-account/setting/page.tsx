@@ -46,11 +46,9 @@ import {
 import {
   DEFAULT_POSITIONS,
   DEFAULT_RULES,
-  createPositionFromRole,
   getRoleLabel,
   getRuleRanges,
   loadPositions,
-  savePositions,
   type ApproverPosition,
   loadApprovalRules,
   resetApprovalRules,
@@ -68,6 +66,9 @@ export default function Account() {
   // คนที่ login อยู่: แก้ role / สิทธิ์ admin ของตัวเองไม่ได้ (กันตั้งสิทธิ์ให้ตัวเอง / ล็อกตัวเองออก)
   const [meId, setMeId] = useState("");
   const [query, setQuery] = useState("");
+  const [editing, setEditing] = useState<string | null>(null); // ผู้ใช้ที่เปิดแผงแก้สังกัดอยู่
+  const [onlyUnassigned, setOnlyUnassigned] = useState(false);
+  const [tab, setTab] = useState<"users" | "rules">("users");
 
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect -- localStorage อ่านได้หลังเปิดหน้าเท่านั้น */
@@ -154,7 +155,6 @@ export default function Account() {
   const [ruleErrors, setRuleErrors] = useState<string[]>([]);
   const [ruleMessage, setRuleMessage] = useState("");
   const [positions, setPositions] = useState<ApproverPosition[]>(DEFAULT_POSITIONS);
-  const [positionMessage, setPositionMessage] = useState("");
   // กฎที่แก้แล้วยังไม่กดบันทึก · ยืนยันก่อนคืนค่าเริ่มต้น
   const [rulesDirty, setRulesDirty] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
@@ -185,39 +185,6 @@ export default function Account() {
   const changeRole = (userId: string, role: string) => {
     updateUser(userId, { role });
     setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role } : u)));
-  };
-
-  // ---------- ตำแหน่งผู้อนุมัติ ----------
-  // role ของผู้ใช้ใน localStorage (ไม่ซ้ำ) → ใช้เป็นตัวเลือกใน dropdown "เพิ่มตำแหน่งผู้อนุมัติ"
-  const userRoles = [...new Set(users.map((u) => u.role))];
-  // เหตุผลที่เลือกไม่ได้ (ว่าง = เลือกได้)
-  const roleBlockedReason = (role: string) => {
-    if (positions.some((p) => p.id === role)) return "เป็นตำแหน่งผู้อนุมัติอยู่แล้ว";
-    if (role === "ACCOUNTANT_ADMIN" || role === "FINANCE") return "อยู่ท้ายเส้นทางเสมอ";
-    if (role === "EMPLOYEE") return "พนักงานทั่วไป";
-    return "";
-  };
-
-  // เพิ่ม role ที่เลือกเป็นตำแหน่งผู้อนุมัติ → บันทึกทันที
-  const addPosition = (role: string) => {
-    if (!role || roleBlockedReason(role)) return;
-    const label = roleLabel(role);
-    const next = [...positions, createPositionFromRole(role, label)];
-    savePositions(next);
-    setPositions(next);
-    setPositionMessage(`เพิ่ม "${label}" เป็นตำแหน่งผู้อนุมัติแล้ว · เลือกใส่ในช่วงวงเงินได้`);
-  };
-
-  // ลบได้เฉพาะตำแหน่งที่เพิ่มเอง และต้องไม่ถูกใช้อยู่ (ในกฎ หรือมีผู้ใช้ถือตำแหน่งนี้)
-  const removePosition = (id: string) => {
-    const usedInRules = rules.some((r) => r.approvers.includes(id));
-    const holders = users.filter((u) => u.role === id).length;
-    if (usedInRules) return setPositionMessage("ลบไม่ได้: ตำแหน่งนี้ยังอยู่ในช่วงวงเงิน เอาออกจากช่วงก่อน");
-    if (holders > 0) return setPositionMessage(`ลบไม่ได้: มีผู้ใช้ ${holders} คนถือตำแหน่งนี้ เปลี่ยนบทบาทก่อน`);
-    const next = positions.filter((p) => p.id !== id);
-    savePositions(next);
-    setPositions(next);
-    setPositionMessage("ลบตำแหน่งแล้ว");
   };
 
   // ยอดต่ำสุดของแต่ละช่วง = เพดานช่วงก่อนหน้า + 1 (คำนวณให้ ไม่ต้องกรอก)
@@ -298,19 +265,25 @@ export default function Account() {
     setRuleMessage("คืนค่าเริ่มต้นตาม requirement แล้ว");
   };
 
-  // ค้นหาผู้ใช้: ชื่อ / รหัสพนักงาน / username
-  const q = query.trim().toLowerCase();
-  const shownUsers = users.filter(
-    (u) =>
-      !q ||
-      u.fullName.toLowerCase().includes(q) ||
-      u.id.toLowerCase().includes(q) ||
-      (u.username ?? "").toLowerCase().includes(q),
-  );
   // ยังไม่กำหนดสังกัด (กรรมการผู้จัดการไม่ต้องสังกัด) → เตือนให้ตั้งก่อนใช้งาน
   const needsAffiliation = (u: Credential) =>
     !u.departmentId && !u.divisionId && u.role !== "MANAGING_DIRECTOR";
   const unassignedCount = users.filter(needsAffiliation).length;
+  // ค้นหาผู้ใช้: ชื่อ / รหัสพนักงาน / username
+  const q = query.trim().toLowerCase();
+  const shownUsers = users.filter(
+    (u) =>
+      (!onlyUnassigned || unassignedCount === 0 || needsAffiliation(u)) &&
+      (!q ||
+        u.fullName.toLowerCase().includes(q) ||
+        u.id.toLowerCase().includes(q) ||
+        (u.username ?? "").toLowerCase().includes(q)),
+  );
+
+  const tabs = [
+    { key: "users" as const, label: "ผู้ใช้และสังกัด", badge: unassignedCount > 0 ? `ยังไม่กำหนด ${unassignedCount}` : String(users.length), warn: unassignedCount > 0 },
+    { key: "rules" as const, label: "วงเงินและสายการอนุมัติ", badge: rulesDirty ? "ยังไม่บันทึก" : `${ranges.length} ช่วง`, warn: false },
+  ];
 
   return (
     <div className="text-[#0F172A]">
@@ -323,7 +296,40 @@ export default function Account() {
 
       {/* แต่ละส่วนห่างกัน 36px เหมือนหน้า employee */}
       <div className="flex flex-col gap-9">
+        {/* แท็บ: แบ่งหน้ายาวเป็นส่วน ๆ (ใช้บน PC เท่านั้น) */}
+        <div role="tablist" aria-label="ส่วนของหน้า" className="-mb-3 flex gap-1 border-b border-[#E2E8F0]">
+          {tabs.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              role="tab"
+              id={`tab-${t.key}`}
+              aria-selected={tab === t.key}
+              aria-controls={`panel-${t.key}`}
+              onClick={() => setTab(t.key)}
+              className={`-mb-px flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm ${
+                tab === t.key
+                  ? "border-[#059669] font-bold text-[#047857]"
+                  : "border-transparent font-semibold text-[#64748B] hover:text-[#0F172A]"
+              }`}
+            >
+              {t.label}
+              {t.badge && (
+                <span
+                  className={`rounded-full px-2 py-0.5 text-xs ${
+                    t.warn ? "bg-[#FFF1F2] text-[#BE123C]" : "bg-[#F1F5F9] text-[#475569]"
+                  }`}
+                >
+                  {t.badge}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+        {tab === "users" && (
+          <div role="tabpanel" id="panel-users" aria-labelledby="tab-users">
         {/* ===== ผู้ใช้ ===== */}
+        {/* แถวละ 1 คน: อ่านสังกัด / หัวหน้า เป็นข้อความ · กด "แก้ไขสังกัด" ถึงเปิดช่องเลือกใต้แถว */}
         <section
           aria-labelledby="users-title"
           className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl"
@@ -333,7 +339,7 @@ export default function Account() {
               <UserMultiple4 aria-hidden="true" />
               ผู้ใช้ทั้งหมด{" "}
               <span className="text-sm font-normal text-[#64748B]">
-                {q ? `${shownUsers.length} จาก ${users.length}` : users.length} คน
+                {shownUsers.length === users.length ? users.length : `${shownUsers.length} จาก ${users.length}`} คน
               </span>
             </h2>
             <label className="flex w-full items-center gap-2 rounded-xl border border-[#E2E8F0] px-3 py-2 focus-within:border-[#059669] sm:w-72">
@@ -349,133 +355,127 @@ export default function Account() {
             </label>
           </div>
 
+          {/* ยังไม่กำหนดสังกัด → กดเพื่อกรองเฉพาะคนกลุ่มนี้ */}
           {unassignedCount > 0 && (
-            <p className="mb-4 flex items-start gap-2 rounded-xl bg-[#FFFBEB] px-3.5 py-2.5 text-sm text-[#B45309]">
-              <InfoCircle size={18} className="mt-0.5 shrink-0" aria-hidden="true" />
-              มีผู้ใช้ {unassignedCount} คนยังไม่กำหนดสังกัด · คำขอของคนกลุ่มนี้จะหาผู้อนุมัติไม่เจอจนกว่าจะตั้งสายงาน / ฝ่าย / แผนก
-            </p>
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-[#FFFBEB] px-3.5 py-2.5 text-sm text-[#B45309]">
+              <p className="flex items-start gap-2">
+                <InfoCircle size={18} className="mt-0.5 shrink-0" aria-hidden="true" />
+                มีผู้ใช้ {unassignedCount} คนยังไม่กำหนดสังกัด คำขอของคนกลุ่มนี้จะหาผู้อนุมัติไม่เจอ
+              </p>
+              <button
+                type="button"
+                aria-pressed={onlyUnassigned}
+                onClick={() => setOnlyUnassigned((v) => !v)}
+                className="rounded-lg bg-white px-3 py-1.5 text-xs font-semibold hover:bg-[#FEF3C7]"
+              >
+                {onlyUnassigned ? "แสดงทุกคน" : "แสดงเฉพาะคนที่ยังไม่กำหนด"}
+              </button>
+            </div>
           )}
 
-          {/* ตารางกว้าง (11 คอลัมน์) → เลื่อนแนวนอนในกรอบ ไม่ให้ทั้งหน้าเลื่อน */}
-          <div className="w-full overflow-x-auto">
-            <TableRoot className="bg-white">
-              <TableHeader className="bg-[#059669] font-bold text-white">
-                <TableRow>
-                  <TableHead>รหัสพนักงาน</TableHead>
-                  <TableHead>ชื่อ-นามสกุล</TableHead>
-                  <TableHead>สายงาน</TableHead>
-                  <TableHead>ฝ่าย</TableHead>
-                  <TableHead>แผนก</TableHead>
-                  <TableHead>บทบาท</TableHead>
-                  <TableHead>หัวหน้าโดยตรง</TableHead>
-                  <TableHead>ผอ.โดยตรง</TableHead>
-                  <TableHead>งบร่วม</TableHead>
-                  <TableHead>สถานะ</TableHead>
-                  <TableHead className="text-center">ผู้ดูแลระบบ</TableHead>
-                </TableRow>
-              </TableHeader>
+          <TableRoot className="bg-white">
+            <TableHeader className="bg-[#059669] font-bold text-white">
+              <TableRow>
+                <TableHead>ผู้ใช้</TableHead>
+                <TableHead>สังกัด</TableHead>
+                <TableHead>ผู้อนุมัติโดยตรง</TableHead>
+                <TableHead>บทบาท</TableHead>
+                <TableHead className="text-center">ผู้ดูแลระบบ</TableHead>
+                <TableHead>
+                  <span className="sr-only">แก้ไข</span>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
 
-              <TableBody>
-                {error ? (
-                  <TableRow>
-                    <TableCell colSpan={11} className="py-10 text-center text-[#BE123C]">
-                      {error}
-                    </TableCell>
-                  </TableRow>
-                ) : shownUsers.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={11} className="py-10 text-center text-[#64748B]">
-                      {q ? (
-                        <>
-                          ไม่พบผู้ใช้ที่ตรงกับ “{query.trim()}”{" "}
-                          <button
-                            type="button"
-                            onClick={() => setQuery("")}
-                            className="font-semibold text-[#047857] hover:underline"
-                          >
-                            ล้างคำค้นหา
-                          </button>
-                        </>
-                      ) : (
-                        "ยังไม่มีข้อมูล"
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  shownUsers.map((u) => {
-                    const ids = affiliationIds(u);
-                    const isMe = u.id === meId;
-                    return (
-                      <TableRow key={u.id}>
-                        <TableCell className="whitespace-nowrap text-[#64748B]">{u.id}</TableCell>
-                        <TableCell className="min-w-44">
-                          <span className="font-semibold">{u.fullName}</span>
-                          {isMe && (
-                            <span className="ml-1.5 rounded-full bg-[#ECFDF5] px-2 py-0.5 text-xs font-semibold text-[#047857]">
-                              คุณ
+            <TableBody>
+              {error ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="py-10 text-center text-[#BE123C]">
+                    {error}
+                  </TableCell>
+                </TableRow>
+              ) : shownUsers.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="py-10 text-center text-[#64748B]">
+                    {q ? (
+                      <>
+                        ไม่พบผู้ใช้ที่ตรงกับ “{query.trim()}”{" "}
+                        <button
+                          type="button"
+                          onClick={() => setQuery("")}
+                          className="font-semibold text-[#047857] hover:underline"
+                        >
+                          ล้างคำค้นหา
+                        </button>
+                      </>
+                    ) : (
+                      "ยังไม่มีข้อมูล"
+                    )}
+                  </TableCell>
+                </TableRow>
+              ) : (
+                shownUsers.map((u) => {
+                  const ids = affiliationIds(u);
+                  const isMe = u.id === meId;
+                  const isEditing = editing === u.id;
+                  const a = getUserAffiliation(org, u);
+                  const path = [a.lineOfWork?.name, a.division?.name, a.department?.name].filter(Boolean);
+                  const nameOf = (id: string | null | undefined) => users.find((x) => x.id === id)?.fullName;
+                  return (
+                    <Fragment key={u.id}>
+                      <TableRow className={isEditing ? "bg-[#F8FAFC]" : undefined}>
+                        {/* ผู้ใช้: ชื่อ + รหัส · ป้ายคุณ / ปิดใช้งาน */}
+                        <TableCell className="min-w-52">
+                          <div className="flex items-center gap-3">
+                            <span
+                              aria-hidden="true"
+                              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#ECFDF5] text-sm font-bold text-[#047857]"
+                            >
+                              {u.fullName.slice(0, 2)}
                             </span>
+                            <div className="min-w-0">
+                              <p className="font-semibold">
+                                {u.fullName}
+                                {isMe && (
+                                  <span className="ml-1.5 rounded-full bg-[#ECFDF5] px-2 py-0.5 text-xs font-semibold text-[#047857]">
+                                    คุณ
+                                  </span>
+                                )}
+                                {u.status !== "ACTIVE" && (
+                                  <span className="status status-draft ml-1.5">ปิดใช้งาน</span>
+                                )}
+                              </p>
+                              <p className="text-xs text-[#64748B]">
+                                {u.id} · {u.username}
+                              </p>
+                            </div>
+                          </div>
+                        </TableCell>
+
+                        {/* สังกัด: สายงาน › ฝ่าย › แผนก (ข้อความ) */}
+                        <TableCell className="min-w-48 text-sm">
+                          {path.length > 0 ? (
+                            <>
+                              <p className="font-medium">{path[path.length - 1]}</p>
+                              {path.length > 1 && (
+                                <p className="text-xs text-[#64748B]">{path.slice(0, -1).join(" › ")}</p>
+                              )}
+                            </>
+                          ) : needsAffiliation(u) ? (
+                            <span className="text-[#B45309]">ยังไม่กำหนดสังกัด</span>
+                          ) : (
+                            <span className="text-[#64748B]">ระดับบริษัท</span>
                           )}
-                          {needsAffiliation(u) && (
-                            <span className="mt-0.5 block text-xs text-[#B45309]">ยังไม่กำหนดสังกัด</span>
-                          )}
                         </TableCell>
-                        {/* สายงาน → ฝ่าย (เฉพาะในสายงานที่เลือก) → แผนก (เฉพาะในฝ่ายที่เลือก) */}
-                        <TableCell className="min-w-44">
-                          <NativeSelect
-                            aria-label={`สายงานของ ${u.fullName}`}
-                            value={ids.lineId ?? ""}
-                            onChange={(e) => changeLine(u, e.target.value)}
-                          >
-                            <NativeSelectOption value="">- ยังไม่กำหนด -</NativeSelectOption>
-                            {org.linesOfWork.map((l) => (
-                              <NativeSelectOption key={l.id} value={l.id}>
-                                {l.name}
-                              </NativeSelectOption>
-                            ))}
-                          </NativeSelect>
+
+                        <TableCell className="min-w-44 text-xs text-[#475569]">
+                          <p>หัวหน้า: {nameOf(u.hierarchy?.headId) ?? "ใครก็ได้ในแผนก"}</p>
+                          <p>ผอ.: {nameOf(u.hierarchy?.directorId) ?? "ใครก็ได้ในฝ่าย"}</p>
                         </TableCell>
-                        <TableCell className="min-w-44">
-                          <NativeSelect
-                            aria-label={`ฝ่ายของ ${u.fullName}`}
-                            value={ids.divisionId ?? ""}
-                            onChange={(e) => changeDivision(u, e.target.value)}
-                            disabled={!ids.lineId}
-                          >
-                            <NativeSelectOption value="">
-                              {ids.lineId ? "- ยังไม่กำหนด -" : "เลือกสายงานก่อน"}
-                            </NativeSelectOption>
-                            {org.divisions
-                              .filter((d) => d.lineOfWorkId === ids.lineId)
-                              .map((d) => (
-                                <NativeSelectOption key={d.id} value={d.id}>
-                                  {d.name}
-                                </NativeSelectOption>
-                              ))}
-                          </NativeSelect>
-                        </TableCell>
-                        <TableCell className="min-w-44">
-                          <NativeSelect
-                            aria-label={`แผนกของ ${u.fullName}`}
-                            value={ids.departmentId ?? ""}
-                            onChange={(e) => changeDepartment(u, e.target.value)}
-                            disabled={!ids.divisionId}
-                          >
-                            <NativeSelectOption value="">
-                              {ids.divisionId ? "- ยังไม่กำหนด -" : "เลือกฝ่ายก่อน"}
-                            </NativeSelectOption>
-                            {org.departments
-                              .filter((d) => d.divisionId === ids.divisionId)
-                              .map((d) => (
-                                <NativeSelectOption key={d.id} value={d.id}>
-                                  {d.name}
-                                </NativeSelectOption>
-                              ))}
-                          </NativeSelect>
-                        </TableCell>
+
                         <TableCell className="min-w-40">
                           <NativeSelect
                             aria-label={`บทบาทของ ${u.fullName}`}
-                            placeholder="เลือกบทบาท"
                             value={u.role}
                             disabled={isMe}
                             title={isMe ? "แก้บทบาทของตัวเองไม่ได้" : undefined}
@@ -488,48 +488,7 @@ export default function Account() {
                             ))}
                           </NativeSelect>
                         </TableCell>
-                        <TableCell className="min-w-44">
-                          <NativeSelect
-                            aria-label={`หัวหน้าโดยตรงของ ${u.fullName}`}
-                            value={u.hierarchy?.headId ?? ""}
-                            onChange={(e) => setSupervisor(u, "headId", e.target.value)}
-                          >
-                            <NativeSelectOption value="">ใครก็ได้ในแผนก</NativeSelectOption>
-                            {users
-                              .filter((x) => x.role === "HEAD" && x.id !== u.id && !!u.departmentId && x.departmentId === u.departmentId)
-                              .map((x) => (
-                                <NativeSelectOption key={x.id} value={x.id}>
-                                  {x.fullName}
-                                </NativeSelectOption>
-                              ))}
-                          </NativeSelect>
-                        </TableCell>
-                        <TableCell className="min-w-44">
-                          <NativeSelect
-                            aria-label={`ผอ.โดยตรงของ ${u.fullName}`}
-                            value={u.hierarchy?.directorId ?? ""}
-                            onChange={(e) => setSupervisor(u, "directorId", e.target.value)}
-                          >
-                            <NativeSelectOption value="">ใครก็ได้ในฝ่าย</NativeSelectOption>
-                            {users
-                              .filter((x) => x.role === "DIRECTOR" && x.id !== u.id && !!u.divisionId && x.divisionId === u.divisionId)
-                              .map((x) => (
-                                <NativeSelectOption key={x.id} value={x.id}>
-                                  {x.fullName}
-                                </NativeSelectOption>
-                              ))}
-                          </NativeSelect>
-                        </TableCell>
-                        {/* งบร่วม: ยังไม่มีข้อมูล / ฟังก์ชัน → แสดงขีดแทน dropdown ว่าง */}
-                        <TableCell className="text-center text-[#94A3B8]" title="ยังไม่เปิดใช้">
-                          —
-                        </TableCell>
-                        {/* สถานะ: แสดงอย่างเดียว (เดิมเป็น dropdown ที่เลือกแล้วไม่บันทึก) */}
-                        <TableCell>
-                          <span className={`status ${u.status === "ACTIVE" ? "status-approved" : "status-draft"}`}>
-                            {u.status === "ACTIVE" ? "ใช้งาน" : "ปิดใช้งาน"}
-                          </span>
-                        </TableCell>
+
                         <TableCell className="text-center">
                           {/* TailGrids Checkbox · ห้ามห่อด้วย <label> (กดแล้วสลับ 2 ครั้ง) */}
                           <Checkbox
@@ -547,15 +506,133 @@ export default function Account() {
                             onChange={(e) => toggleAdmin(u.id, e.target.checked)}
                           />
                         </TableCell>
+
+                        <TableCell className="text-right">
+                          <button
+                            type="button"
+                            aria-expanded={isEditing}
+                            aria-controls={`edit-${u.id}`}
+                            onClick={() => setEditing(isEditing ? null : u.id)}
+                            className="whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-bold text-[#047857] hover:bg-[#ECFDF5]"
+                          >
+                            {isEditing ? "เสร็จ" : "แก้ไขสังกัด"}
+                          </button>
+                        </TableCell>
                       </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </TableRoot>
-          </div>
+
+                      {/* แผงแก้สังกัด: สายงาน → ฝ่าย → แผนก กรองต่อกัน + ผู้อนุมัติโดยตรง · เลือกแล้วบันทึกทันที */}
+                      {isEditing && (
+                        <TableRow className="bg-[#F8FAFC]">
+                          <TableCell colSpan={6} id={`edit-${u.id}`}>
+                            <div className="grid grid-cols-1 gap-3 pb-2 sm:grid-cols-2 lg:grid-cols-5">
+                              <label className="text-xs font-semibold text-[#475569]">
+                                สายงาน
+                                <NativeSelect
+                                  className="mt-1 bg-white"
+                                  value={ids.lineId ?? ""}
+                                  onChange={(e) => changeLine(u, e.target.value)}
+                                >
+                                  <NativeSelectOption value="">- ยังไม่กำหนด -</NativeSelectOption>
+                                  {org.linesOfWork.map((l) => (
+                                    <NativeSelectOption key={l.id} value={l.id}>
+                                      {l.name}
+                                    </NativeSelectOption>
+                                  ))}
+                                </NativeSelect>
+                              </label>
+                              <label className="text-xs font-semibold text-[#475569]">
+                                ฝ่าย
+                                <NativeSelect
+                                  className="mt-1 bg-white"
+                                  value={ids.divisionId ?? ""}
+                                  onChange={(e) => changeDivision(u, e.target.value)}
+                                  disabled={!ids.lineId}
+                                >
+                                  <NativeSelectOption value="">
+                                    {ids.lineId ? "- ยังไม่กำหนด -" : "เลือกสายงานก่อน"}
+                                  </NativeSelectOption>
+                                  {org.divisions
+                                    .filter((d) => d.lineOfWorkId === ids.lineId)
+                                    .map((d) => (
+                                      <NativeSelectOption key={d.id} value={d.id}>
+                                        {d.name}
+                                      </NativeSelectOption>
+                                    ))}
+                                </NativeSelect>
+                              </label>
+                              <label className="text-xs font-semibold text-[#475569]">
+                                แผนก
+                                <NativeSelect
+                                  className="mt-1 bg-white"
+                                  value={ids.departmentId ?? ""}
+                                  onChange={(e) => changeDepartment(u, e.target.value)}
+                                  disabled={!ids.divisionId}
+                                >
+                                  <NativeSelectOption value="">
+                                    {ids.divisionId ? "- ยังไม่กำหนด -" : "เลือกฝ่ายก่อน"}
+                                  </NativeSelectOption>
+                                  {org.departments
+                                    .filter((d) => d.divisionId === ids.divisionId)
+                                    .map((d) => (
+                                      <NativeSelectOption key={d.id} value={d.id}>
+                                        {d.name}
+                                      </NativeSelectOption>
+                                    ))}
+                                </NativeSelect>
+                              </label>
+                              <label className="text-xs font-semibold text-[#475569]">
+                                หัวหน้าโดยตรง
+                                <NativeSelect
+                                  className="mt-1 bg-white"
+                                  value={u.hierarchy?.headId ?? ""}
+                                  onChange={(e) => setSupervisor(u, "headId", e.target.value)}
+                                >
+                                  <NativeSelectOption value="">ใครก็ได้ในแผนก</NativeSelectOption>
+                                  {users
+                                    .filter((x) => x.role === "HEAD" && x.id !== u.id && !!u.departmentId && x.departmentId === u.departmentId)
+                                    .map((x) => (
+                                      <NativeSelectOption key={x.id} value={x.id}>
+                                        {x.fullName}
+                                      </NativeSelectOption>
+                                    ))}
+                                </NativeSelect>
+                              </label>
+                              <label className="text-xs font-semibold text-[#475569]">
+                                ผอ.โดยตรง
+                                <NativeSelect
+                                  className="mt-1 bg-white"
+                                  value={u.hierarchy?.directorId ?? ""}
+                                  onChange={(e) => setSupervisor(u, "directorId", e.target.value)}
+                                >
+                                  <NativeSelectOption value="">ใครก็ได้ในฝ่าย</NativeSelectOption>
+                                  {users
+                                    .filter((x) => x.role === "DIRECTOR" && x.id !== u.id && !!u.divisionId && x.divisionId === u.divisionId)
+                                    .map((x) => (
+                                      <NativeSelectOption key={x.id} value={x.id}>
+                                        {x.fullName}
+                                      </NativeSelectOption>
+                                    ))}
+                                </NativeSelect>
+                              </label>
+                            </div>
+                            <p className="text-xs text-[#64748B]">
+                              เปลี่ยนสายงาน / ฝ่าย / แผนก แล้วหัวหน้าและผอ.โดยตรงจะรีเซ็ตเป็นค่าตามผังองค์กร
+                            </p>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </Fragment>
+                  );
+                })
+              )}
+            </TableBody>
+          </TableRoot>
         </section>
 
+          </div>
+        )}
+        {tab === "rules" && (
+          <div role="tabpanel" id="panel-rules" aria-labelledby="tab-rules">
         {/* ===== วงเงิน + สายการอนุมัติ ===== */}
         <section
           aria-labelledby="rules-title"
@@ -787,69 +864,8 @@ export default function Account() {
             </button>
           </div>
         </section>
-
-        {/* ===== ตำแหน่งผู้อนุมัติ ===== */}
-        <section
-          aria-labelledby="positions-title"
-          className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl"
-        >
-          <h2 id="positions-title" className="text-2xl font-bold">ตำแหน่งผู้อนุมัติ</h2>
-          <p className="mt-1 mb-4 text-sm text-[#64748B]">
-            ตำแหน่งตามผังองค์กรหาผู้อนุมัติจากสังกัดของผู้ขอ · ตำแหน่งที่เพิ่มจากบทบาท: ผู้ใช้ที่มีบทบาทนี้คนไหนก็อนุมัติได้ (ยกเว้นผู้ขอ) · เพิ่ม / ลบแล้วบันทึกทันที
-          </p>
-          <ul className="mb-4 flex flex-wrap gap-2 text-sm">
-            {positions.map((p) => (
-              <li
-                key={p.id}
-                className={`flex items-center gap-1.5 rounded-full border px-3 py-1 ${
-                  p.builtIn
-                    ? "border-[#E2E8F0] bg-[#F8FAFC] text-[#475569]"
-                    : "border-[#A7F3D0] bg-[#ECFDF5] text-[#047857]"
-                }`}
-              >
-                {p.label}
-                <span className="text-xs opacity-70">
-                  {p.builtIn ? "· ตามผังองค์กร" : `· ${users.filter((u) => u.role === p.id).length} คน`}
-                </span>
-                {!p.builtIn && (
-                  <button
-                    type="button"
-                    aria-label={`ลบตำแหน่ง ${p.label}`}
-                    onClick={() => removePosition(p.id)}
-                    className="rounded-full p-0.5 hover:bg-[#FFE4E6] hover:text-[#BE123C]"
-                  >
-                    <Close size={14} aria-hidden="true" />
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
-          {/* เพิ่มตำแหน่ง: เลือกจาก role ของผู้ใช้ · ที่เป็นตำแหน่งอยู่แล้ว / เลือกไม่ได้ → ปิดไว้ พร้อมเหตุผล */}
-          <div className="w-full sm:w-96">
-            <NativeSelect
-              aria-label="เพิ่มตำแหน่งผู้อนุมัติ"
-              value=""
-              onChange={(e) => addPosition(e.target.value)}
-              className="text-sm"
-            >
-              <NativeSelectOption value="">+ เพิ่มตำแหน่งผู้อนุมัติจากบทบาทผู้ใช้</NativeSelectOption>
-              {userRoles.map((role) => {
-                const blocked = roleBlockedReason(role);
-                return (
-                  <NativeSelectOption key={role} value={role} disabled={!!blocked}>
-                    {roleLabel(role)}
-                    {blocked ? ` (${blocked})` : ""}
-                  </NativeSelectOption>
-                );
-              })}
-            </NativeSelect>
           </div>
-          {positionMessage && (
-            <p role="status" className="mt-3 text-sm text-[#475569]">
-              {positionMessage}
-            </p>
-          )}
-        </section>
+        )}
       </div>
     </div>
   );
