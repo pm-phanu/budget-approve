@@ -13,6 +13,7 @@ import { getDepartmentBudget } from "@/data/budget";
 import { canApproveStep } from "@/data/approval";
 import type { Credential } from "@/data/credential";
 import { getCurrentUser } from "@/utils/login";
+import MyRequestsCard from "@/components/my-requests-card";
 import { ArrowRight, Check, CheckCircle1, ClockThree } from "@tailgrids/icons";
 
 /* ------------------------------------------------------------------
@@ -211,6 +212,11 @@ export default function DirectorHome() {
     budget.limit > 0 ? Math.round((budget.used / budget.limit) * 100) : 0;
   const barWidth = Math.min(100, Math.max(0, usedPct)); // หลอดไม่เกิน 100%
   const overBudget = budget.limit > 0 && budget.used > budget.limit;
+
+  // คำขอที่ผอ.เป็นผู้ขอเอง → การ์ด "คำขอของฉัน"
+  const myRequests = me
+    ? requests.filter((r) => r.requester && String(r.requester.id) === String(me.id))
+    : [];
 
   return (
     <div>
@@ -457,127 +463,7 @@ export default function DirectorHome() {
               </div>
             </div>
 
-            {/* ✅ เพิ่ม: คำขอของฉัน (ข้อมูลตัวอย่าง) เหมือนหน้าหัวหน้าแผนก */}
-            <div className="col-span-2 self-start flex flex-col justify-between rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-2xl">
-              <div>
-                <div className="mb-2 flex items-center justify-between">
-                  <h2 className="text-base font-bold text-gray-800">คำขอของฉัน</h2>
-                  <Link href="/my-request" className="flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:underline">
-                    ดูทั้งหมด →
-                  </Link>
-                </div>
-
-                <div className="divide-y divide-gray-100">
-                  {/* รายการที่ 1: รออนุมัติ */}
-                  <div className="space-y-4 py-5 pt-2">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="text-sm font-bold text-gray-800">ซื้อคอมพิวเตอร์ให้ทีม 2 เครื่อง</div>
-                        <div className="mt-0.5 text-xs text-gray-400">
-                          ส่งเมื่อ 14 ต.ค. <span className="font-bold text-gray-700">฿56,000</span>
-                        </div>
-                      </div>
-                      <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-600">รออนุมัติ</span>
-                    </div>
-                    <div className="relative px-2 py-2">
-                      <div className="absolute left-5 right-5 top-5 z-0 h-1 -translate-y-1/2 bg-gray-200"></div>
-                      <div className="absolute left-5 right-[50%] top-5 z-0 h-1 -translate-y-1/2 bg-emerald-500"></div>
-                      <div className="relative z-10 flex items-center justify-between text-xs">
-                        <div className="flex flex-col items-center gap-1">
-                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500 font-bold text-white">✓</div>
-                          <span className="font-medium text-gray-600">ส่งคำขอ</span>
-                        </div>
-                        <div className="flex flex-col items-center gap-1">
-                          <div className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-dashed border-emerald-500 bg-white"></div>
-                          <span className="font-bold text-emerald-700">หัวหน้าสายงาน</span>
-                        </div>
-                        <div className="flex flex-col items-center gap-1">
-                          <div className="flex h-7 w-7 items-center justify-center rounded-full border border-gray-300 bg-white"></div>
-                          <span className="text-gray-400">ฝ่ายบัญชี</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* รายการที่ 2: อนุมัติแล้ว */}
-                  <div className="space-y-4 py-5">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="text-sm font-bold text-gray-800">ค่าจัดงานเปิดตัวสินค้า</div>
-                        <div className="mt-0.5 text-xs text-gray-400">
-                          ส่งเมื่อ 12 ต.ค. <span className="font-bold text-gray-700">฿48,000</span>
-                        </div>
-                      </div>
-                      <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-600">อนุมัติแล้ว</span>
-                    </div>
-                    <div className="relative px-2 py-2">
-                      <div className="absolute left-5 right-5 top-5 z-0 h-1 -translate-y-1/2 bg-emerald-500"></div>
-                      <div className="relative z-10 flex items-center justify-between text-xs">
-                        <div className="flex flex-col items-center gap-1">
-                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500 font-bold text-white">✓</div>
-                          <span className="font-medium text-gray-600">ส่งคำขอ</span>
-                        </div>
-                        <div className="flex flex-col items-center gap-1">
-                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500 font-bold text-white">✓</div>
-                          <span className="font-bold text-emerald-700">หัวหน้าสายงาน</span>
-                        </div>
-                        <div className="flex flex-col items-center gap-1">
-                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500 font-bold text-white">✓</div>
-                          <span className="font-medium text-emerald-700">ฝ่ายบัญชี</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* รายการที่ 3: ถูกตีกลับ */}
-                  <div className="space-y-4 py-5 pb-0">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="text-sm font-bold text-gray-800">ค่ารับรองลูกค้าองค์กร</div>
-                        <div className="mt-0.5 text-xs text-gray-400">
-                          ส่งเมื่อ 28 ก.ย. <span className="font-bold text-gray-700">฿15,600</span>
-                        </div>
-                      </div>
-                      <span className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-medium text-rose-600">ถูกตีกลับ</span>
-                    </div>
-                    <div className="relative px-2 py-2">
-                      <div className="absolute left-5 right-5 top-5 z-0 h-1 -translate-y-1/2 bg-gray-200"></div>
-                      <div className="absolute left-5 right-[50%] top-5 z-0 h-1 -translate-y-1/2 bg-emerald-500"></div>
-                      <div className="relative z-10 flex items-center justify-between text-xs">
-                        <div className="flex flex-col items-center gap-1">
-                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500 font-bold text-white">✓</div>
-                          <span className="font-medium text-gray-600">ส่งคำขอ</span>
-                        </div>
-                        <div className="flex flex-col items-center gap-1">
-                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-rose-500 font-bold text-white">✕</div>
-                          <span className="font-bold text-rose-600">หัวหน้าสายงาน</span>
-                        </div>
-                        <div className="flex flex-col items-center gap-1">
-                          <div className="flex h-7 w-7 items-center justify-center rounded-full border border-gray-300 bg-white"></div>
-                          <span className="text-gray-400">ฝ่ายบัญชี</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between rounded-xl border border-rose-200/60 bg-rose-50/60 p-3.5 text-xs">
-                      <div className="flex items-center gap-2.5 text-rose-700">
-                        <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-rose-100 text-[10px] font-bold">!</div>
-                        <span>
-                          <strong>เหตุผล:</strong> แนบใบเสร็จไม่ครบ ขาดใบเสร็จค่าอาหาร...
-                        </span>
-                      </div>
-                      <Link href="/my-request" className="shrink-0 font-semibold text-rose-700 hover:underline">
-                        ดูทั้งหมด →
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-6 flex items-center gap-2.5 rounded-xl border border-gray-200/60 bg-gray-50 p-3.5 text-xs text-gray-500">
-                <span>✓</span>
-                <span>คำขอของคุณจะถูกส่งให้หัวหน้าสายงานอนุมัติ</span>
-              </div>
-            </div>
+            <MyRequestsCard mine={myRequests} className="col-span-2" />
           </div>
         </div>
       </div>

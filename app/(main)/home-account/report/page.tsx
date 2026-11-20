@@ -95,7 +95,7 @@ function toReportRow(r: SavedRequest, today: Date): ReportRow {
       day: "2-digit",
       month: "short",
     }), // เช่น "14 พ.ย."
-    monthKey: created.toISOString().slice(0, 7), // "2026-11"
+    monthKey: monthKeyOf(created), // "2026-11" (เวลาเครื่อง ไม่ใช่ UTC)
     dept: r.project ? r.project.dept : "ไม่ระบุแผนก", // แผนกเจ้าของโครงการ
     title: r.title,
     requester: r.requester ? r.requester.fullName : "-",
@@ -104,13 +104,18 @@ function toReportRow(r: SavedRequest, today: Date): ReportRow {
   };
 }
 
+// ปี-เดือนตามเวลาเครื่อง เช่น "2026-11" · toISOString() เป็น UTC → ตี 0-7 ของวันที่ 1 จะตกไปเดือนก่อน
+function monthKeyOf(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
 // 6 เดือนล่าสุด (รวมเดือนนี้) → [{ key: "2026-06", label: "มิ.ย." }, ...]
 function lastSixMonths(today: Date) {
   const list = [];
   for (let i = 5; i >= 0; i--) {
     const d = new Date(today.getFullYear(), today.getMonth() - i, 1); // ย้อนทีละเดือน
     list.push({
-      key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
+      key: monthKeyOf(d),
       label: d.toLocaleDateString("th-TH", { month: "short" }),
     });
   }
@@ -157,7 +162,7 @@ export default function Report() {
   const total = list.reduce((sum, r) => sum + r.amount, 0); // รวมยอดเบิก (ตามแท็บ)
   // งบเป็นของทั้งปี → งบคงเหลือ กับ % ที่ใช้ ต้องคิดจากยอดทั้งปีเสมอ (ไม่เปลี่ยนตามแท็บ)
   const yearTotal = all
-    .filter((r) => r.daysAgo <= 365)
+    .filter((r) => r.monthKey.startsWith(`${YEAR}-`)) // ปีงบเดียวกับงบบอร์ด (ไม่ใช่ย้อน 365 วัน)
     .reduce((sum, r) => sum + r.amount, 0);
   const remaining = boardTotal - yearTotal; // งบคงเหลือทั้งหมด
   const count = list.length; // จำนวนคำขอ
