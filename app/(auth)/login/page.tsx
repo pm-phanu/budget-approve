@@ -44,6 +44,9 @@ export default function Login() {
           ? requestedPath
           : "/";
       router.replace(returnPath);
+      // Next เก็บหน้านี้ไว้ (ซ่อน) แทนการทิ้ง → ตอน logout กลับมาจะเห็นปุ่มค้าง "กำลังเข้าสู่ระบบ…" + รหัสเดิม
+      setSubmitting(false);
+      setFormData({ identifier: "", password: "" });
     } catch (error) {
       setSubmitting(false);
       setErrorMessage(

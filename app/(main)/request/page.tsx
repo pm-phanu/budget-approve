@@ -292,7 +292,7 @@ export default function NewRequest() {
     if (it.categoryId)
       categoryAsked.set(it.categoryId, (categoryAsked.get(it.categoryId) ?? 0) + Number(it.amount || 0));
   }
-  // หมวดที่ขอเกินงบคงเหลือ → เตือนอย่างเดียว ยังส่งได้
+  // หมวดที่ขอเกินงบคงเหลือ → ส่งไม่ได้ (ดู validate)
   const overCategories = categories.filter((c) => (categoryAsked.get(c.id) ?? 0) > c.limit - c.used);
 
   // ส่งกลับไปหาคนที่ตีกลับได้หรือไม่:
@@ -397,7 +397,9 @@ export default function NewRequest() {
         list.push(row + ": แนบ" + fileLabel + "อย่างน้อย 1 ไฟล์");
     });
 
-    // ※ เกินงบคงเหลือของหมวด = แค่เตือน (ใต้แถว + ในป็อปอัพยืนยัน) ไม่บล็อกการส่ง
+    // เกินงบคงเหลือของหมวด → ห้ามส่ง (หลายแถวใช้หมวดเดียวกันได้ เลยเทียบยอดรวมต่อหมวด)
+    for (const c of overCategories)
+      list.push(c.name + " เกินงบคงเหลือ (เหลือ ฿" + money(c.limit - c.used) + ")");
     return list;
   }
 
@@ -728,9 +730,9 @@ export default function NewRequest() {
                   <div className="flex gap-2">
                     <select
                       aria-label={`หมวด รายการที่ ${row}`}
-                      className={`${fieldClassFor(err.category)} w-40 shrink-0 cursor-pointer px-3 disabled:cursor-not-allowed`} // กดได้ = รูปมือ · ยังไม่เลือกโครงการ = รูปห้าม
+                      className={`${fieldClassFor(err.category || over)} w-40 shrink-0 cursor-pointer px-3 disabled:cursor-not-allowed`} // กดได้ = รูปมือ · ยังไม่เลือกโครงการ = รูปห้าม
                       value={it.categoryId}
-                      aria-invalid={err.category}
+                      aria-invalid={err.category || over}
                       onChange={(e) => changeItem(i, "categoryId", e.target.value)}
                       disabled={!project}
                     >
@@ -810,7 +812,7 @@ export default function NewRequest() {
                   {(left !== undefined || it.files.length > 0 || err.any) && (
                     <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 px-1 text-xs">
                       {left !== undefined && (
-                        <span className={over ? "font-semibold text-[#B45309]" : "text-[#64748B]"}>
+                        <span className={over ? "font-semibold text-[#BE123C]" : "text-[#64748B]"}>
                           {over
                             ? `เกินงบหมวดนี้ ฿${money(asked - left)} (เหลือ ฿${money(left)})`
                             : `งบหมวดนี้เหลือ ฿${money(left - asked)} หลังรายการนี้`}
@@ -1071,11 +1073,6 @@ export default function NewRequest() {
                     <b>{targetLabel}</b>
                   </div>
                 </div>
-                {overCategories.length > 0 && (
-                  <p role="alert" className="mt-3 rounded-xl border border-[#FDE68A] bg-[#FFFBEB] p-3 text-sm text-[#92400E]">
-                    เกินงบคงเหลือของหมวด {overCategories.map((c) => c.name).join(", ")} · ยังส่งได้
-                  </p>
-                )}
                 <div className="mt-5 flex gap-2">
                   <button
                     onClick={() => setPopup("closed")}

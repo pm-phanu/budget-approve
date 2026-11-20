@@ -231,6 +231,38 @@ const mergeWithSeed = (stored: User[]): User[] => {
   return [...merged, ...missing.map((user) => ({ ...user }))];
 };
 
+// id พนักงาน = เลขรัน u_01, u_02, … (คนใหม่ได้เลขถัดจากเลขมากสุด)
+const RUNNING_ID = /^u_\d+$/;
+export const nextUserId = (list: { id: string }[]) => {
+  const max = Math.max(0, ...list.map((u) => (RUNNING_ID.test(u.id) ? Number(u.id.slice(2)) : 0)));
+  return `u_${String(max + 1).padStart(2, "0")}`;
+};
+
+// ข้อมูลเก่า: คนที่ลงทะเบียนก่อนหน้านี้ได้ id แบบสุ่ม (u_<uuid>) → เปลี่ยนเป็นเลขรัน
+// และแก้ id เดิมในทุก key ของ localStorage (คำขอ, แจ้งเตือน, ผังองค์กร, หัวหน้าโดยตรง, ล็อก, ประวัติงบ, current_user)
+// ※ uuid ไม่ซ้ำกับข้อความอื่น → แทนแบบข้อความ "<id เดิม>" ได้ปลอดภัย
+export const renumberUsers = (list: User[], storage: Storage = localStorage): User[] => {
+  const taken = list.filter((u) => RUNNING_ID.test(u.id)).map((u) => ({ id: u.id }));
+  const renames = new Map<string, string>();
+  for (const u of list) {
+    if (RUNNING_ID.test(u.id)) continue;
+    const id = nextUserId(taken);
+    taken.push({ id });
+    renames.set(u.id, id);
+  }
+  if (renames.size === 0) return list;
+
+  for (let i = 0; i < storage.length; i++) {
+    const key = storage.key(i);
+    const value = key === null ? null : storage.getItem(key);
+    if (key === null || value === null) continue;
+    let next = value;
+    for (const [from, to] of renames) next = next.split(`"${from}"`).join(`"${to}"`);
+    if (next !== value) storage.setItem(key, next);
+  }
+  return list.map((u) => ({ ...u, id: renames.get(u.id) ?? u.id }));
+};
+
 export const getUsers = (): User[] => {
   if (typeof window === "undefined") return users.map((user) => ({ ...user }));
 
@@ -246,7 +278,7 @@ export const getUsers = (): User[] => {
     throw new Error("ข้อมูลผู้ใช้ในเครื่องไม่ถูกต้อง กรุณาตรวจสอบ localStorage");
   }
 
-  const merged = mergeWithSeed(parsedUsers);
+  const merged = mergeWithSeed(renumberUsers(parsedUsers));
   if (JSON.stringify(merged) !== storedUsers) {
     localStorage.setItem(USERS_KEY, JSON.stringify(merged));
   }
@@ -342,7 +374,7 @@ export const register = (input: RegistrationInput): Credential => {
   }
 
   const newUser: User = {
-    id: `u_${crypto.randomUUID()}`,
+    id: nextUserId(currentUsers),
     username,
     fullName,
     email,
