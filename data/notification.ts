@@ -15,6 +15,7 @@ import { isInApproverScope, loadOrganization } from "./organization";
 import type { SavedRequest, SavedStep } from "./request";
 
 export const NOTIFICATIONS_KEY = "notifications";
+export const NOTIFICATIONS_EVENT = "notifications:change";
 
 export type NotificationKind =
   | "waiting_you" // มีคำขอรอคุณอนุมัติ
@@ -45,6 +46,21 @@ type UserLite = {
   divisionId?: string | null;
 };
 
+function isAppNotification(value: unknown): value is AppNotification {
+  if (typeof value !== "object" || value === null) return false;
+  const n = value as Record<string, unknown>;
+  return (
+    typeof n.id === "string" &&
+    typeof n.userId === "string" &&
+    typeof n.requestId === "string" &&
+    typeof n.requestTitle === "string" &&
+    typeof n.kind === "string" &&
+    typeof n.message === "string" &&
+    typeof n.read === "boolean" &&
+    typeof n.createdAt === "string"
+  );
+}
+
 // ────────────────────────────────────────────────────────────
 //  อ่าน / บันทึก
 // ────────────────────────────────────────────────────────────
@@ -52,7 +68,9 @@ export function loadNotifications(): AppNotification[] {
   if (typeof window === "undefined") return [];
   try {
     const stored = localStorage.getItem(NOTIFICATIONS_KEY);
-    return stored ? (JSON.parse(stored) as AppNotification[]) : [];
+    if (!stored) return [];
+    const parsed: unknown = JSON.parse(stored);
+    return Array.isArray(parsed) ? parsed.filter(isAppNotification) : [];
   } catch {
     return [];
   }
@@ -60,6 +78,9 @@ export function loadNotifications(): AppNotification[] {
 
 export function saveNotifications(list: AppNotification[]) {
   localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(list));
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(NOTIFICATIONS_EVENT));
+  }
 }
 
 export function addNotifications(list: AppNotification[]) {
@@ -94,6 +115,11 @@ export function markAllAsRead(userId: string) {
   saveNotifications(
     loadNotifications().map((n) => (n.userId === userId ? { ...n, read: true } : n)),
   );
+}
+
+// ลบเฉพาะแจ้งเตือนของผู้ใช้คนนี้ (ไม่กระทบแจ้งเตือนของคนอื่นในเครื่อง)
+export function clearUserNotifications(userId: string) {
+  saveNotifications(loadNotifications().filter((n) => n.userId !== userId));
 }
 
 // ────────────────────────────────────────────────────────────

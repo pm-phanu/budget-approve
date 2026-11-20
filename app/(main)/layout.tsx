@@ -15,7 +15,6 @@ import {
 } from "@/components/tailgrids/core/sidebar";
 import {
   Search1,
-  Bell1,
   MenuHamburger1,
   ClockThree,
   DashboardSquare1,
@@ -34,6 +33,7 @@ import { forwardRef, Suspense, SVGProps, useEffect, useState } from "react";
 import { mergeProps } from "react-aria";
 import { Button } from "@/components/tailgrids/core/button";
 import { Link } from "@/components/tailgrids/core/link";
+import { NotificationBell } from "@/components/notification-bell";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Credential, User } from "@/data/credential";
 import { isApproverRole } from "@/data/approval";
@@ -321,15 +321,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   className="border-0 focus:ring-0 w-full"
                 />
               </div>
-              <div className="shadow-2xl">
-                {/* เขียนฟังก์ชั่นการแจ้งเตือนที่นี้ */}
-                <Button
-                  appearance={"outline"}
-                  className={"border border-[#E2E8F0]"}
-                >
-                  <Bell1 />
-                </Button>
-              </div>
+              <NotificationBell user={user} />
               <div className="shadow-2xl">
                 <Button variant={"success"} className="whitespace-nowrap" onPress={() => router.push("/request")}>
                   <Plus />
