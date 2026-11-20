@@ -10,11 +10,13 @@ import { loadOrganization } from "@/data/organization";
 import { getCurrentUser } from "@/utils/login";
 import { bkkMonth, bkkYear, shiftMonth } from "@/utils/date";
 import MyRequestsCard from "@/components/my-requests-card";
+import NotificationsCard from "@/components/notifications-card";
 import { BudgetCard } from "@/components/budget-card";
 import {
   ArrowRight,
   Check,
   CheckCircle1,
+  ChevronDown,
   ClockThree,
 } from "@tailgrids/icons";
 
@@ -25,6 +27,7 @@ const REVIEW_PATH = "/home-account/approve"; // ← หน้าตรวจส�
 const PENDING_LIMIT = 5; // จำนวนแถวสูงสุดใน "รอคุณตรวจสอบ"
 const RECENT_LIMIT = 5; // จำนวนแถวสูงสุดใน "อนุมัติล่าสุด"
 const OVERDUE_DAYS = 3; // รอเกินกี่วันถือว่าล่าช้า
+const DEPT_PREVIEW = 4; // การ์ดงบแยกตามแผนก: แสดงก่อนกี่แผนก (ที่เหลือกดกางดู)
 
 // role ของขั้นฝ่ายบัญชีในเส้นทางอนุมัติ (ตรงกับ data/approval.ts)
 // หน้านี้ตัดสินจาก "ขั้นของคำขอ" ไม่ใช่จากชื่อ/role ของคนที่ล็อกอิน
@@ -220,6 +223,8 @@ export default function AccountantHome() {
   // วันที่/เวลาปัจจุบัน: ตั้งค่าใน useEffect เท่านั้น (เลี่ยง new Date() ตอน prerender)
   const [today, setToday] = useState("");
   const [now, setNow] = useState<number | null>(null);
+  // การใช้งบแยกตามแผนก: ย่อไว้ก่อน (แสดง DEPT_PREVIEW แผนกที่ใช้มากสุด) กดแล้วกางที่เหลือ
+  const [showAllDepts, setShowAllDepts] = useState(false);
 
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect -- อ่านได้หลังเปิดหน้าเท่านั้น */
@@ -530,7 +535,7 @@ export default function AccountantHome() {
               </div>
             ) : (
               <ul>
-                {depts.map((x, i) => {
+                {(showAllDepts ? depts : depts.slice(0, DEPT_PREVIEW)).map((x, i) => {
                   const c = barColor(x.pct);
                   return (
                     <li
@@ -578,12 +583,30 @@ export default function AccountantHome() {
               </ul>
             )}
 
+            {/* กาง / ย่อ: เรียงจากใช้งบมากสุดแล้ว → แผนกที่ต้องจับตาอยู่บนเสมอ */}
+            {depts.length > DEPT_PREVIEW && (
+              <button
+                type="button"
+                aria-expanded={showAllDepts}
+                onClick={() => setShowAllDepts((v) => !v)}
+                className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-lg border-t border-[#F1F5F9] py-2.5 text-sm font-semibold text-[#047857] hover:bg-[#ECFDF5]"
+              >
+                {showAllDepts ? "ย่อรายการ" : `แสดงอีก ${depts.length - DEPT_PREVIEW} แผนก`}
+                <ChevronDown
+                  size={16}
+                  aria-hidden="true"
+                  className={`transition-transform ${showAllDepts ? "rotate-180" : ""}`}
+                />
+              </button>
+            )}
+
             <p className="mt-1 border-t border-[#F1F5F9] pt-3 text-xs text-[#64748B]">
-              แสดงเฉพาะแผนกที่มีงบหรือมีการใช้จ่ายในปีนี้
+              แสดงเฉพาะแผนกที่มีงบหรือมีการใช้จ่ายในปีนี้ · เรียงจากใช้งบมากสุด
             </p>
           </div>
 
-          <MyRequestsCard mine={myRequests} className="" />
+          <NotificationsCard me={me} />
+          <MyRequestsCard mine={myRequests} />
           </div>
         </div>
         </div>
