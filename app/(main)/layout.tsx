@@ -76,7 +76,7 @@ const reportItems: MenuItem[] = [
 ]
 
 const payItems: MenuItem[] = [
-  { title: "ทำจ่าย", url: "/home-finance/pay", icon: Bank1, roles: ["FINANCE"], group: "pay"}
+  { title: "คำขอรอทำจ่าย", url: "/home-finance/pay", icon: Bank1, roles: ["FINANCE"], group: "pay"}
 ]
 
 // ผู้ใช้นี้เห็น / เข้าเมนูนี้ได้ไหม (ใช้ทั้งใน sidebar และ route guard)
