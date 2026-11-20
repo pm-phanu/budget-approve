@@ -21,7 +21,7 @@
 //  * เมนูซ้ายอยู่ที่ app/layout.tsx (ใช้ร่วมทุกหน้า)
 // ════════════════════════════════════════════════════════════
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 // component จาก TailGrids (https://tailgrids.com/docs/components)
 import { Button } from "@/components/tailgrids/core/button";
 import { TextArea } from "@/components/tailgrids/core/text-area";
@@ -127,6 +127,9 @@ function emptyItem(): Item {
 //  [4] ฟังก์ชันช่วย
 // ════════════════════════════════════════
 
+// ชนิดไฟล์หลักฐานที่แนบได้ (ตรงกับ accept ของช่องแนบไฟล์)
+const ALLOWED_FILE = /\.(pdf|jpe?g|png)$/i;
+
 // ใส่ลูกน้ำ เช่น 12500 → "12,500"
 function money(n: number) {
   return n.toLocaleString("th-TH");
@@ -171,6 +174,12 @@ function NewRequest({ openId }: { openId: string | null }) {
   const [items, setItems] = useState<Item[]>([emptyItem()]);
   // ลิงก์ดูไฟล์ที่แนบ (ชื่อไฟล์ → ลิงก์ชั่วคราวในเครื่อง) · ใช้ได้จนกว่าจะปิด/รีเฟรชหน้า
   const [previews, setPreviews] = useState<Record<string, string>>({});
+  // ลิงก์ preview ทุกอันที่สร้าง → คืนหน่วยความจำตอนออกจากหน้า (ไม่งั้นไฟล์ค้างจนปิดแท็บ)
+  const previewUrls = useRef<string[]>([]);
+  useEffect(() => {
+    const urls = previewUrls.current;
+    return () => urls.forEach((u) => URL.revokeObjectURL(u));
+  }, []);
   // ตัวไฟล์ที่เลือกในรอบนี้ (ชื่อ → File) → บันทึกลง IndexedDB ตอนบันทึกร่าง / ส่ง (utils/attachments.ts)
   const [picked, setPicked] = useState<Record<string, File>>({});
 
@@ -182,6 +191,7 @@ function NewRequest({ openId }: { openId: string | null }) {
   // ป็อปอัพยืนยันก่อนส่ง: "closed" = ปิด · "confirm" = ถามยืนยัน · "done" = ส่งสำเร็จ กำลังพาไปแดชบอร์ด
   const [popup, setPopup] = useState<"closed" | "confirm" | "done">("closed");
   const [goingTo, setGoingTo] = useState("แดชบอร์ด"); // ข้อความ "กำลังพาไป…" ตอนส่งสำเร็จ
+  const [filesFailedNext, setFilesFailedNext] = useState<string | null>(null); // ส่งแล้วแต่เก็บไฟล์ไม่สำเร็จ → หน้าที่จะไปต่อ
 
   // เลขที่ใบที่กำลังแก้ (ร่าง หรือ คำขอที่ถูกตีกลับ) · ยังไม่เคยบันทึก = ""
   // ※ กดบันทึกร่างซ้ำ → ทับใบเดิม ไม่เกิดร่างซ้ำหลายใบ
@@ -386,17 +396,29 @@ function NewRequest({ openId }: { openId: string | null }) {
 
   // ---------- [5.4] แนบหลักฐานรายแถว ----------
   function addFiles(index: number, e: React.ChangeEvent<HTMLInputElement>) {
-    const picked = e.target.files; // ไฟล์ที่เลือกมา
-    if (!picked) return; // ไม่ได้เลือก = ไม่ทำอะไร
+    // คัดลอกเป็น array ทันที: FileList ผูกกับช่อง → ล้างช่อง (e.target.value = "") แล้วลิสต์ว่างตาม
+    //   ซึ่งเกิดก่อน React รัน updater ของ setPicked
+    const picked = Array.from(e.target.files ?? []); // ไฟล์ที่เลือกมา
+    if (picked.length === 0) return; // ไม่ได้เลือก = ไม่ทำอะไร
+    // accept ของช่องเป็นแค่คำแนะนำ (เลือก "All files" ได้) → ตรวจซ้ำ กันไฟล์ .html ที่จะไปรันในหน้าผู้อนุมัติ
+    const bad = picked.filter((f) => !ALLOWED_FILE.test(f.name));
+    if (bad.length > 0) {
+      setErrors([`แนบได้เฉพาะ PDF / JPG / PNG (${bad.map((f) => f.name).join(", ")})`]);
+      e.target.value = "";
+      return;
+    }
 
-    const names = Array.from(picked).map((f) => f.name); // เก็บแค่ชื่อไฟล์
+    const names = picked.map((f) => f.name); // เก็บแค่ชื่อไฟล์
 
     // ทำลิงก์ดูไฟล์ ไว้กดเปิดดูก่อนส่ง
     const links = { ...previews };
-    for (const f of Array.from(picked)) links[f.name] = URL.createObjectURL(f);
+    for (const f of picked) {
+      links[f.name] = URL.createObjectURL(f);
+      previewUrls.current.push(links[f.name]);
+    }
     setPreviews(links);
     // เก็บตัวไฟล์ไว้ บันทึกจริงตอนบันทึกร่าง / ส่ง
-    setPicked((prev) => ({ ...prev, ...Object.fromEntries(Array.from(picked).map((f) => [f.name, f])) }));
+    setPicked((prev) => ({ ...prev, ...Object.fromEntries(picked.map((f) => [f.name, f])) }));
     updateRow(index, { files: [...items[index].files, ...names] }); // ไฟล์เดิม + ไฟล์ใหม่
 
     e.target.value = ""; // ล้างช่อง จะได้เลือกไฟล์ชื่อเดิมซ้ำได้
@@ -566,15 +588,19 @@ function NewRequest({ openId }: { openId: string | null }) {
     // shortcut: ไฟล์ที่ผู้ขอกด × ลบทิ้ง ยังค้างใน IndexedDB (ไม่มีใครเปิดถึง) · ถ้าพื้นที่เริ่มเต็มค่อยลบตอนบันทึก
     const stillAttached = new Set(items.flatMap((it) => it.files));
     const toStore = Object.values(picked).filter((f) => stillAttached.has(f.name));
-    saveAttachments(id, toStore).catch(() =>
-      setErrors(["บันทึกคำขอแล้ว แต่เก็บไฟล์แนบในเครื่องไม่สำเร็จ (พื้นที่เบราว์เซอร์อาจเต็ม) ผู้อนุมัติจะเปิดไฟล์ไม่ได้"]),
+    // คนเรียกต้องรอผลก่อนเปลี่ยนหน้า (ไม่งั้นข้อความผิดพลาดไปขึ้นบนหน้าที่ปิดไปแล้ว)
+    const filesSaved = saveAttachments(id, toStore).then(
+      () => true,
+      () => false,
     );
 
     // ส่งจริง (ไม่ใช่ร่าง) → แจ้งเตือนผู้อนุมัติ (data/notification.ts)
     // ※ ส่งใหม่ก็ใช้ event "submitted" เดิม ถ้า notification.ts มี event สำหรับส่งใหม่ ให้เปลี่ยนตรงนี้
     if (status !== "ร่าง") notifyRequestEvent(request, "submitted", getUsers(), { at: now });
-    return id;
+    return { id, filesSaved };
   }
+
+  const FILES_FAILED = "บันทึกคำขอแล้ว แต่เก็บไฟล์แนบในเครื่องไม่สำเร็จ (พื้นที่เบราว์เซอร์อาจเต็ม) ผู้อนุมัติจะเปิดไฟล์ไม่ได้";
 
   // ---------- [5.7] ส่ง / บันทึกร่าง ----------
   function submit() {
@@ -602,9 +628,10 @@ function NewRequest({ openId }: { openId: string | null }) {
     }
     const next = resubmit ? MY_REQUEST_PATH : "/"; // จำไว้ก่อน
     setGoingTo(resubmit ? "หน้าคำขอของฉัน" : "แดชบอร์ด");
-    saveRequest("รออนุมัติ");
+    const { filesSaved } = saveRequest("รออนุมัติ");
     setPopup("done");
-    setTimeout(() => router.push(next), 1200);
+    // รอเก็บไฟล์แนบเสร็จก่อนพาไป · ไม่สำเร็จ → ค้างป็อปอัพพร้อมคำเตือน ให้ผู้ขอกดไปต่อเอง
+    filesSaved.then((ok) => (ok ? setTimeout(() => router.push(next), 1200) : setFilesFailedNext(next)));
   }
 
   // ร่างไม่ต้องตรวจ (ยังกรอกไม่ครบได้) แต่ต้องมีชื่อคำขอ ไว้หาเจอทีหลัง
@@ -614,10 +641,11 @@ function NewRequest({ openId }: { openId: string | null }) {
       setMessage("");
       return;
     }
-    const id = saveRequest("ร่าง");
+    const { id, filesSaved } = saveRequest("ร่าง");
     setDraftId(id); // กดบันทึกร่างอีกครั้ง → ทับใบนี้
     setErrors([]);
     setMessage("บันทึกร่าง " + id + " แล้ว");
+    filesSaved.then((ok) => !ok && setErrors([FILES_FAILED]));
   }
 
   // ════════════════════════════════════════
@@ -1167,9 +1195,18 @@ function NewRequest({ openId }: { openId: string | null }) {
                 <h2 className="mt-4 text-xl font-bold text-[#0F172A]">
                   ส่งคำขอแล้ว
                 </h2>
-                <p className="mt-1 text-sm text-[#64748B]">
-                  กำลังพาไป{goingTo}…
-                </p>
+                {filesFailedNext ? (
+                  <>
+                    <p role="alert" className="mt-2 text-sm text-[#B45309]">{FILES_FAILED}</p>
+                    <Button className="mt-4" onClick={() => router.push(filesFailedNext)}>
+                      ไป{goingTo}
+                    </Button>
+                  </>
+                ) : (
+                  <p className="mt-1 text-sm text-[#64748B]">
+                    กำลังพาไป{goingTo}…
+                  </p>
+                )}
               </div>
             )}
           </div>

@@ -43,20 +43,13 @@ async function withStore<T>(
 // บันทึกไฟล์ของคำขอ (ทับไฟล์ชื่อเดิม) · เรียกตอนบันทึกร่าง / ส่งคำขอ
 export async function saveAttachments(requestId: string, files: File[]) {
   if (files.length === 0) return;
-  const db = await openDb();
-  try {
-    await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction(STORE, "readwrite");
-      const store = tx.objectStore(STORE);
-      for (const f of files) store.put(f, keyOf(requestId, f.name));
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
-      tx.onabort = () => reject(tx.error);
-    });
-  } finally {
-    db.close();
-  }
+  await withStore("readwrite", (s) => {
+    for (const f of files) s.put(f, keyOf(requestId, f.name));
+  });
 }
+
+// เปิดในแท็บได้เฉพาะชนิดนี้ · ชนิดอื่น (เช่น .html) ถ้าเปิดจะรันสคริปต์ใน origin ของระบบ → ดาวน์โหลดแทน
+const VIEWABLE = new Set(["application/pdf", "image/png", "image/jpeg"]);
 
 // อ่านไฟล์ 1 ไฟล์ · ไม่มี (เช่น คำขอเก่าก่อนมีระบบนี้ / เปิดจากเครื่องอื่น) = null
 export async function getAttachment(requestId: string, name: string): Promise<Blob | null> {
@@ -74,9 +67,10 @@ export async function openAttachment(requestId: string, name: string): Promise<b
     return false;
   }
   const url = URL.createObjectURL(blob);
-  if (win) win.location.href = url;
+  if (win && VIEWABLE.has(blob.type)) win.location.href = url;
   else {
-    // เบราว์เซอร์บล็อกแท็บใหม่ → ดาวน์โหลดไฟล์แทน (ไม่พาหน้าระบบออกไป)
+    win?.close();
+    // ชนิดที่เปิดในแท็บไม่ปลอดภัย / เบราว์เซอร์บล็อกแท็บใหม่ → ดาวน์โหลดไฟล์แทน (ไม่พาหน้าระบบออกไป)
     const a = document.createElement("a");
     a.href = url;
     a.download = name;
@@ -84,11 +78,4 @@ export async function openAttachment(requestId: string, name: string): Promise<b
   }
   setTimeout(() => URL.revokeObjectURL(url), 60_000); // ให้แท็บใหม่โหลดเสร็จก่อนค่อยคืนหน่วยความจำ
   return true;
-}
-
-// ลบไฟล์ที่ไม่ได้ใช้แล้ว (เช่น ผู้ขอกดลบไฟล์ในร่าง)
-export async function deleteAttachment(requestId: string, name: string) {
-  await withStore("readwrite", (s) => {
-    s.delete(keyOf(requestId, name));
-  });
 }
