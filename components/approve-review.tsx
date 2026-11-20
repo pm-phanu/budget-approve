@@ -33,6 +33,8 @@ import { getCurrentUser } from "@/utils/login";
 import type { Credential } from "@/data/credential";
 import { baht } from "@/utils/format";
 import { ActionPopup } from "@/components/action-popup";
+import { RequestSummary } from "@/components/request-summary";
+import { useVisitKey } from "@/components/use-visit-key";
 
 /* ------------------------------------------------------------------
    ตั้งค่า
@@ -171,6 +173,7 @@ function ReviewContent({ homePath }: { homePath: string }) {
   const [me, setMe] = useState<Credential | null>(null);
   const [openedStep, setOpenedStep] = useState(0);
   const [done, setDone] = useState<"approve" | "reject" | null>(null); // ป็อปอัพบันทึกสำเร็จ → พากลับหน้าหลัก
+  const [asking, setAsking] = useState<"approve" | "reject" | null>(null); // ป็อปอัพถามยืนยันก่อนบันทึก
   const [notice, setNotice] = useState(""); // บันทึกไม่สำเร็จ (มีคนกดไปก่อน) → แสดงด้านบน
 
   useEffect(() => {
@@ -234,7 +237,12 @@ function ReviewContent({ homePath }: { homePath: string }) {
       setError("กรุณาติ๊กยืนยันว่าตรวจเอกสารและยอดเงินครบแล้ว");
       return;
     }
+    setError("");
+    setAsking("approve");
+  };
 
+  const doApprove = () => {
+    setAsking(null);
     // อ่านคำขอล่าสุดก่อนบันทึก: ถ้ามีคนกดขั้นนี้ไปแล้ว (เปิดหน้าค้างไว้) จะไม่บันทึกซ้ำ
     // บันทึก byId / ประวัติ / แจ้งเตือนให้ในครั้งเดียว (data/approval.ts actOnRequest)
     const result = actOnRequest(r.id, me, "approve", {
@@ -276,7 +284,12 @@ function ReviewContent({ homePath }: { homePath: string }) {
       setRejectError("กรุณาระบุรายละเอียดเหตุผล");
       return;
     }
+    setShowReject(false);
+    setAsking("reject");
+  };
 
+  const doReject = () => {
+    setAsking(null);
     const text = rejectComment.trim();
     // อ่านคำขอล่าสุดก่อนบันทึก (กันกดซ้อน) · บันทึก byId / ประวัติ / แจ้งเตือนผู้ขอให้ในครั้งเดียว
     const result = actOnRequest(r.id, me, "reject", {
@@ -763,6 +776,43 @@ function ReviewContent({ homePath }: { homePath: string }) {
       </ModalOverlay>
 
       <ActionPopup
+        open={asking !== null}
+        tone={asking === "reject" ? "danger" : "success"}
+        title={asking === "reject" ? "ยืนยันตีกลับคำขอนี้?" : "ยืนยันอนุมัติคำขอนี้?"}
+        message={
+          asking === "reject"
+            ? `${requesterName} จะได้รับแจ้งให้แก้ไขแล้วส่งใหม่`
+            : `บันทึกแล้วส่งต่อขั้นถัดไปทันที แก้ไขไม่ได้`
+        }
+        confirmLabel={asking === "reject" ? "ตีกลับคำขอ" : "อนุมัติ"}
+        onConfirm={asking === "reject" ? doReject : doApprove}
+        // ตีกลับ: ยกเลิก = กลับไปแก้เหตุผลในป็อปอัพเดิม (ค่าที่เลือกไว้ยังอยู่)
+        onCancel={() => {
+          if (asking === "reject") setShowReject(true);
+          setAsking(null);
+        }}
+      >
+        <RequestSummary
+          rows={[
+            ["เลขที่คำขอ", r.id],
+            ["ชื่อคำขอ", r.title],
+            ["ผู้ขอ", requesterName],
+            ["ประเภท", r.typeLabel],
+            ["โครงการ", r.project?.name],
+            ["วันที่ใช้จ่าย", thaiDate(r.useDate)],
+            ["จ่ายให้", r.payTo],
+            ["บัญชีรับเงิน", r.bankAccount],
+            ["ขั้นที่อนุมัติ", curStep?.label],
+            ...(asking === "reject"
+              ? ([["เหตุผลที่ตีกลับ", rejectReason], ["รายละเอียด", rejectComment.trim()]] as [string, string][])
+              : ([["ความเห็น", comment.trim()]] as [string, string][])),
+          ]}
+          items={r.items.map((it) => ({ category: it.categoryName, name: it.name, amount: it.amount, files: it.files }))}
+          total={r.total}
+        />
+      </ActionPopup>
+
+      <ActionPopup
         open={done !== null}
         tone={done === "reject" ? "danger" : "success"}
         title={done === "reject" ? "ตีกลับคำขอแล้ว" : "อนุมัติคำขอแล้ว"}
@@ -791,7 +841,13 @@ function CheckMark({ ok }: { ok: boolean }) {
 export default function ApproveReview({ homePath }: { homePath: string }) {
   return (
     <Suspense fallback={null}>
-      <ReviewContent homePath={homePath} />
+      <ReviewKeyed homePath={homePath} />
     </Suspense>
   );
+}
+
+// สร้างเนื้อหาใหม่ทุกครั้งที่เปิดหน้า (Activity เก็บหน้าไว้ → ป็อปอัพ "อนุมัติแล้ว" ของคำขอก่อนจะค้าง)
+function ReviewKeyed({ homePath }: { homePath: string }) {
+  const key = useVisitKey(useSearchParams().get("id"));
+  return <ReviewContent key={key} homePath={homePath} />;
 }

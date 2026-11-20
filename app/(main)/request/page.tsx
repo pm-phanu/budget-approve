@@ -30,6 +30,9 @@ import { getUsers, type Credential } from "@/data/credential";
 import { notifyRequestEvent } from "@/data/notification";
 import { getCurrentUser } from "@/utils/login";
 import { openAttachment, saveAttachments } from "@/utils/attachments";
+import { ActionPopup } from "@/components/action-popup";
+import { RequestSummary } from "@/components/request-summary";
+import { useVisitKey } from "@/components/use-visit-key";
 import { projects, addRequestsToBudget, canUseProject, type Project } from "@/data/budget";
 import {
   DEFAULT_RULES,
@@ -154,11 +157,8 @@ export default function NewRequestPage() {
 function NewRequestKeyed() {
   const openId = useSearchParams().get("id");
   // Next เก็บหน้านี้ไว้ (ซ่อน) ตอนออกไปหน้าอื่น → กลับมาแล้วฟอร์ม + เลขที่ใบเดิมยังอยู่ กดส่งจะทับใบเดิม
-  // effect รันใหม่ทุกครั้งที่หน้าถูกแสดงอีกรอบ → นับรอบเข้าหน้า แล้วใช้เป็น key = ฟอร์มใหม่ทุกครั้ง
-  const [visit, setVisit] = useState(0);
-  /* eslint-disable-next-line react-hooks/set-state-in-effect -- ต้องรู้ว่าหน้าเพิ่งถูกแสดงอีกรอบ */
-  useEffect(() => setVisit((v) => v + 1), []);
-  return <NewRequest key={`${openId ?? ""}#${visit}`} openId={openId} />;
+  // → key ใหม่ทุกครั้งที่หน้าถูกแสดง = ฟอร์มใหม่ทุกครั้ง (components/use-visit-key.ts)
+  return <NewRequest key={useVisitKey(openId)} openId={openId} />;
 }
 
 function NewRequest({ openId }: { openId: string | null }) {
@@ -1137,46 +1137,39 @@ function NewRequest({ openId }: { openId: string | null }) {
       </div>
 
       {/* ---------- ป็อปอัพยืนยันส่งคำขอ ---------- */}
-      {popup !== "closed" && (
+      <ActionPopup
+        open={popup === "confirm"}
+        title="ยืนยันส่งคำขอ?"
+        message="แก้ไขได้จนกว่าฝ่ายบัญชีจะเริ่มตรวจ ถ้าบัญชี/การเงินเริ่มทำเรื่องแล้วจะแก้ไม่ได้"
+        confirmLabel="ยืนยันส่งคำขอ"
+        onConfirm={confirmSubmit}
+        onCancel={() => setPopup("closed")}
+      >
+        <RequestSummary
+          rows={[
+            ["เลขที่คำขอ", draftId || "ออกเลขใหม่ตอนส่ง"],
+            ["ประเภท", isAdvance ? "สำรองจ่ายแล้ว (ขอเบิกคืน)" : "ให้บัญชีจ่ายตามใบแจ้งหนี้"],
+            ["ชื่อคำขอ", title],
+            ["โครงการ", project?.name],
+            ["วันที่ใช้จ่าย", useDate && new Date(useDate).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Bangkok" })],
+            ["เหตุผล", reason],
+            ["บัญชีรับเงินคืน", isAdvance ? bankLabel : null],
+            ["เส้นทางอนุมัติ", plan.map((p) => getRoleLabel(p.actingRole ?? p.role, positions)).join(" → ")],
+            ["ส่งต่อให้", targetLabel],
+          ]}
+          items={items.map((it) => ({
+            category: categories.find((c) => c.id === it.categoryId)?.name ?? "",
+            name: it.name,
+            amount: Number(it.amount || 0),
+            files: it.files,
+          }))}
+          total={total}
+        />
+      </ActionPopup>
+
+      {popup === "done" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-            {popup === "confirm" ? (
-              <>
-                <h2 className="text-xl font-bold">ยืนยันส่งคำขอ?</h2>
-                <p className="mt-1 text-sm text-[#64748B]">
-                  แก้ไขได้จนกว่าฝ่ายบัญชีจะเริ่มตรวจ
-                  ถ้าบัญชี/การเงินเริ่มทำเรื่องแล้วจะแก้ไม่ได้
-                </p>
-                <div className="mt-4 space-y-2 rounded-xl bg-[#F8FAFC] p-4 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-[#64748B]">ชื่อคำขอ</span>
-                    <b>{title}</b>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-[#64748B]">ยอดรวม</span>
-                    <b className="text-[#059669]">฿{money(total)}</b>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-[#64748B]">ส่งต่อให้</span>
-                    <b>{targetLabel}</b>
-                  </div>
-                </div>
-                <div className="mt-5 flex gap-2">
-                  <button
-                    onClick={() => setPopup("closed")}
-                    className="flex-1 rounded-xl bg-gray-100 py-3 font-semibold text-gray-600 hover:bg-gray-200"
-                  >
-                    ยกเลิก
-                  </button>
-                  <button
-                    onClick={confirmSubmit}
-                    className="flex-1 rounded-xl bg-[#059669] py-3 font-bold text-white hover:bg-[#047857]"
-                  >
-                    ยืนยัน
-                  </button>
-                </div>
-              </>
-            ) : (
               <div className="py-4 text-center">
                 {/* วงกลมเขียวอ่อน + เครื่องหมายถูก (วาดด้วย svg ไม่ต้อง import ไอคอนเพิ่ม) */}
                 <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#ECFDF5]">
@@ -1208,7 +1201,6 @@ function NewRequest({ openId }: { openId: string | null }) {
                   </p>
                 )}
               </div>
-            )}
           </div>
         </div>
       )}

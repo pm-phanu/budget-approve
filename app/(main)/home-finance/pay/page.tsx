@@ -19,6 +19,9 @@ import { HeroCard } from "@/components/budget-card";
 import { Bank1, Check, Xmark } from "@tailgrids/icons";
 import AttachmentButton from "@/components/attachment-button";
 import { baht } from "@/utils/format";
+import { ActionPopup } from "@/components/action-popup";
+import { RequestSummary } from "@/components/request-summary";
+import { useVisitKey } from "@/components/use-visit-key";
 
 const LIST_PATH = "/pay-request";
 
@@ -53,7 +56,7 @@ function PayContent() {
   const [error, setError] = useState("");
 
   // ป๊อปอัพที่เปิดอยู่: ไม่มี / ยืนยัน / สำเร็จ / ตีกลับ
-  const [popup, setPopup] = useState<"none" | "confirm" | "done" | "reject">("none");
+  const [popup, setPopup] = useState<"none" | "confirm" | "done" | "reject" | "reject-confirm">("none");
   const [rejectNote, setRejectNote] = useState("");
 
   // โหลดคำขอตอนเปิดหน้า
@@ -260,24 +263,57 @@ function PayContent() {
         </div>
       </div>
 
-      {/* ===== ป๊อปอัพยืนยัน ===== */}
-      {popup === "confirm" && (
-        <Popup>
-          <b className="text-lg">ยืนยันการบันทึกการจ่ายเงิน</b>
-          <p className="text-xs text-slate-500">ตรวจข้อมูลให้ตรงกับที่โอนในแอปธนาคาร</p>
-          <div className="my-4 space-y-3 rounded-xl bg-slate-50 p-4 text-sm">
-            <Row label="ผู้รับเงิน" value={payee(r)} dark />
-            <Row label="บัญชี" value={r.bankAccount ?? "ดูในใบแจ้งหนี้"} dark />
-            <Row label="เลขที่อ้างอิง" value={ref} dark />
-            <Row label="ยอดโอน" value={baht(r.total)} dark />
-          </div>
-          <p className="text-xs text-slate-500">บันทึกแล้วสถานะจะเปลี่ยนเป็น &quot;จ่ายแล้ว&quot; และแก้ไขไม่ได้</p>
-          <div className="mt-4 flex gap-3">
-            <button type="button" onClick={() => setPopup("none")} className="h-10 flex-1 cursor-pointer rounded-lg border border-slate-300 font-semibold">ยกเลิก</button>
-            <button type="button" onClick={confirmPay} className="h-10 flex-1 cursor-pointer rounded-lg bg-emerald-700 font-semibold text-white">บันทึกการจ่ายเงิน</button>
-          </div>
-        </Popup>
-      )}
+      {/* ===== ป๊อปอัพยืนยันจ่าย (สรุปครบทุกช่อง) ===== */}
+      <ActionPopup
+        open={popup === "confirm"}
+        title="ยืนยันการบันทึกการจ่ายเงิน?"
+        message='ตรวจให้ตรงกับที่โอนในแอปธนาคาร บันทึกแล้วสถานะเปลี่ยนเป็น "จ่ายแล้ว" และแก้ไขไม่ได้'
+        confirmLabel="บันทึกการจ่ายเงิน"
+        onConfirm={confirmPay}
+        onCancel={() => setPopup("none")}
+      >
+        <RequestSummary
+          rows={[
+            ["เลขที่คำขอ", r.id],
+            ["ชื่อคำขอ", r.title],
+            ["ผู้ขอ", r.requester?.fullName],
+            ["ประเภท", r.typeLabel],
+            ["โครงการ", r.project?.name],
+            ["ผู้รับเงิน", payee(r)],
+            ["บัญชี", r.bankAccount ?? "ดูในใบแจ้งหนี้"],
+            ["เลขที่อ้างอิง", ref.trim()],
+            ["วันที่โอน", thaiDate(payDate)],
+          ]}
+          items={r.items.map((it) => ({ category: it.categoryName, name: it.name, amount: it.amount, files: it.files }))}
+          total={r.total}
+        />
+      </ActionPopup>
+
+      {/* ===== ป๊อปอัพยืนยันตีกลับ (ยกเลิก = กลับไปแก้เหตุผล) ===== */}
+      <ActionPopup
+        open={popup === "reject-confirm"}
+        tone="danger"
+        title="ยืนยันตีกลับคำขอนี้?"
+        message={`${r.requester?.fullName ?? "ผู้ขอ"} จะได้รับแจ้งให้แก้ไขแล้วส่งใหม่`}
+        confirmLabel="ตีกลับคำขอ"
+        onConfirm={confirmReject}
+        onCancel={() => setPopup("reject")}
+      >
+        <RequestSummary
+          rows={[
+            ["เลขที่คำขอ", r.id],
+            ["ชื่อคำขอ", r.title],
+            ["ผู้ขอ", r.requester?.fullName],
+            ["ประเภท", r.typeLabel],
+            ["โครงการ", r.project?.name],
+            ["ผู้รับเงิน", payee(r)],
+            ["บัญชี", r.bankAccount ?? "ดูในใบแจ้งหนี้"],
+            ["เหตุผลที่ตีกลับ", rejectNote.trim()],
+          ]}
+          items={r.items.map((it) => ({ category: it.categoryName, name: it.name, amount: it.amount, files: it.files }))}
+          total={r.total}
+        />
+      </ActionPopup>
 
       {/* ===== ป๊อปอัพสำเร็จ ===== */}
       {popup === "done" && (
@@ -314,7 +350,7 @@ function PayContent() {
             <button type="button" onClick={() => setPopup("none")} className="h-10 flex-1 cursor-pointer rounded-lg border border-slate-300 font-semibold">ยกเลิก</button>
             <button
               type="button"
-              onClick={confirmReject}
+              onClick={() => setPopup("reject-confirm")}
               disabled={!rejectNote.trim()}
               className="h-10 flex-1 cursor-pointer rounded-lg bg-rose-600 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
             >
@@ -373,7 +409,12 @@ function Popup({ children }: { children: ReactNode }) {
 export default function PayPage() {
   return (
     <Suspense fallback={null}>
-      <PayContent />
+      <PayKeyed />
     </Suspense>
   );
+}
+
+// สร้างเนื้อหาใหม่ทุกครั้งที่เปิดหน้า (Activity เก็บหน้าไว้ → ป็อปอัพ "บันทึกการจ่ายเงินแล้ว" ของใบก่อนจะค้าง)
+function PayKeyed() {
+  return <PayContent key={useVisitKey(useSearchParams().get("id"))} />;
 }
