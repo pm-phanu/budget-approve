@@ -7,6 +7,7 @@ import { ArrowRight, CheckCircle1, Eye, EyeDisabled, InfoCircle, Shield1Check } 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ActionPopup } from "@/components/action-popup";
+import { useVisitKey } from "@/components/use-visit-key";
 import { register } from "@/data/credential";
 
 // ช่องกรอก: สีในธีม · โฟกัสขอบเขียว (เหมือนหน้าเข้าสู่ระบบ)
@@ -14,7 +15,7 @@ const FIELD =
   "mt-2 w-full rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2.5 text-[15px] text-[#0F172A] placeholder:text-sm placeholder:text-[#94A3B8] focus:border-[#059669] focus:outline-none focus:ring-2 focus:ring-[#059669]/20";
 const MIN_PASSWORD = 8;
 
-export default function Register() {
+function RegisterForm() {
   const [formData, setFormData] = useState({
     username: "",
     email: "",
@@ -254,4 +255,9 @@ export default function Register() {
       </div>
     </div>
   );
+}
+
+// ฟอร์มใหม่ทุกครั้งที่เปิดหน้า (Next เก็บหน้าไว้ → กลับมาแล้วป็อปอัพ "ลงทะเบียนสำเร็จ" / ข้อมูลรอบก่อนจะค้าง)
+export default function Register() {
+  return <RegisterForm key={useVisitKey(null)} />;
 }

@@ -94,16 +94,30 @@ function canAccess(item: MenuItem, user: { role: string; isAdmin?: boolean }) {
 // รวมทุกหมวดเป็นก้อนเดียว: route guard กับ breadcrumb ใช้ค้นหาเมนูจาก pathname
 const items: MenuItem[] = [...mainItems, ...approveItems, ...manageItems, ...reportItems, ...payItems]
 
-function renderMenuItems(list: MenuItem[]) {
+// เมนูที่ไฮไลต์ = url ตรงกับหน้าปัจจุบัน หรือเป็นหน้าย่อยของเมนูนั้น (เช่น /home-account/approve → แดชบอร์ดบัญชี)
+// เอาเมนูที่ url ยาวสุดที่เข้ากัน · "/" ไม่นับแบบหน้าย่อย (ไม่งั้นทุกหน้าเป็นแดชบอร์ด)
+function activeUrl(list: MenuItem[], pathname: string) {
+  return list
+    .filter((item) => item.url === pathname || (item.url !== "/" && pathname.startsWith(item.url + "/")))
+    .sort((a, b) => b.url.length - a.url.length)[0]?.url
+}
+
+// เมนูที่เลือกอยู่: พื้นเขียวเข้ม ตัวขาว (ขาวบน #047857 = 5.5:1 อ่านชัด) ให้เห็นชัดบนแถบเมนูสีเข้ม
+const ACTIVE_MENU = "data-[active=true]:bg-[#047857] data-[active=true]:font-semibold data-[active=true]:text-white"
+
+function renderMenuItems(list: MenuItem[], active: string | undefined) {
   return list.map((item) => (
     <SidebarMenuItem key={item.title + item.url}>
       <SidebarMenuButton
         tooltip={item.title}
+        isActive={item.url === active}
+        className={ACTIVE_MENU}
         render={({ ref, ...props }) => (
           <SidebarMenuItemLink
             title={item.title}
             url={item.url}
             icon={item.icon}
+            aria-current={item.url === active ? "page" : undefined}
             ref={ref as React.Ref<HTMLAnchorElement>}
             {...props}
           />
@@ -166,6 +180,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     ...visibleItems.filter((item) => item.group === "main"),
   ]
   const approvalItems = visibleItems.filter((item) => item.group === "approval")
+  const active = activeUrl([dashboardItem, ...visibleItems], pathname)
   const manageUserItems = visibleItems.filter((item) => item.group === "manage")
   const report = visibleItems.filter((item) => item.group === "report")
   const pay = visibleItems.filter((item) => item.group === "pay")
@@ -206,9 +221,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   }
 
   return (
-    <div className="flex h-screen w-full">
-      <SidebarProvider className="h-full">
-        <Sidebar className="h-full bg-[#0F172A] text-[#CBD5E1] py-5">
+    <div className="flex h-screen w-full print:block print:h-auto">
+      <SidebarProvider className="h-full print:block print:h-auto">
+        <Sidebar className="h-full bg-[#0F172A] text-[#CBD5E1] py-5 print:hidden">
           <SidebarHeader className="p-4 flex-row items-center">
             <span className="flex aspect-square size-8 items-center justify-center rounded-lg bg-[#059669] text-white">
               ฿
@@ -223,7 +238,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </SidebarGroupLabel>
 
               <SidebarGroupContent>
-                <SidebarMenu>{renderMenuItems(mainItems)}</SidebarMenu>
+                <SidebarMenu>{renderMenuItems(mainItems, active)}</SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
 
@@ -234,7 +249,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 </SidebarGroupLabel>
 
                 <SidebarGroupContent>
-                  <SidebarMenu>{renderMenuItems(manageUserItems)}</SidebarMenu>
+                  <SidebarMenu>{renderMenuItems(manageUserItems, active)}</SidebarMenu>
                 </SidebarGroupContent>
               </SidebarGroup>
             )}
@@ -246,7 +261,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 </SidebarGroupLabel>
 
                 <SidebarGroupContent>
-                  <SidebarMenu>{renderMenuItems(pay)}</SidebarMenu>
+                  <SidebarMenu>{renderMenuItems(pay, active)}</SidebarMenu>
                 </SidebarGroupContent>
               </SidebarGroup>
             )}
@@ -258,7 +273,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 </SidebarGroupLabel>
 
                 <SidebarGroupContent>
-                  <SidebarMenu>{renderMenuItems(approvalItems)}</SidebarMenu>
+                  <SidebarMenu>{renderMenuItems(approvalItems, active)}</SidebarMenu>
                 </SidebarGroupContent>
               </SidebarGroup>
             )}
@@ -270,7 +285,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 </SidebarGroupLabel>
 
                 <SidebarGroupContent>
-                  <SidebarMenu>{renderMenuItems(report)}</SidebarMenu>
+                  <SidebarMenu>{renderMenuItems(report, active)}</SidebarMenu>
                 </SidebarGroupContent>
               </SidebarGroup>
             )}
@@ -284,7 +299,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <SidebarGroupContent>
                 <SidebarMenu>
                   <SidebarMenuItem>
-                    <SidebarMenuButton tooltip="การตั้งค่า" onPress={() => router.push("/setting")}>
+                    <SidebarMenuButton
+                      tooltip="การตั้งค่า"
+                      isActive={pathname === "/setting"}
+                      aria-current={pathname === "/setting" ? "page" : undefined}
+                      className={ACTIVE_MENU}
+                      onPress={() => router.push("/setting")}
+                    >
                       <Gear1 />
                       <span>การตั้งค่า</span>
                     </SidebarMenuButton>
@@ -300,7 +321,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </Sidebar>
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="flex justify-between h-14 items-center gap-4 bg-[#F8FAFC] text-[#111] p-9 pt-15">
+          <header className="flex justify-between h-14 items-center gap-4 bg-[#F8FAFC] text-[#111] p-9 pt-15 print:hidden">
             <div className="flex items-center gap-4">
               <SidebarTrigger aria-label="เปิด/ปิดเมนู">
                 <MenuHamburger1 />
@@ -374,7 +395,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </header>
 
           {/* relative: ข้อความ sr-only (position absolute) ต้องอยู่ในกรอบ main ไม่งั้นดันทั้งหน้ายาว → scroll bar 2 อัน */}
-          <main className="relative flex-1 overflow-auto p-9 bg-[#F8FAFC]">
+          <main className="relative flex-1 overflow-auto p-9 bg-[#F8FAFC] print:overflow-visible print:bg-white print:p-0">
             <div>{children}</div>
           </main>
         </div>
