@@ -7,6 +7,7 @@ import { ArrowRight, Check, CheckCircle1 } from "@tailgrids/icons";
 import { addRequestsToBudget } from "@/data/budget";
 import { loadRequests, type SavedRequest, type SavedStep } from "@/data/request";
 import { actOnRequest, canApproveStep } from "@/data/approval";
+import { useReviewLock } from "@/components/use-review-lock";
 import { getCurrentUser } from "@/utils/login";
 import type { Credential } from "@/data/credential";
 
@@ -53,7 +54,7 @@ function thaiDate(iso?: string | null) {
   if (!iso) return "-";
   const d = new Date(iso);
   if (isNaN(d.getTime())) return "-";
-  return d.toLocaleDateString("th-TH", {
+  return d.toLocaleDateString("th-TH", { timeZone: "Asia/Bangkok",
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -65,9 +66,9 @@ function thaiDateTime(iso?: string | null) {
   const d = new Date(iso);
   if (isNaN(d.getTime())) return "";
   return (
-    d.toLocaleDateString("th-TH", { day: "numeric", month: "short" }) +
+    d.toLocaleDateString("th-TH", { timeZone: "Asia/Bangkok", day: "numeric", month: "short" }) +
     " " +
-    d.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" }) +
+    d.toLocaleTimeString("th-TH", { timeZone: "Asia/Bangkok", hour: "2-digit", minute: "2-digit" }) +
     " น."
   );
 }
@@ -215,6 +216,9 @@ function ReviewContent() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [showReject]);
+
+  // ล็อก "มีคนกำลังตรวจสอบอยู่" (components/use-review-lock.ts) · ต้องอยู่ก่อน return ด้านล่าง
+  const lockedBy = useReviewLock(request, me);
 
   if (!loaded) return null;
 
@@ -591,8 +595,21 @@ function ReviewContent() {
               </ol>
             </Card>
 
+            {/* มีคนอื่นกำลังตรวจสอบขั้นนี้อยู่ → กดไม่ได้ */}
+            {canAct && lockedBy && (
+              <Card>
+                <div role="status" className="text-sm text-[#B45309]">
+                  <p className="font-bold">{lockedBy.userName} กำลังตรวจสอบคำขอนี้อยู่</p>
+                  <p className="mt-1 text-[#92400E]">
+                    คุณจะกดอนุมัติหรือตีกลับได้เมื่อ {lockedBy.userName} ปิดหน้านี้
+                    หรือไม่มีการใช้งานเกิน 2 นาที หน้านี้จะอัปเดตให้เอง
+                  </p>
+                </div>
+              </Card>
+            )}
+
             {/* การอนุมัติของคุณ */}
-            {canAct && (
+            {canAct && !lockedBy && (
               <Card>
                 <h2 className="mb-4 text-lg font-bold text-slate-900">
                   การอนุมัติของคุณ

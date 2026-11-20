@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { REQUESTS_KEY, loadRequests, type SavedRequest } from "@/data/request";
+import { REQUESTS_KEY, historyType, loadRequests, type SavedRequest } from "@/data/request";
 import { getDepartmentBudget } from "@/data/budget";
 import { canApproveStep } from "@/data/approval";
 import type { Credential } from "@/data/credential";
 import { loadOrganization } from "@/data/organization";
 import { getCurrentUser } from "@/utils/login";
+import { bkkMonth, bkkYear, shiftMonth } from "@/utils/date";
 import MyRequestsCard from "@/components/my-requests-card";
 import {
   ArrowRight,
@@ -97,17 +98,28 @@ function waitDays(iso: string) {
   return Math.floor(ageMs(iso) / 86400000);
 }
 
-function inMonth(iso: string | null, year: number, month: number) {
-  if (!iso) return false;
-  const d = new Date(iso);
-  return d.getFullYear() === year && d.getMonth() === month;
+// อยู่ในเดือน key ("2026-11") ตามเวลาไทย
+function inMonth(iso: string | null, key: string) {
+  return !!iso && bkkMonth(iso) === key;
 }
 
 
+// เวลา "ส่งใหม่" ครั้งล่าสุด (ไม่เคยถูกตีกลับ = null)
+function resentAt(r: ExpenseRequest) {
+  let latest: string | null = null;
+  for (const h of r.history ?? []) {
+    if (historyType(h) === "ส่งใหม่" && (!latest || h.at > latest)) latest = h.at;
+  }
+  return latest;
+}
+
 // เวลาที่คำขอ "มาถึงบัญชี" = เวลาที่ขั้นก่อนหน้าอนุมัติ (ไม่มีขั้นก่อนหน้า = เวลาที่ส่ง)
+// บัญชี/การเงินตีกลับแล้วส่งใหม่ตรงมาที่บัญชี → ขั้นก่อนหน้ายังเป็นเวลาเก่า จึงใช้เวลาส่งใหม่แทน
 function arrivedAt(r: ExpenseRequest) {
   const prev = r.approvalSteps[r.currentStep - 1];
-  return prev?.at ?? r.createdAt;
+  const base = prev?.at ?? r.createdAt;
+  const resent = resentAt(r);
+  return resent && resent > base ? resent : base;
 }
 
 // ป้ายสถานะของคำขอที่บัญชีดำเนินการไปแล้ว
@@ -212,7 +224,7 @@ export default function AccountantHome() {
     setMe(getCurrentUser());
     setNow(Date.now());
     setToday(
-      new Date().toLocaleDateString("th-TH", {
+      new Date().toLocaleDateString("th-TH", { timeZone: "Asia/Bangkok",
         weekday: "long",
         day: "numeric",
         month: "long",
@@ -261,24 +273,23 @@ export default function AccountantHome() {
   const recent = mine.slice(0, RECENT_LIMIT);
 
   /* ---------- ตัวเลขการ์ดสรุป ---------- */
-  const d = now === null ? null : new Date(now);
-  const year = d ? d.getFullYear() : -1;
-  const month = d ? d.getMonth() : -1;
-  const prev = d ? new Date(year, month - 1, 1) : null;
+  // วัน/เดือน/ปีตามเวลาไทย (utils/date.ts)
+  const year = now === null ? -1 : bkkYear(now);
+  const month = now === null ? "" : bkkMonth(now);
 
   // ตรวจแล้วเดือนนี้
-  const doneThisMonth = mine.filter((m) => inMonth(m.at, year, month));
+  const doneThisMonth = mine.filter((m) => inMonth(m.at, month));
   const passed = doneThisMonth.filter((m) => m.result === "อนุมัติ").length;
   const rejected = doneThisMonth.filter((m) => m.result === "ตีกลับ").length;
 
   // ยอดเบิกเดือนนี้ vs เดือนก่อน (นับคำขอที่ส่งแล้ว ไม่รวมร่าง)
   const sent = requests.filter((r) => r.status !== "ร่าง");
-  const sumOf = (y: number, m: number) =>
+  const sumOf = (key: string) =>
     sent
-      .filter((r) => inMonth(r.createdAt, y, m))
+      .filter((r) => inMonth(r.createdAt, key))
       .reduce((s, r) => s + Number(r.total || 0), 0);
-  const monthTotal = d ? sumOf(year, month) : 0;
-  const prevTotal = prev ? sumOf(prev.getFullYear(), prev.getMonth()) : 0;
+  const monthTotal = month ? sumOf(month) : 0;
+  const prevTotal = month ? sumOf(shiftMonth(month, -1)) : 0;
 
   // งบคงเหลือทั้งปี (รวมทุกฝ่าย)
   const depts = year > 0 ? readDeptBudgets(requests, year) : [];
@@ -386,9 +397,11 @@ export default function AccountantHome() {
                           <div className="truncate font-bold">{r.title}</div>
                           <div className="truncate text-xs text-[#64748B]">
                             {name} ·{" "}
-                            {before
-                              ? `${before.label}อนุมัติ${timeAgo(arrived)}`
-                              : `ส่ง${timeAgo(r.createdAt)}`}
+                            {arrived === resentAt(r)
+                              ? `ส่งใหม่${timeAgo(arrived)}`
+                              : before
+                                ? `${before.label}อนุมัติ${timeAgo(arrived)}`
+                                : `ส่ง${timeAgo(r.createdAt)}`}
                           </div>
                         </div>
                       </div>

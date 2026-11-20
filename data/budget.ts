@@ -8,6 +8,7 @@
 
 import type { Organization } from "./organization";
 import type { SavedRequest } from "./request";
+import { bkkYear } from "../utils/date";
 
 export type Category = {
   id: string;
@@ -115,7 +116,7 @@ export function loadProjects(): Project[] {
         ...seed,
         ...p,
         departmentId: p.departmentId ?? seed?.departmentId ?? "",
-        year: p.year ?? seed?.year ?? new Date().getFullYear(),
+        year: p.year ?? seed?.year ?? bkkYear(),
       } as Project;
     });
     const missing = projects.filter((s) => !parsed.some((p) => p.id === s.id));
@@ -215,6 +216,24 @@ export function getDepartmentBudget(
   }, 0);
   const used = list.reduce((sum, p) => sum + projectUsed(p), 0);
   return { limit, used, remaining: Math.max(0, limit - used), projects: list };
+}
+
+// งบร่วมที่แผนกนี้ใช้ได้ = โครงการของแผนกอื่น (ฝ่ายเดียวกัน) ที่แชร์มา
+// ※ ไม่รวมใน getDepartmentBudget: เป็นเงินของแผนกเจ้าของ (รวมแล้วรายงานรายแผนกจะนับซ้ำ)
+export function getSharedBudget(
+  departmentId: string | null | undefined,
+  saved: SavedRequest[],
+  org: Organization,
+  year?: number,
+) {
+  const projects = addRequestsToBudget(saved).filter(
+    (p) =>
+      p.departmentId !== departmentId &&
+      canUseProject(p, departmentId, org) &&
+      (year === undefined || p.year === year),
+  );
+  const remaining = projects.reduce((s, p) => s + Math.max(0, projectLimit(p) - projectUsed(p)), 0);
+  return { remaining, projects };
 }
 
 // ════════════════════════════════════════════════════════════
@@ -333,7 +352,7 @@ export type BudgetChange = {
   byId: string;
   byName: string;
   year: number; // ปีงบประมาณที่ถูกแก้
-  kind: "แก้วงเงิน" | "โอนงบ";
+  kind: "แก้วงเงิน" | "โอนงบ" | "แชร์งบ";
   item: string; // เช่น "งบบอร์ด" · "แผนก A" · "โครงการ › หมวด" · "A › x → B › y"
   before: number | null; // แก้วงเงิน: ก่อน/หลัง · โอนงบ: null
   after: number | null;
@@ -405,6 +424,23 @@ export function diffBudgets(
       const ids = new Set([...Object.keys(o?.[level] ?? {}), ...Object.keys(n?.[level] ?? {})]);
       for (const id of ids) push(year, name(level, id), o?.[level][id] ?? 0, n?.[level][id] ?? 0);
     }
+  }
+
+  // งบร่วม: แผนกที่เพิ่ม / เลิกแชร์ (ไม่มียอดเงิน)
+  const oldShared = new Map(oldProjects.map((p) => [p.id, p.sharedWith ?? []]));
+  for (const p of newProjects) {
+    const before = oldShared.get(p.id) ?? [];
+    const after = p.sharedWith ?? [];
+    const share = (ids: string[], verb: string) => {
+      if (ids.length > 0)
+        out.push({
+          ...base, id: changeId(base.at), year: p.year, kind: "แชร์งบ",
+          item: `${p.name} ${verb} ${ids.map((id) => name("departments", id)).join(", ")}`,
+          before: null, after: null, amount: 0, note: "",
+        });
+    };
+    share(after.filter((d) => !before.includes(d)), "→ แชร์ให้");
+    share(before.filter((d) => !after.includes(d)), "→ เลิกแชร์");
   }
   return out;
 }

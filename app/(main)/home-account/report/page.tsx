@@ -20,6 +20,7 @@
 // ════════════════════════════════════════════════════════════
 
 import { useEffect, useState } from "react";
+import { bkkMonth, bkkYear, monthLabel, shiftMonth } from "@/utils/date";
 import {
   FileText,
   Wallet2,
@@ -56,7 +57,7 @@ type ReportRow = {
 // ════════════════════════════════════════
 //  [2] ค่าคงที่
 // ════════════════════════════════════════
-const YEAR = new Date().getFullYear(); // ปีงบประมาณปัจจุบัน (ค.ศ. แบบเดียวกับหน้าตั้งงบ)
+const YEAR = bkkYear(); // ปีงบประมาณปัจจุบัน (ค.ศ. ตามเวลาไทย แบบเดียวกับหน้าตั้งงบ)
 
 // แท็บช่วงเวลา: days = ย้อนหลังกี่วัน
 const periods = [
@@ -91,11 +92,11 @@ function toReportRow(r: SavedRequest, today: Date): ReportRow {
   return {
     doc: r.id,
     daysAgo,
-    date: created.toLocaleDateString("th-TH", {
+    date: created.toLocaleDateString("th-TH", { timeZone: "Asia/Bangkok",
       day: "2-digit",
       month: "short",
     }), // เช่น "14 พ.ย."
-    monthKey: monthKeyOf(created), // "2026-11" (เวลาเครื่อง ไม่ใช่ UTC)
+    monthKey: bkkMonth(created), // "2026-11" ตามเวลาไทย (utils/date.ts)
     dept: r.project ? r.project.dept : "ไม่ระบุแผนก", // แผนกเจ้าของโครงการ
     title: r.title,
     requester: r.requester ? r.requester.fullName : "-",
@@ -104,20 +105,12 @@ function toReportRow(r: SavedRequest, today: Date): ReportRow {
   };
 }
 
-// ปี-เดือนตามเวลาเครื่อง เช่น "2026-11" · toISOString() เป็น UTC → ตี 0-7 ของวันที่ 1 จะตกไปเดือนก่อน
-function monthKeyOf(d: Date) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-}
-
-// 6 เดือนล่าสุด (รวมเดือนนี้) → [{ key: "2026-06", label: "มิ.ย." }, ...]
+// 6 เดือนล่าสุด (รวมเดือนนี้ ตามเวลาไทย) → [{ key: "2026-06", label: "มิ.ย." }, ...]
 function lastSixMonths(today: Date) {
   const list = [];
   for (let i = 5; i >= 0; i--) {
-    const d = new Date(today.getFullYear(), today.getMonth() - i, 1); // ย้อนทีละเดือน
-    list.push({
-      key: monthKeyOf(d),
-      label: d.toLocaleDateString("th-TH", { month: "short" }),
-    });
+    const key = shiftMonth(bkkMonth(today), -i); // ย้อนทีละเดือน
+    list.push({ key, label: monthLabel(key) });
   }
   return list;
 }

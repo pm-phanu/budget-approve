@@ -10,6 +10,7 @@ import Link from "next/link";
 import { loadRequests, type SavedRequest } from "@/data/request";
 import { canApproveStep } from "@/data/approval";
 import { getCurrentUser } from "@/utils/login";
+import { bkkDay, bkkDaysAgo, bkkMonth } from "@/utils/date";
 import MyRequestsCard from "@/components/my-requests-card";
 
 // โอนเกินกี่วันถือว่า "เลยกำหนด"
@@ -20,12 +21,7 @@ const baht = (n: number) => "฿" + n.toLocaleString("en-US");
 
 // นับว่าผ่านมากี่วันแล้ว (นับเป็นวัน ไม่สนชั่วโมง)
 function daysAgo(iso: string | null) {
-  if (!iso) return 0;
-  const start = new Date(iso);
-  start.setHours(0, 0, 0, 0);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return Math.round((today.getTime() - start.getTime()) / 86400000);
+  return iso ? bkkDaysAgo(iso) : 0;
 }
 
 // วันที่บัญชีตรวจผ่าน = เวลาของขั้นก่อนหน้าขั้นการเงิน
@@ -89,10 +85,11 @@ export default function FinancePage() {
   const pendingTotal = pending.reduce((sum, r) => sum + r.total, 0);
   const overdueCount = pending.filter((r) => daysAgo(checkedAt(r)) > DUE_DAYS).length;
 
-  const today = new Date().toDateString();
-  const thisMonth = new Date().toISOString().slice(0, 7); // เช่น "2026-11"
-  const paidToday = paid.filter((r) => new Date(paidAt(r)).toDateString() === today);
-  const paidMonth = paid.filter((r) => paidAt(r).startsWith(thisMonth));
+  // วัน/เดือนตามเวลาไทย (utils/date.ts) ไม่ขึ้นกับ Time Zone ของเครื่อง
+  const today = bkkDay();
+  const thisMonth = bkkMonth();
+  const paidToday = paid.filter((r) => bkkDay(paidAt(r)) === today);
+  const paidMonth = paid.filter((r) => bkkMonth(paidAt(r)) === thisMonth);
   const sum = (list: SavedRequest[]) => list.reduce((s, r) => s + r.total, 0);
 
   // ---------- กรองตามแท็บ + ช่องค้นหา ----------

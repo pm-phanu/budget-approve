@@ -13,7 +13,9 @@ import MyRequestsCard from "@/components/my-requests-card";
 import { getCurrentUser } from "@/utils/login";
 import type { Credential } from "@/data/credential";
 import { loadRequests, type SavedRequest } from "@/data/request";
-import { getDepartmentBudget } from "@/data/budget";
+import { getDepartmentBudget, getSharedBudget } from "@/data/budget";
+import { loadOrganization } from "@/data/organization";
+import { bkkYear } from "@/utils/date";
 
 /* ------------------------------------------------------------------
    ตั้งค่า
@@ -43,7 +45,7 @@ export default function Home() {
     } catch {
       setRequests([]);
     }
-    setYear(new Date().getFullYear());
+    setYear(bkkYear());
     setNow(Date.now());
     /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
@@ -60,7 +62,7 @@ export default function Home() {
       (r) =>
         (r.status === "อนุมัติแล้ว" || r.status === "จ่ายแล้ว") &&
         year !== null &&
-        new Date(r.createdAt).getFullYear() === year,
+        bkkYear(r.createdAt) === year,
     )
     .reduce((sum, r) => sum + r.total, 0);
 
@@ -71,6 +73,10 @@ export default function Home() {
     ? getDepartmentBudget(me.departmentId, requests, year ?? undefined)
     : { limit: 0, used: 0, remaining: 0 };
   const remaining = budget.remaining;
+  // งบร่วมที่แผนกอื่นแชร์มา (แสดงแยก ไม่รวมในวงเงินแผนก)
+  const shared = me
+    ? getSharedBudget(me.departmentId, requests, loadOrganization(), year ?? undefined)
+    : { remaining: 0, projects: [] };
   const usedPct = budget.limit > 0 ? Math.round((budget.used / budget.limit) * 100) : 0;
 
   return (
@@ -108,6 +114,11 @@ export default function Home() {
                 </span>
                 <span>ใช้ไปแล้ว {usedPct}%</span>
               </div>
+              {shared.projects.length > 0 && (
+                <p className="mt-1 text-sm text-[#A7F3D0]">
+                  + งบร่วมจากแผนกอื่น <span className="money">฿{money(shared.remaining)}</span> ({shared.projects.length} โครงการ)
+                </p>
+              )}
               {/* หลอด: ความยาวสีเขียว = % ที่ใช้ไปแล้ว */}
               <div
                 className="mt-2 h-2 w-full overflow-hidden rounded-full bg-white/15"
