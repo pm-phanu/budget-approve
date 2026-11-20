@@ -16,7 +16,8 @@ import { getCurrentUser } from "@/utils/login";
 import { bkkDay } from "@/utils/date";
 import type { Credential } from "@/data/credential";
 import { HeroCard } from "@/components/budget-card";
-import { Bank1, Check, Eye, Xmark } from "@tailgrids/icons";
+import { Bank1, Check, Xmark } from "@tailgrids/icons";
+import AttachmentButton from "@/components/attachment-button";
 import { baht } from "@/utils/format";
 
 const LIST_PATH = "/pay-request";
@@ -164,14 +165,14 @@ function PayContent() {
                 <p className="text-sm">
                   {item.name} <span className="text-slate-400">{item.categoryName}</span>
                 </p>
-                {/* ไฟล์ของแถวนี้ (ยังเปิดดูไม่ได้ เพราะยังไม่มีที่เก็บไฟล์) */}
+                {/* ไฟล์ของแถวนี้ → เปิดจาก IndexedDB (components/attachment-button.tsx) */}
                 {item.files.map((f) => (
-                  <div key={f} className="mt-2 flex w-fit items-center gap-2 rounded-lg border border-slate-200 px-2 py-1.5">
-                    <span className="rounded bg-rose-100 px-1.5 py-0.5 text-[10px] font-bold text-rose-600">PDF</span>
+                  <div key={f} className="mt-2 flex w-fit items-center gap-2 rounded-lg border border-slate-200 py-1 pl-2 pr-1">
+                    {/\.pdf$/i.test(f) && (
+                      <span className="rounded bg-rose-100 px-1.5 py-0.5 text-[10px] font-bold text-rose-600">PDF</span>
+                    )}
                     <span className="text-xs">{f}</span>
-                    <span title="ยังไม่มีที่เก็บไฟล์ (รอเชื่อมระบบหลังบ้าน)" className="cursor-not-allowed opacity-40">
-                      <Eye size={14} aria-label="เปิดดูไฟล์ (ยังไม่พร้อม)" />
-                    </span>
+                    <AttachmentButton requestId={r.id} name={f} />
                   </div>
                 ))}
               </div>

@@ -29,6 +29,7 @@ import { useRouter, useSearchParams } from "next/navigation"; // ✅ เพิ�
 import { getUsers, type Credential } from "@/data/credential";
 import { notifyRequestEvent } from "@/data/notification";
 import { getCurrentUser } from "@/utils/login";
+import { openAttachment, saveAttachments } from "@/utils/attachments";
 import { projects, addRequestsToBudget, canUseProject, type Project } from "@/data/budget";
 import {
   DEFAULT_RULES,
@@ -170,6 +171,8 @@ function NewRequest({ openId }: { openId: string | null }) {
   const [items, setItems] = useState<Item[]>([emptyItem()]);
   // ลิงก์ดูไฟล์ที่แนบ (ชื่อไฟล์ → ลิงก์ชั่วคราวในเครื่อง) · ใช้ได้จนกว่าจะปิด/รีเฟรชหน้า
   const [previews, setPreviews] = useState<Record<string, string>>({});
+  // ตัวไฟล์ที่เลือกในรอบนี้ (ชื่อ → File) → บันทึกลง IndexedDB ตอนบันทึกร่าง / ส่ง (utils/attachments.ts)
+  const [picked, setPicked] = useState<Record<string, File>>({});
 
   // ข้อความแจ้งผล
   const [errors, setErrors] = useState<string[]>([]);
@@ -392,6 +395,8 @@ function NewRequest({ openId }: { openId: string | null }) {
     const links = { ...previews };
     for (const f of Array.from(picked)) links[f.name] = URL.createObjectURL(f);
     setPreviews(links);
+    // เก็บตัวไฟล์ไว้ บันทึกจริงตอนบันทึกร่าง / ส่ง
+    setPicked((prev) => ({ ...prev, ...Object.fromEntries(Array.from(picked).map((f) => [f.name, f])) }));
     updateRow(index, { files: [...items[index].files, ...names] }); // ไฟล์เดิม + ไฟล์ใหม่
 
     e.target.value = ""; // ล้างช่อง จะได้เลือกไฟล์ชื่อเดิมซ้ำได้
@@ -556,6 +561,14 @@ function NewRequest({ openId }: { openId: string | null }) {
     // มีใบเดิม = แทนที่ · ไม่มี = ต่อท้าย
     const others = all.filter((r) => r.id !== id);
     localStorage.setItem(REQUESTS_KEY, JSON.stringify([...others, request]));
+
+    // ตัวไฟล์ที่ยังแนบอยู่ → IndexedDB ใต้เลขที่คำขอนี้ (ผู้อนุมัติ/การเงินกดเปิดดูได้)
+    // shortcut: ไฟล์ที่ผู้ขอกด × ลบทิ้ง ยังค้างใน IndexedDB (ไม่มีใครเปิดถึง) · ถ้าพื้นที่เริ่มเต็มค่อยลบตอนบันทึก
+    const stillAttached = new Set(items.flatMap((it) => it.files));
+    const toStore = Object.values(picked).filter((f) => stillAttached.has(f.name));
+    saveAttachments(id, toStore).catch(() =>
+      setErrors(["บันทึกคำขอแล้ว แต่เก็บไฟล์แนบในเครื่องไม่สำเร็จ (พื้นที่เบราว์เซอร์อาจเต็ม) ผู้อนุมัติจะเปิดไฟล์ไม่ได้"]),
+    );
 
     // ส่งจริง (ไม่ใช่ร่าง) → แจ้งเตือนผู้อนุมัติ (data/notification.ts)
     // ※ ส่งใหม่ก็ใช้ event "submitted" เดิม ถ้า notification.ts มี event สำหรับส่งใหม่ ให้เปลี่ยนตรงนี้
@@ -863,13 +876,24 @@ function NewRequest({ openId }: { openId: string | null }) {
                           className="flex items-center gap-1 rounded-lg bg-[#F1F5F9] py-0.5 pl-2 pr-1 text-[#334155]"
                         >
                           <FileText size={12} className="text-[#64748B]" aria-hidden="true" />
-                          {/* มีลิงก์ = กดเปิดดูได้ · ไฟล์จากร่างเก่าไม่มีลิงก์ (ยังไม่มีที่เก็บไฟล์จริง) */}
+                          {/* แนบรอบนี้ = ลิงก์ในเครื่อง · ไฟล์จากร่าง/คำขอที่ถูกตีกลับ = เปิดจาก IndexedDB (utils/attachments.ts) */}
                           {previews[name] ? (
                             <a href={previews[name]} target="_blank" rel="noreferrer" className="underline hover:text-[#047857]">
                               {name}
                             </a>
+                          ) : draftId ? (
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                if (!(await openAttachment(draftId, name)))
+                                  setErrors([`ไม่พบไฟล์ ${name} ในเครื่องนี้ กรุณาลบแล้วแนบใหม่`]);
+                              }}
+                              className="underline hover:text-[#047857]"
+                            >
+                              {name}
+                            </button>
                           ) : (
-                            <span title="ไฟล์จากร่างเก่า ดูไม่ได้ ต้องแนบใหม่">{name}</span>
+                            <span>{name}</span>
                           )}
                           <button
                             type="button"

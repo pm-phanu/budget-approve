@@ -10,7 +10,8 @@ import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 // ไอคอนทั้งหมดจาก @tailgrids/icons (https://tailgrids.com/icons)
-import { ArrowRight, Check, CheckCircle1, Close, Eye, FileText } from "@tailgrids/icons";
+import { ArrowRight, Check, CheckCircle1, Close, FileText } from "@tailgrids/icons";
+import AttachmentButton from "@/components/attachment-button";
 // component จาก TailGrids (https://tailgrids.com/docs/components)
 import { ModalOverlay } from "react-aria-components";
 import { Button } from "@/components/tailgrids/core/button";
@@ -473,13 +474,8 @@ function ReviewContent({ homePath }: { homePath: string }) {
                         >
                           <FileText size={16} className="shrink-0 text-[#64748B]" aria-hidden="true" />
                           <span className="max-w-[16rem] truncate">{file}</span>
-                          <button
-                            type="button"
-                            aria-label={`ดูเอกสาร ${file}`}
-                            className="rounded p-1 text-[#94A3B8] hover:text-[#047857]"
-                          >
-                            <Eye size={16} aria-hidden="true" />
-                          </button>
+                          {/* เปิดไฟล์จาก IndexedDB (components/attachment-button.tsx) */}
+                          <AttachmentButton requestId={r.id} name={file} />
                         </li>
                       ))}
                     </ul>
