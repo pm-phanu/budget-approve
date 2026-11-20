@@ -179,7 +179,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const isPayDetail = pathname === "/home-finance/pay"
   const currentTitle =
     pathname !== homePath
-      ? items.find((item) => item.url === pathname)?.title
+      ? (items.find((item) => item.url === pathname)?.title ??
+        (pathname === "/setting" ? "การตั้งค่า" : undefined)) // ปุ่มท้าย sidebar ไม่ได้อยู่ใน items
       : undefined
   const isHome = !currentTitle && !isApprovePage && !isMyRequestDetail && !isPayDetail
 
@@ -283,7 +284,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <SidebarGroupContent>
                 <SidebarMenu>
                   <SidebarMenuItem>
-                    <SidebarMenuButton tooltip="การตั้งค่า">
+                    <SidebarMenuButton tooltip="การตั้งค่า" onPress={() => router.push("/setting")}>
                       <Gear1 />
                       <span>การตั้งค่า</span>
                     </SidebarMenuButton>

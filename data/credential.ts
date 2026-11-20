@@ -415,3 +415,61 @@ export const register = (input: RegistrationInput): Credential => {
   saveUsers([...currentUsers, newUser]);
   return withoutPassword(newUser);
 };
+
+// ════════════════════════════════════════════════════════════
+//  หน้าตั้งค่าบัญชีของผู้ใช้ (app/(main)/setting) · ผิด → throw พร้อมข้อความภาษาไทย
+// ════════════════════════════════════════════════════════════
+
+// ธนาคารในไทย (พิมพ์ชื่อสั้นแบบข้อมูลตัวอย่างเดิม เช่น "กสิกรไทย")
+export const THAI_BANKS = [
+  "กรุงเทพ",
+  "กสิกรไทย",
+  "กรุงไทย",
+  "ไทยพาณิชย์",
+  "กรุงศรีอยุธยา",
+  "ทหารไทยธนชาต (ttb)",
+  "ยูโอบี",
+  "ซีไอเอ็มบี ไทย",
+  "เกียรตินาคินภัทร",
+  "แลนด์ แอนด์ เฮ้าส์",
+  "ทิสโก้",
+  "ไอซีบีซี (ไทย)",
+  "ไทยเครดิต",
+  "ออมสิน",
+  "ธ.ก.ส.",
+  "อาคารสงเคราะห์ (ธอส.)",
+  "อิสลามแห่งประเทศไทย",
+] as const;
+
+// เปลี่ยนรหัสผ่าน: ต้องรู้รหัสเดิม · ใหม่ ≥ 8 ตัว (เท่ากับตอนลงทะเบียน) · ต้องพิมพ์ยืนยันตรงกัน
+// คืนข้อความผิด (null = ผ่าน) · หน้าจอเรียกก่อนเปิดป็อปอัพยืนยัน
+export const passwordChangeError = (userId: string, current: string, next: string, confirm: string) => {
+  const user = getUsers().find((u) => u.id === userId);
+  if (!user) return "ไม่พบผู้ใช้";
+  if (user.password !== current) return "รหัสผ่านปัจจุบันไม่ถูกต้อง";
+  if (next.length < 8) return "รหัสผ่านใหม่ต้องมีอย่างน้อย 8 ตัวอักษร";
+  if (next !== confirm) return "รหัสผ่านใหม่กับยืนยันรหัสผ่านไม่ตรงกัน";
+  if (next === current) return "รหัสผ่านใหม่ต้องไม่ซ้ำรหัสเดิม";
+  return null;
+};
+
+export const changePassword = (userId: string, current: string, next: string, confirm: string) => {
+  const error = passwordChangeError(userId, current, next, confirm);
+  if (error) throw new Error(error);
+  saveUsers(getUsers().map((u) => (u.id === userId ? { ...u, password: next } : u)));
+};
+
+// ตรวจ + จัดรูปบัญชีธนาคาร · เลขบัญชีเก็บเป็นตัวเลขล้วน (ธนาคารพาณิชย์ 10 หลัก · ออมสิน/ธ.ก.ส. 12 หลัก)
+export const normalizeBankAccount = (input: BankAccount): BankAccount => {
+  const bank = input.bank.trim();
+  const number = input.number.replace(/[\s-]/g, "");
+  const name = input.name.trim();
+  if (!(THAI_BANKS as readonly string[]).includes(bank)) throw new Error("กรุณาเลือกธนาคาร");
+  if (!/^\d{10,12}$/.test(number)) throw new Error("เลขบัญชีต้องเป็นตัวเลข 10–12 หลัก");
+  if (!name) throw new Error("กรุณากรอกชื่อบัญชี");
+  return { bank, number, name };
+};
+
+export const updateBankAccount = (userId: string, input: BankAccount) => {
+  updateUser(userId, { bankAccount: normalizeBankAccount(input) });
+};
