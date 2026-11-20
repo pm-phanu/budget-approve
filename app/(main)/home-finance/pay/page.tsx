@@ -125,7 +125,22 @@ function PayContent() {
       </p>
       <div className="mt-3 flex items-center gap-3">
         <h1 className="text-[28px] font-bold">{r.title}</h1>
-        <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-700">รอการเงิน</span>
+        {/* ป้ายสถานะตามคำขอจริง (เปิดใบที่จ่ายแล้ว/ถูกตีกลับ ต้องไม่ขึ้นว่ารอ) */}
+        <span
+          className={`rounded-full px-3 py-1 text-xs font-semibold ${
+            r.status === "จ่ายแล้ว"
+              ? "bg-emerald-100 text-emerald-700"
+              : r.status === "ตีกลับ"
+                ? "bg-rose-100 text-rose-700"
+                : "bg-indigo-100 text-indigo-700"
+          }`}
+        >
+          {r.status === "รออนุมัติ" && r.approvalSteps[r.currentStep]?.role === "FINANCE"
+            ? "รอการเงิน"
+            : r.status === "ตีกลับ"
+              ? "ถูกตีกลับ"
+              : r.status}
+        </span>
         <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">{r.typeLabel}</span>
       </div>
 
