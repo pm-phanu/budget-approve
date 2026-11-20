@@ -22,6 +22,7 @@ export type Project = {
   dept: string; // ชื่อแผนก (แสดงผล / หน้าเดิมยังใช้อยู่) ต้องตรงกับชื่อแผนกใน organization.ts
   year: number; // ปีงบประมาณ (ค.ศ.)
   categories: Category[];
+  sharedWith?: string[]; // งบร่วม: แผนกอื่นที่ใช้โครงการนี้ได้ด้วย (ต้องอยู่ฝ่ายเดียวกัน → สายงานเดียวกันด้วย)
 };
 
 // ────────────────────────────────────────────────────────────
@@ -135,6 +136,19 @@ export function saveProjects(next: Project[]) {
 // ────────────────────────────────────────────────────────────
 //  คำนวณ
 // ────────────────────────────────────────────────────────────
+
+// งบร่วมใช้ได้เฉพาะแผนกในฝ่ายเดียวกัน (ฝ่ายอยู่ใต้สายงานเดียว → ข้ามฝ่าย/ข้ามสายงานไม่ได้)
+export function sameDivision(org: Organization, a: string, b: string) {
+  const div = (id: string) => org.departments.find((d) => d.id === id)?.divisionId;
+  return !!div(a) && div(a) === div(b);
+}
+
+// แผนกนี้เลือกโครงการนี้ตอนขอเบิกได้ไหม: แผนกเจ้าของ หรือแผนกที่แชร์ให้ (เช็คฝ่ายซ้ำ เผื่อย้ายแผนกทีหลัง)
+export function canUseProject(p: Project, departmentId: string | null | undefined, org: Organization) {
+  if (!departmentId) return false;
+  if (p.departmentId === departmentId) return true;
+  return !!p.sharedWith?.includes(departmentId) && sameDivision(org, p.departmentId, departmentId);
+}
 
 // งบรวมของ 1 โครงการ
 export function projectLimit(p: Project) {

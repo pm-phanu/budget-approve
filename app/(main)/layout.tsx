@@ -269,7 +269,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </SidebarContent>
         </Sidebar>
 
-        <div className="flex flex-1 flex-col">
+        <div className="flex min-w-0 flex-1 flex-col">
           <header className="flex justify-between h-14 items-center gap-4 bg-[#F1F5F9] text-[#111] p-9 pt-15">
             <div className="flex items-center gap-4">
               <SidebarTrigger aria-label="เปิด/ปิดเมนู">
@@ -339,7 +339,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </div>
           </header>
 
-          <main className="flex-1 overflow-auto p-9 bg-[#F1F5F9]">
+          {/* relative: ข้อความ sr-only (position absolute) ต้องอยู่ในกรอบ main ไม่งั้นดันทั้งหน้ายาว → scroll bar 2 อัน */}
+          <main className="relative flex-1 overflow-auto p-9 bg-[#F1F5F9]">
             <div>{children}</div>
           </main>
         </div>
