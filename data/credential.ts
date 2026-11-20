@@ -491,3 +491,14 @@ export const normalizeEmail = (userId: string, input: string) => {
   if (owner) throw new Error("อีเมลนี้เป็นอีเมลปัจจุบันของคุณอยู่แล้ว");
   return email;
 };
+
+// เปลี่ยนชื่อผู้ใช้ (ใช้เข้าสู่ระบบ) · อังกฤษตัวเล็ก/ตัวเลข/. _ - 3–30 ตัว (ไม่มี @ → ไม่ชนกับอีเมล) · ผิด → throw
+export const normalizeUsername = (userId: string, input: string) => {
+  const username = input.trim().toLocaleLowerCase();
+  if (!/^[a-z0-9._-]{3,30}$/.test(username))
+    throw new Error("ชื่อผู้ใช้ต้องเป็นภาษาอังกฤษ ตัวเลข หรือ . _ - ยาว 3–30 ตัว");
+  const owner = getUsers().find((u) => u.username.toLocaleLowerCase() === username);
+  if (owner && owner.id !== userId) throw new Error("ชื่อผู้ใช้นี้มีคนใช้แล้ว");
+  if (owner) throw new Error("นี่คือชื่อผู้ใช้ปัจจุบันของคุณอยู่แล้ว");
+  return username;
+};
