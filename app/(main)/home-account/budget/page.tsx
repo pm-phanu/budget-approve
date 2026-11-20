@@ -42,6 +42,7 @@ import {
   projects as SEED_PROJECTS,
   saveAllocations,
   saveProjects,
+  sameDivision,
   validateAllocation,
   type BudgetAllocation,
   type Project,
@@ -313,6 +314,11 @@ export default function BudgetSetting() {
         if (!Number.isInteger(c.limit) || c.limit < 0)
           errs.push(`${label} › ${c.name}: วงเงินต้องเป็นจำนวนเต็มตั้งแต่ 0`);
       }
+      // งบร่วม: ข้ามฝ่าย / ข้ามสายงานไม่ได้ (เช่น ย้ายแผนกไปฝ่ายอื่นหลังแชร์ไว้)
+      for (const d of p.sharedWith ?? []) {
+        if (d === p.departmentId || (org && !sameDivision(org, p.departmentId, d)))
+          errs.push(`${label}: แชร์งบได้เฉพาะแผนกอื่นในฝ่ายเดียวกัน`);
+      }
     }
     return errs;
   }
@@ -445,6 +451,32 @@ export default function BudgetSetting() {
             </button>
           )}
         </div>
+
+        {/* งบร่วม: เลือกแผนกในฝ่ายเดียวกันที่ใช้โครงการนี้ได้ด้วย */}
+        {(() => {
+          const siblings = org ? org.departments.filter((d) => d.id !== p.departmentId && sameDivision(org, p.departmentId, d.id)) : [];
+          const shared = p.sharedWith ?? [];
+          const toggle = (id: string, on: boolean) =>
+            patchProject(p.id, (x) => ({ ...x, sharedWith: on ? [...shared, id] : shared.filter((s) => s !== id) }));
+          return (
+            <fieldset className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+              <legend className="sr-only">ใช้งบร่วมกับแผนก</legend>
+              <span className="text-[#64748B]">ใช้งบร่วมกับ:</span>
+              {siblings.length === 0 && <span className="text-[#94A3B8]">ไม่มีแผนกอื่นในฝ่ายเดียวกัน</span>}
+              {siblings.map((d) => (
+                <label key={d.id} className="flex cursor-pointer items-center gap-1.5">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 accent-[#059669]"
+                    checked={shared.includes(d.id)}
+                    onChange={(e) => toggle(d.id, e.target.checked)}
+                  />
+                  {d.name}
+                </label>
+              ))}
+            </fieldset>
+          );
+        })()}
 
         <div className="overflow-x-auto">
           <TableRoot className="bg-white">

@@ -29,7 +29,7 @@ import { useRouter } from "next/navigation"; // ✅ เพิ่ม: ใช้�
 import { getUsers, type Credential } from "@/data/credential";
 import { notifyRequestEvent } from "@/data/notification";
 import { getCurrentUser } from "@/utils/login";
-import { projects, addRequestsToBudget, type Project } from "@/data/budget";
+import { projects, addRequestsToBudget, canUseProject, type Project } from "@/data/budget";
 import {
   DEFAULT_RULES,
   loadApprovalRules,
@@ -253,8 +253,9 @@ export default function NewRequest() {
   const project = budget.find((p) => p.id === projectId); // ไม่ได้เลือก = undefined
   const categories = project ? project.categories : [];
   const currentYear = user ? new Date().getFullYear() : null
+  // โครงการของแผนกตัวเอง + โครงการงบร่วมที่แผนกอื่นในฝ่ายเดียวกันแชร์ให้
   const myProjects = budget.filter(
-    (p) => !!user?.departmentId && p.departmentId === user.departmentId && p.year === currentYear
+    (p) => canUseProject(p, user?.departmentId, org) && p.year === currentYear
   )
 
   // งบคงเหลือของโครงการ = รวม (วงเงิน − ใช้ไป) ทุกหมวด
@@ -650,6 +651,7 @@ export default function NewRequest() {
                 {myProjects.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
+                    {p.departmentId !== user?.departmentId && ` (งบร่วม · ${p.dept})`}
                   </option>
                 ))}
               </select>
