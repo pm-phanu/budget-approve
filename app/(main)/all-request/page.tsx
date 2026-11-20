@@ -15,6 +15,7 @@ import {
   Search1,
   Wallet2,
 } from "@tailgrids/icons";
+import { bkkYear } from "@/utils/date";
 
 /* ------------------------------------------------------------------
    ตั้งค่า
@@ -56,7 +57,7 @@ function readRequests(): ExpenseRequest[] {
 
 // งบของแผนกตัวเองปีนี้ (งบที่บัญชีแบ่งให้แผนก · data/budget.ts)
 function readBudget(user: CurrentUser | null) {
-  const { limit, used } = getDepartmentBudget(user?.departmentId, readRequests(), new Date().getFullYear());
+  const { limit, used } = getDepartmentBudget(user?.departmentId, readRequests(), bkkYear());
   return { limit, used };
 }
 
@@ -134,7 +135,7 @@ export default function AllRequestDH() {
     setRequests(readRequests());
     setMe(user);
     setBudget(readBudget(user));
-    setCurrentYear(new Date().getFullYear());
+    setCurrentYear(bkkYear());
     /* eslint-enable react-hooks/set-state-in-effect */
 
     const onStorage = (e: StorageEvent) => {
@@ -173,7 +174,7 @@ export default function AllRequestDH() {
             ({ step }) =>
               step.status === "อนุมัติ" &&
               !!step.at &&
-              (currentYear === null || new Date(step.at).getFullYear() === currentYear),
+              (currentYear === null || bkkYear(step.at) === currentYear),
           )
           .map(({ request }) => request.id),
   );

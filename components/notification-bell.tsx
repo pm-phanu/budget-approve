@@ -94,7 +94,7 @@ export function formatTime(iso: string, nowMs: number): string {
   const diffHours = Math.floor(diffMins / 60);
   if (diffHours < 24) return `${diffHours} ชม. ที่แล้ว`;
 
-  return date.toLocaleString("th-TH", {
+  return date.toLocaleString("th-TH", { timeZone: "Asia/Bangkok",
     day: "numeric",
     month: "short",
     hour: "2-digit",

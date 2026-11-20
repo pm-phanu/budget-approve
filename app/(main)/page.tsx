@@ -15,6 +15,7 @@ import type { Credential } from "@/data/credential";
 import { loadRequests, type SavedRequest } from "@/data/request";
 import { getDepartmentBudget, getSharedBudget } from "@/data/budget";
 import { loadOrganization } from "@/data/organization";
+import { bkkYear } from "@/utils/date";
 
 /* ------------------------------------------------------------------
    ตั้งค่า
@@ -44,7 +45,7 @@ export default function Home() {
     } catch {
       setRequests([]);
     }
-    setYear(new Date().getFullYear());
+    setYear(bkkYear());
     setNow(Date.now());
     /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
@@ -61,7 +62,7 @@ export default function Home() {
       (r) =>
         (r.status === "อนุมัติแล้ว" || r.status === "จ่ายแล้ว") &&
         year !== null &&
-        new Date(r.createdAt).getFullYear() === year,
+        bkkYear(r.createdAt) === year,
     )
     .reduce((sum, r) => sum + r.total, 0);
 

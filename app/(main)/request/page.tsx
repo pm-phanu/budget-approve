@@ -67,6 +67,7 @@ import {
   Plus,
   FileText,
 } from "@tailgrids/icons";
+import { bkkYear } from "@/utils/date";
 
 // ✅ เพิ่ม: path หน้า "คำขอของฉัน" (ตรงกับลิงก์ในหน้า Home)
 const MY_REQUEST_PATH = "/my-request";
@@ -273,7 +274,7 @@ function NewRequest({ openId }: { openId: string | null }) {
   // โครงการที่เลือก + หมวดของโครงการนั้น
   const project = budget.find((p) => p.id === projectId); // ไม่ได้เลือก = undefined
   const categories = project ? project.categories : [];
-  const currentYear = user ? new Date().getFullYear() : null
+  const currentYear = user ? bkkYear() : null
   // โครงการของแผนกตัวเอง + โครงการงบร่วมที่แผนกอื่นในฝ่ายเดียวกันแชร์ให้
   const myProjects = budget.filter(
     (p) => canUseProject(p, user?.departmentId, org) && p.year === currentYear

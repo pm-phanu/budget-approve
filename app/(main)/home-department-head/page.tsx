@@ -21,6 +21,7 @@ import {
   CheckCircle1,
   ClockThree,
 } from "@tailgrids/icons";
+import { bkkYear } from "@/utils/date";
 
 /* ------------------------------------------------------------------
    ชนิดข้อมูล: ใช้ของกลางใน data/ (คำขอ = SavedRequest · ผู้ใช้ = Credential)
@@ -54,7 +55,7 @@ function readRequests(): ExpenseRequest[] {
 // งบของแผนกตัวเองปีนี้ (งบที่บัญชีแบ่งให้แผนก · data/budget.ts)
 function readBudget(user: CurrentUser | null) {
   const requests = readRequests();
-  const year = new Date().getFullYear();
+  const year = bkkYear();
   const { limit, used } = getDepartmentBudget(user?.departmentId, requests, year);
   // งบร่วมที่แผนกอื่นแชร์มา (แสดงแยก ไม่รวมในวงเงินแผนก)
   const shared = getSharedBudget(user?.departmentId, requests, loadOrganization(), year);
@@ -137,9 +138,9 @@ export default function DH() {
     setRequests(readRequests());
     setMe(user);
     setBudget(readBudget(user));
-    setCurrentYear(new Date().getFullYear());
+    setCurrentYear(bkkYear());
     setToday(
-      new Date().toLocaleDateString("th-TH", {
+      new Date().toLocaleDateString("th-TH", { timeZone: "Asia/Bangkok",
         weekday: "long",
         day: "numeric",
         month: "long",
@@ -184,7 +185,7 @@ export default function DH() {
   const approvedTotal = mine
     .filter(
       (m) =>
-        currentYear === null || new Date(m.at).getFullYear() === currentYear,
+        currentYear === null || bkkYear(m.at) === currentYear,
     )
     .reduce((sum, m) => sum + Number(m.r.total || 0), 0);
 

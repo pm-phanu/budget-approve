@@ -8,6 +8,7 @@
 
 import type { Organization } from "./organization";
 import type { SavedRequest } from "./request";
+import { bkkYear } from "../utils/date";
 
 export type Category = {
   id: string;
@@ -115,7 +116,7 @@ export function loadProjects(): Project[] {
         ...seed,
         ...p,
         departmentId: p.departmentId ?? seed?.departmentId ?? "",
-        year: p.year ?? seed?.year ?? new Date().getFullYear(),
+        year: p.year ?? seed?.year ?? bkkYear(),
       } as Project;
     });
     const missing = projects.filter((s) => !parsed.some((p) => p.id === s.id));

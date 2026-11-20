@@ -50,6 +50,7 @@ import {
 import { loadOrganization, type Organization } from "@/data/organization";
 import { loadRequests, type SavedRequest } from "@/data/request";
 import { getCurrentUser } from "@/utils/login";
+import { bkkYear } from "@/utils/date";
 
 const baht = (n: number) => "฿" + n.toLocaleString("en-US");
 const toBE = (year: number) => year + 543; // แสดงปีเป็น พ.ศ.
@@ -75,7 +76,7 @@ export default function BudgetSetting() {
   const [draftAlloc, setDraftAlloc] = useState<BudgetAllocation[]>([]);
   const [requests, setRequests] = useState<SavedRequest[]>([]);
   const [org, setOrg] = useState<Organization | null>(null);
-  const [year, setYear] = useState(new Date().getFullYear());
+  const [year, setYear] = useState(bkkYear());
   const [errors, setErrors] = useState<string[]>([]);
   const [message, setMessage] = useState("");
 
@@ -138,7 +139,7 @@ export default function BudgetSetting() {
   }
 
   // ปีที่เลือกได้ = ปีที่มีงบอยู่แล้ว + ปีนี้ + ปีหน้า
-  const thisYear = new Date().getFullYear();
+  const thisYear = bkkYear();
   const years = [...new Set([...draft.map((p) => p.year), thisYear, thisYear + 1])].sort();
 
   // ยอดใช้ไปจริง (ยอดยกมา + คำขอที่ส่งแล้ว) ของแต่ละหมวด
@@ -1181,7 +1182,7 @@ export default function BudgetSetting() {
                     {rows.map((h) => (
                       <TableRow key={h.id}>
                         <TableCell className="whitespace-nowrap text-[#475569]">
-                          {new Date(h.at).toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" })}
+                          {new Date(h.at).toLocaleString("th-TH", { timeZone: "Asia/Bangkok", dateStyle: "medium", timeStyle: "short" })}
                         </TableCell>
                         <TableCell className="whitespace-nowrap">{h.byName}</TableCell>
                         <TableCell>

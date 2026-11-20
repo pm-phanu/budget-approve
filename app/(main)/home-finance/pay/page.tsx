@@ -13,6 +13,7 @@ import { loadRequests, type SavedRequest } from "@/data/request";
 import { actOnRequest, canApproveStep } from "@/data/approval";
 import { useReviewLock } from "@/components/use-review-lock";
 import { getCurrentUser } from "@/utils/login";
+import { bkkDay } from "@/utils/date";
 import type { Credential } from "@/data/credential";
 
 const LIST_PATH = "/home-finance";
@@ -22,7 +23,7 @@ const baht = (n: number) => "฿" + n.toLocaleString("en-US");
 
 function thaiDate(iso: string | null) {
   if (!iso) return "-";
-  return new Date(iso).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" });
+  return new Date(iso).toLocaleDateString("th-TH", { timeZone: "Asia/Bangkok", day: "numeric", month: "short", year: "numeric" });
 }
 
 // ชื่อผู้รับเงิน: สำรองจ่าย = ผู้ขอ (โอนคืน) · ใบแจ้งหนี้ = ผู้ขายตามใบแจ้งหนี้
@@ -30,8 +31,8 @@ function payee(r: SavedRequest) {
   return r.type === "advance" ? (r.requester?.fullName ?? "-") : "ผู้ขายตามใบแจ้งหนี้";
 }
 
-// วันนี้ในรูปแบบ "2026-11-19" (ใช้เป็นค่าเริ่มต้นของช่องวันที่)
-const todayInput = () => new Date().toLocaleDateString("en-CA");
+// วันนี้ (เวลาไทย) รูปแบบ "2026-11-19" ใช้เป็นค่าเริ่มต้นของช่องวันที่
+const todayInput = () => bkkDay();
 
 // ---------- หน้าหลัก ----------
 function PayContent() {
@@ -106,6 +107,7 @@ function PayContent() {
     }
     setRequest(result.request);
     setPopup("done");
+    setTimeout(() => router.push(LIST_PATH), 1200); // โชว์สำเร็จแป๊บนึงแล้วกลับหน้าหลัก (แบบเดียวกับหน้าส่งคำขอ)
   }
 
   // ---- กด "ยืนยันตีกลับ" → ส่งคำขอกลับไปหาพนักงาน ----
@@ -289,9 +291,7 @@ function PayContent() {
             <Row label="เลขที่อ้างอิง" value={ref} dark />
             <Row label="วันที่โอน" value={thaiDate(payDate)} dark />
           </div>
-          <Link href={LIST_PATH} className="block h-10 rounded-lg bg-emerald-700 text-center font-semibold leading-10 text-white">
-            กลับไปรายการรอทำจ่าย
-          </Link>
+          <p className="text-center text-sm text-slate-500" role="status">กำลังพาไปหน้าหลัก…</p>
         </Popup>
       )}
 
