@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { REQUESTS_KEY, loadRequests, type SavedRequest } from "@/data/request";
+import { REQUESTS_KEY, historyType, loadRequests, type SavedRequest } from "@/data/request";
 import { getDepartmentBudget } from "@/data/budget";
 import { canApproveStep } from "@/data/approval";
 import type { Credential } from "@/data/credential";
@@ -104,10 +104,22 @@ function inMonth(iso: string | null, year: number, month: number) {
 }
 
 
+// เวลา "ส่งใหม่" ครั้งล่าสุด (ไม่เคยถูกตีกลับ = null)
+function resentAt(r: ExpenseRequest) {
+  let latest: string | null = null;
+  for (const h of r.history ?? []) {
+    if (historyType(h) === "ส่งใหม่" && (!latest || h.at > latest)) latest = h.at;
+  }
+  return latest;
+}
+
 // เวลาที่คำขอ "มาถึงบัญชี" = เวลาที่ขั้นก่อนหน้าอนุมัติ (ไม่มีขั้นก่อนหน้า = เวลาที่ส่ง)
+// บัญชี/การเงินตีกลับแล้วส่งใหม่ตรงมาที่บัญชี → ขั้นก่อนหน้ายังเป็นเวลาเก่า จึงใช้เวลาส่งใหม่แทน
 function arrivedAt(r: ExpenseRequest) {
   const prev = r.approvalSteps[r.currentStep - 1];
-  return prev?.at ?? r.createdAt;
+  const base = prev?.at ?? r.createdAt;
+  const resent = resentAt(r);
+  return resent && resent > base ? resent : base;
 }
 
 // ป้ายสถานะของคำขอที่บัญชีดำเนินการไปแล้ว
@@ -386,9 +398,11 @@ export default function AccountantHome() {
                           <div className="truncate font-bold">{r.title}</div>
                           <div className="truncate text-xs text-[#64748B]">
                             {name} ·{" "}
-                            {before
-                              ? `${before.label}อนุมัติ${timeAgo(arrived)}`
-                              : `ส่ง${timeAgo(r.createdAt)}`}
+                            {arrived === resentAt(r)
+                              ? `ส่งใหม่${timeAgo(arrived)}`
+                              : before
+                                ? `${before.label}อนุมัติ${timeAgo(arrived)}`
+                                : `ส่ง${timeAgo(r.createdAt)}`}
                           </div>
                         </div>
                       </div>

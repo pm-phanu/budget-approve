@@ -118,6 +118,7 @@ export function NotificationBell({ user }: { user: Credential }) {
 
   const [open, setOpen] = useState(false);
   const [openedAt, setOpenedAt] = useState(0);
+  const [confirmClear, setConfirmClear] = useState(false); // กด "ล้างทั้งหมด" แล้ว รอยืนยัน
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -139,6 +140,7 @@ export function NotificationBell({ user }: { user: Credential }) {
   }, [open]);
 
   const handleToggle = () => {
+    setConfirmClear(false);
     setOpen((prev) => {
       if (!prev) setOpenedAt(Date.now());
       return !prev;
@@ -188,27 +190,52 @@ export function NotificationBell({ user }: { user: Credential }) {
               )}
             </div>
 
-            <div className="flex items-center gap-3">
-              {unread > 0 && (
+            {confirmClear ? (
+              // ลบแล้วกู้คืนไม่ได้ → ถามก่อน (กดซ้ำที่ "ลบ" เท่านั้นถึงลบ)
+              <div role="alert" className="flex items-center gap-2 text-xs">
+                <span className="text-[#BE123C]">ลบทั้งหมด {list.length} รายการ?</span>
                 <button
                   type="button"
-                  onClick={() => markAllAsRead(user.id)}
-                  className="inline-flex cursor-pointer items-center gap-1 text-xs font-medium text-[#047857] hover:underline"
+                  autoFocus
+                  onClick={() => {
+                    clearUserNotifications(user.id);
+                    setConfirmClear(false);
+                  }}
+                  className="cursor-pointer rounded-md bg-[#BE123C] px-2 py-1 font-semibold text-white hover:bg-[#9F1239]"
                 >
-                  <Check size={14} aria-hidden={true} />
-                  อ่านทั้งหมด
+                  ลบ
                 </button>
-              )}
-              {list.length > 0 && (
                 <button
                   type="button"
-                  onClick={() => clearUserNotifications(user.id)}
-                  className="cursor-pointer text-xs text-[#64748B] hover:text-[#BE123C] hover:underline"
+                  onClick={() => setConfirmClear(false)}
+                  className="cursor-pointer rounded-md px-2 py-1 text-[#475569] hover:bg-[#F1F5F9]"
                 >
-                  ล้างทั้งหมด
+                  ยกเลิก
                 </button>
-              )}
-            </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3">
+                {unread > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => markAllAsRead(user.id)}
+                    className="inline-flex cursor-pointer items-center gap-1 text-xs font-medium text-[#047857] hover:underline"
+                  >
+                    <Check size={14} aria-hidden={true} />
+                    อ่านทั้งหมด
+                  </button>
+                )}
+                {list.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmClear(true)}
+                    className="cursor-pointer text-xs text-[#64748B] hover:text-[#BE123C] hover:underline"
+                  >
+                    ล้างทั้งหมด
+                  </button>
+                )}
+              </div>
+            )}
           </div>
 
           {/* รายการแจ้งเตือน */}

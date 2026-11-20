@@ -9,7 +9,8 @@ import {
   loadRequests,
   type SavedRequest,
 } from "@/data/request";
-import { getDepartmentBudget } from "@/data/budget";
+import { getDepartmentBudget, getSharedBudget } from "@/data/budget";
+import { loadOrganization } from "@/data/organization";
 import { canApproveStep } from "@/data/approval";
 import type { Credential } from "@/data/credential";
 import { getCurrentUser } from "@/utils/login";
@@ -52,8 +53,12 @@ function readRequests(): ExpenseRequest[] {
 
 // งบของแผนกตัวเองปีนี้ (งบที่บัญชีแบ่งให้แผนก · data/budget.ts)
 function readBudget(user: CurrentUser | null) {
-  const { limit, used } = getDepartmentBudget(user?.departmentId, readRequests(), new Date().getFullYear());
-  return { limit, used };
+  const requests = readRequests();
+  const year = new Date().getFullYear();
+  const { limit, used } = getDepartmentBudget(user?.departmentId, requests, year);
+  // งบร่วมที่แผนกอื่นแชร์มา (แสดงแยก ไม่รวมในวงเงินแผนก)
+  const shared = getSharedBudget(user?.departmentId, requests, loadOrganization(), year);
+  return { limit, used, shared: shared.remaining, sharedCount: shared.projects.length };
 }
 
 /* ------------------------------------------------------------------
@@ -120,7 +125,7 @@ function statusBadge(r: ExpenseRequest) {
 export default function DH() {
   const [requests, setRequests] = useState<ExpenseRequest[]>([]);
   const [me, setMe] = useState<CurrentUser | null>(null);
-  const [budget, setBudget] = useState({ limit: 0, used: 0 });
+  const [budget, setBudget] = useState({ limit: 0, used: 0, shared: 0, sharedCount: 0 });
   // ปีและวันที่ปัจจุบัน: ตั้งค่าใน useEffect เท่านั้น (เลี่ยง new Date() ตอน prerender)
   const [currentYear, setCurrentYear] = useState<number | null>(null);
   const [today, setToday] = useState("");
@@ -234,6 +239,11 @@ export default function DH() {
                 <div className="text-xs text-emerald-300/80 mt-1">
                   จากงบทั้งปี {baht(budget.limit)}
                 </div>
+                {budget.sharedCount > 0 && (
+                  <div className="text-xs text-emerald-200 mt-1">
+                    + งบร่วมจากแผนกอื่น {baht(budget.shared)} ({budget.sharedCount} โครงการ)
+                  </div>
+                )}
               </div>
               <div className="relative z-10">
                 <div className="flex justify-between text-xs text-emerald-200 mb-1.5">

@@ -90,9 +90,11 @@ export default function FinancePage() {
   const overdueCount = pending.filter((r) => daysAgo(checkedAt(r)) > DUE_DAYS).length;
 
   const today = new Date().toDateString();
-  const thisMonth = new Date().toISOString().slice(0, 7); // เช่น "2026-11"
+  // เดือนตามเวลาเครื่อง (ไม่ใช้ ISO เพราะเป็น UTC → จ่ายวันที่ 1 ก่อน 07:00 ถูกนับเป็นเดือนก่อน)
+  const monthOf = (d: Date) => `${d.getFullYear()}-${d.getMonth()}`;
+  const thisMonth = monthOf(new Date());
   const paidToday = paid.filter((r) => new Date(paidAt(r)).toDateString() === today);
-  const paidMonth = paid.filter((r) => paidAt(r).startsWith(thisMonth));
+  const paidMonth = paid.filter((r) => monthOf(new Date(paidAt(r))) === thisMonth);
   const sum = (list: SavedRequest[]) => list.reduce((s, r) => s + r.total, 0);
 
   // ---------- กรองตามแท็บ + ช่องค้นหา ----------

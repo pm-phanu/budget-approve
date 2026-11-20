@@ -1204,7 +1204,7 @@ export default function BudgetSetting() {
                             h.kind === "โอนงบ" ? "text-[#B45309]" : h.amount < 0 ? "text-[#BE123C]" : "text-[#047857]"
                           }`}
                         >
-                          {h.kind === "โอนงบ" ? baht(h.amount) : (h.amount > 0 ? "+" : "−") + baht(Math.abs(h.amount))}
+                          {h.kind === "แชร์งบ" ? "-" : h.kind === "โอนงบ" ? baht(h.amount) : (h.amount > 0 ? "+" : "−") + baht(Math.abs(h.amount))}
                         </TableCell>
                         <TableCell className="min-w-40 text-[#475569]">{h.note || "-"}</TableCell>
                       </TableRow>
