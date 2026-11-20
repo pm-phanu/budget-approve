@@ -15,6 +15,7 @@ import type { Credential } from "@/data/credential";
 import { getCurrentUser } from "@/utils/login";
 import MyRequestsCard from "@/components/my-requests-card";
 import { ArrowRight, Check, CheckCircle1, ClockThree } from "@tailgrids/icons";
+import { bkkYear } from "@/utils/date";
 
 /* ------------------------------------------------------------------
    ชนิดข้อมูล: ใช้ของกลางใน data/ (คำขอ = SavedRequest · ผู้ใช้ = Credential)
@@ -51,7 +52,7 @@ function readBudget(user: CurrentUser | null) {
   const { limit, used } = getDepartmentBudget(
     user?.departmentId,
     readRequests(),
-    new Date().getFullYear(),
+    bkkYear(),
   );
   return { limit, used };
 }
@@ -143,9 +144,9 @@ export default function DirectorHome() {
     setRequests(readRequests());
     setMe(user);
     setBudget(readBudget(user));
-    setCurrentYear(new Date().getFullYear());
+    setCurrentYear(bkkYear());
     setToday(
-      new Date().toLocaleDateString("th-TH", {
+      new Date().toLocaleDateString("th-TH", { timeZone: "Asia/Bangkok",
         weekday: "long",
         day: "numeric",
         month: "long",
@@ -202,7 +203,7 @@ export default function DirectorHome() {
   const approvedTotal = mine
     .filter(
       (m) =>
-        currentYear === null || new Date(m.at).getFullYear() === currentYear,
+        currentYear === null || bkkYear(m.at) === currentYear,
     )
     .reduce((sum, m) => sum + Number(m.r.total || 0), 0);
 

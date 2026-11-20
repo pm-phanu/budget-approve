@@ -21,11 +21,11 @@
 //  * เมนูซ้ายอยู่ที่ app/layout.tsx (ใช้ร่วมทุกหน้า)
 // ════════════════════════════════════════════════════════════
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 // component จาก TailGrids (https://tailgrids.com/docs/components)
 import { Button } from "@/components/tailgrids/core/button";
 import { TextArea } from "@/components/tailgrids/core/text-area";
-import { useRouter } from "next/navigation"; // ✅ เพิ่ม: ใช้เปลี่ยนหน้าหลังส่งคำขอที่ถูกตีกลับ
+import { useRouter, useSearchParams } from "next/navigation"; // ✅ เพิ่ม: ใช้เปลี่ยนหน้าหลังส่งคำขอที่ถูกตีกลับ
 import { getUsers, type Credential } from "@/data/credential";
 import { notifyRequestEvent } from "@/data/notification";
 import { getCurrentUser } from "@/utils/login";
@@ -67,6 +67,7 @@ import {
   Plus,
   FileText,
 } from "@tailgrids/icons";
+import { bkkYear } from "@/utils/date";
 
 // ✅ เพิ่ม: path หน้า "คำขอของฉัน" (ตรงกับลิงก์ในหน้า Home)
 const MY_REQUEST_PATH = "/my-request";
@@ -134,7 +135,22 @@ const BANK_ACCOUNT = "ยังไม่ได้ตั้งค่าบัญ�
 // ════════════════════════════════════════
 //  [5] หน้าหลัก
 // ════════════════════════════════════════
-export default function NewRequest() {
+// key = ?id → เปลี่ยนใบ (เช่น กดแจ้งเตือนตีกลับตอนเปิดหน้านี้อยู่) = ล้างฟอร์มแล้วโหลดใบใหม่
+// useSearchParams ต้องอยู่ใน Suspense ไม่งั้น build ของ Next.js จะ error
+export default function NewRequestPage() {
+  return (
+    <Suspense fallback={null}>
+      <NewRequestKeyed />
+    </Suspense>
+  );
+}
+
+function NewRequestKeyed() {
+  const openId = useSearchParams().get("id");
+  return <NewRequest key={openId ?? ""} openId={openId} />;
+}
+
+function NewRequest({ openId }: { openId: string | null }) {
   const router = useRouter(); // ✅ เพิ่ม: ตัวเปลี่ยนหน้า
 
   // ---------- [5.1] state ----------
@@ -155,6 +171,7 @@ export default function NewRequest() {
   const [tried, setTried] = useState(false);
   // ป็อปอัพยืนยันก่อนส่ง: "closed" = ปิด · "confirm" = ถามยืนยัน · "done" = ส่งสำเร็จ กำลังพาไปแดชบอร์ด
   const [popup, setPopup] = useState<"closed" | "confirm" | "done">("closed");
+  const [goingTo, setGoingTo] = useState("แดชบอร์ด"); // ข้อความ "กำลังพาไป…" ตอนส่งสำเร็จ
 
   // เลขที่ใบที่กำลังแก้ (ร่าง หรือ คำขอที่ถูกตีกลับ) · ยังไม่เคยบันทึก = ""
   // ※ กดบันทึกร่างซ้ำ → ทับใบเดิม ไม่เกิดร่างซ้ำหลายใบ
@@ -177,9 +194,7 @@ export default function NewRequest() {
     // ผู้ใช้: ใช้ข้อมูลล่าสุด (มี departmentId) ไม่ใช่ภาพ ณ ตอน login
     const me = getCurrentUser();
 
-    // อ่านป้ายท้าย URL: /request/new?id=REQ-xxx (เปิดร่าง หรือ คำขอที่ถูกตีกลับมาแก้)
-    const params = new URLSearchParams(window.location.search);
-    const openId = params.get("id"); // "REQ-xxx" หรือ null ถ้าไม่มีป้าย
+    // openId = ป้ายท้าย URL: /request?id=REQ-xxx (เปิดร่าง หรือ คำขอที่ถูกตีกลับมาแก้) · null ถ้าไม่มีป้าย
 
     // กฎวงเงิน: ข้อมูลในเครื่องผิดรูปแบบ → ใช้ค่าเริ่มต้น (ดู loadApprovalRules)
     setRules(loadApprovalRules());
@@ -246,7 +261,7 @@ export default function NewRequest() {
       }
     }
     /* eslint-enable react-hooks/set-state-in-effect */
-  }, []);
+  }, [openId]);
 
   // ---------- [5.2] ค่าที่คำนวณจาก state ----------
   // ※ ไม่ต้องเก็บใน state เพราะคิดใหม่เองทุกครั้งที่ฟอร์มเปลี่ยน
@@ -259,7 +274,7 @@ export default function NewRequest() {
   // โครงการที่เลือก + หมวดของโครงการนั้น
   const project = budget.find((p) => p.id === projectId); // ไม่ได้เลือก = undefined
   const categories = project ? project.categories : [];
-  const currentYear = user ? new Date().getFullYear() : null
+  const currentYear = user ? bkkYear() : null
   // โครงการของแผนกตัวเอง + โครงการงบร่วมที่แผนกอื่นในฝ่ายเดียวกันแชร์ให้
   const myProjects = budget.filter(
     (p) => canUseProject(p, user?.departmentId, org) && p.year === currentYear
@@ -557,6 +572,7 @@ export default function NewRequest() {
   // - คำขอใหม่ → แดชบอร์ด · ส่งใหม่ (เคยถูกตีกลับ) → หน้า "คำขอของฉัน"
   function confirmSubmit() {
     const next = resubmit ? MY_REQUEST_PATH : "/"; // จำไว้ก่อน
+    setGoingTo(resubmit ? "หน้าคำขอของฉัน" : "แดชบอร์ด");
     saveRequest("รออนุมัติ");
     setPopup("done");
     setTimeout(() => router.push(next), 1200);
@@ -1115,7 +1131,7 @@ export default function NewRequest() {
                   ส่งคำขอแล้ว
                 </h2>
                 <p className="mt-1 text-sm text-[#64748B]">
-                  กำลังพาไปแดชบอร์ด…
+                  กำลังพาไป{goingTo}…
                 </p>
               </div>
             )}

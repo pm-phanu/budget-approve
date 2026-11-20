@@ -32,7 +32,7 @@ function thaiDate(iso: string | null, withTime = false) {
   if (!iso) return "-";
   const d = new Date(iso);
   if (isNaN(d.getTime())) return "-";
-  return d.toLocaleDateString("th-TH", {
+  return d.toLocaleDateString("th-TH", { timeZone: "Asia/Bangkok",
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -44,7 +44,7 @@ function thaiDate(iso: string | null, withTime = false) {
 function monthLabel(iso: string) {
   const d = new Date(iso);
   if (isNaN(d.getTime())) return "ไม่ระบุวันที่";
-  return d.toLocaleDateString("th-TH", { month: "long", year: "numeric" });
+  return d.toLocaleDateString("th-TH", { timeZone: "Asia/Bangkok", month: "long", year: "numeric" });
 }
 
 function filterOf(r: SavedRequest): Exclude<Filter, "all"> {

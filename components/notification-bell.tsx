@@ -25,7 +25,7 @@ import {
 import { loadRequests } from "@/data/request";
 
 // สีและไอคอนตามประเภทแจ้งเตือนใน data/notification.ts
-const KIND_STYLE: Record<
+export const KIND_STYLE: Record<
   NotificationKind,
   { bg: string; Icon: React.ComponentType<{ size?: number; "aria-hidden"?: boolean }> }
 > = {
@@ -37,17 +37,17 @@ const KIND_STYLE: Record<
 };
 
 const EMPTY: AppNotification[] = [];
-let snapshotKey = "";
-let snapshotList: AppNotification[] = EMPTY;
+// แคชแยกตาม userId: กระดิ่งกับการ์ดอ่านพร้อมกันคนละ id ได้ (แคชเดียวจะสลับกันทับ → array ใหม่ทุกครั้ง → render วนไม่จบ)
+const snapshots = new Map<string, { raw: string; list: AppNotification[] }>();
 
 function readUserNotifications(userId: string): AppNotification[] {
-  if (typeof window === "undefined") return EMPTY;
+  if (typeof window === "undefined" || !userId) return EMPTY;
   const raw = localStorage.getItem(NOTIFICATIONS_KEY) ?? "";
-  const nextKey = `${userId}\0${raw}`;
-  if (nextKey === snapshotKey) return snapshotList;
-  snapshotKey = nextKey;
-  snapshotList = getNotifications(userId);
-  return snapshotList;
+  const cached = snapshots.get(userId);
+  if (cached?.raw === raw) return cached.list;
+  const list = getNotifications(userId);
+  snapshots.set(userId, { raw, list });
+  return list;
 }
 
 function subscribeNotifications(onChange: () => void) {
@@ -63,7 +63,7 @@ function subscribeNotifications(onChange: () => void) {
 }
 
 // เส้นทางปลายทางเมื่อคลิกแจ้งเตือน 1 รายการ
-function getNotificationHref(item: AppNotification, role: Credential["role"]): string {
+export function getNotificationHref(item: AppNotification, role: Credential["role"]): string {
   const encodedId = encodeURIComponent(item.requestId);
 
   if (item.kind === "waiting_you") {
@@ -82,7 +82,7 @@ function getNotificationHref(item: AppNotification, role: Credential["role"]): s
   return `/my-request/detail?id=${encodedId}`;
 }
 
-function formatTime(iso: string, nowMs: number): string {
+export function formatTime(iso: string, nowMs: number): string {
   const date = new Date(iso);
   const timeMs = date.getTime();
   if (Number.isNaN(timeMs)) return "";
@@ -94,7 +94,7 @@ function formatTime(iso: string, nowMs: number): string {
   const diffHours = Math.floor(diffMins / 60);
   if (diffHours < 24) return `${diffHours} ชม. ที่แล้ว`;
 
-  return date.toLocaleString("th-TH", {
+  return date.toLocaleString("th-TH", { timeZone: "Asia/Bangkok",
     day: "numeric",
     month: "short",
     hour: "2-digit",
@@ -102,17 +102,23 @@ function formatTime(iso: string, nowMs: number): string {
   });
 }
 
-export function NotificationBell({ user }: { user: Credential }) {
-  const router = useRouter();
-  const list = useSyncExternalStore(
+// แจ้งเตือนของผู้ใช้ (ใหม่สุดก่อน) · อัปเดตเองเมื่อมีแจ้งเตือนใหม่/อ่านแล้ว
+export function useNotifications(userId: string) {
+  return useSyncExternalStore(
     subscribeNotifications,
-    () => readUserNotifications(user.id),
+    () => readUserNotifications(userId),
     () => EMPTY,
   );
+}
+
+export function NotificationBell({ user }: { user: Credential }) {
+  const router = useRouter();
+  const list = useNotifications(user.id);
   const unread = list.filter((n) => !n.read).length;
 
   const [open, setOpen] = useState(false);
   const [openedAt, setOpenedAt] = useState(0);
+  const [confirmClear, setConfirmClear] = useState(false); // กด "ล้างทั้งหมด" แล้ว รอยืนยัน
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -134,6 +140,7 @@ export function NotificationBell({ user }: { user: Credential }) {
   }, [open]);
 
   const handleToggle = () => {
+    setConfirmClear(false);
     setOpen((prev) => {
       if (!prev) setOpenedAt(Date.now());
       return !prev;
@@ -183,27 +190,52 @@ export function NotificationBell({ user }: { user: Credential }) {
               )}
             </div>
 
-            <div className="flex items-center gap-3">
-              {unread > 0 && (
+            {confirmClear ? (
+              // ลบแล้วกู้คืนไม่ได้ → ถามก่อน (กดซ้ำที่ "ลบ" เท่านั้นถึงลบ)
+              <div role="alert" className="flex items-center gap-2 text-xs">
+                <span className="text-[#BE123C]">ลบทั้งหมด {list.length} รายการ?</span>
                 <button
                   type="button"
-                  onClick={() => markAllAsRead(user.id)}
-                  className="inline-flex cursor-pointer items-center gap-1 text-xs font-medium text-[#047857] hover:underline"
+                  autoFocus
+                  onClick={() => {
+                    clearUserNotifications(user.id);
+                    setConfirmClear(false);
+                  }}
+                  className="cursor-pointer rounded-md bg-[#BE123C] px-2 py-1 font-semibold text-white hover:bg-[#9F1239]"
                 >
-                  <Check size={14} aria-hidden={true} />
-                  อ่านทั้งหมด
+                  ลบ
                 </button>
-              )}
-              {list.length > 0 && (
                 <button
                   type="button"
-                  onClick={() => clearUserNotifications(user.id)}
-                  className="cursor-pointer text-xs text-[#64748B] hover:text-[#BE123C] hover:underline"
+                  onClick={() => setConfirmClear(false)}
+                  className="cursor-pointer rounded-md px-2 py-1 text-[#475569] hover:bg-[#F1F5F9]"
                 >
-                  ล้างทั้งหมด
+                  ยกเลิก
                 </button>
-              )}
-            </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3">
+                {unread > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => markAllAsRead(user.id)}
+                    className="inline-flex cursor-pointer items-center gap-1 text-xs font-medium text-[#047857] hover:underline"
+                  >
+                    <Check size={14} aria-hidden={true} />
+                    อ่านทั้งหมด
+                  </button>
+                )}
+                {list.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmClear(true)}
+                    className="cursor-pointer text-xs text-[#64748B] hover:text-[#BE123C] hover:underline"
+                  >
+                    ล้างทั้งหมด
+                  </button>
+                )}
+              </div>
+            )}
           </div>
 
           {/* รายการแจ้งเตือน */}

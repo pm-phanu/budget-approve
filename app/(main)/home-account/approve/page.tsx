@@ -20,15 +20,8 @@ import {
 import { TextArea } from "@/components/tailgrids/core/text-area";
 import { addRequestsToBudget } from "@/data/budget";
 import { loadRequests, type SavedRequest, type SavedStep } from "@/data/request";
-import {
-  actOnRequest,
-  canApproveStep,
-  claimReviewLock,
-  releaseReviewLock,
-  REVIEW_LOCK_HEARTBEAT_MS,
-  REVIEW_LOCKS_KEY,
-  type ReviewLock,
-} from "@/data/approval";
+import { actOnRequest, canApproveStep } from "@/data/approval";
+import { useReviewLock } from "@/components/use-review-lock";
 import { getCurrentUser } from "@/utils/login";
 import type { Credential } from "@/data/credential";
 
@@ -75,7 +68,7 @@ function thaiDate(iso?: string | null) {
   if (!iso) return "-";
   const d = new Date(iso);
   if (isNaN(d.getTime())) return "-";
-  return d.toLocaleDateString("th-TH", {
+  return d.toLocaleDateString("th-TH", { timeZone: "Asia/Bangkok",
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -87,9 +80,9 @@ function thaiDateTime(iso?: string | null) {
   const d = new Date(iso);
   if (isNaN(d.getTime())) return "";
   return (
-    d.toLocaleDateString("th-TH", { day: "numeric", month: "short" }) +
+    d.toLocaleDateString("th-TH", { timeZone: "Asia/Bangkok", day: "numeric", month: "short" }) +
     " " +
-    d.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" }) +
+    d.toLocaleTimeString("th-TH", { timeZone: "Asia/Bangkok", hour: "2-digit", minute: "2-digit" }) +
     " น."
   );
 }
@@ -189,40 +182,8 @@ function ReviewContent() {
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [id]);
 
-  // ---- ล็อก "มีคนกำลังตรวจสอบอยู่" (data/approval.ts) ----
-  // คนที่มีสิทธิ์อนุมัติเปิดหน้านี้ → จองคำขอ+ขั้นนี้ไว้ และต่ออายุทุก 30 วินาที
-  // มีคนอื่นจองอยู่ → lockedBy = คนนั้น → ซ่อนปุ่มอนุมัติ/ตีกลับ แสดงว่าใครกำลังตรวจ
-  // ปิด/ออกจากหน้า → ปล่อยล็อก · แท็บอื่นปล่อยล็อก → event "storage" → จองต่อได้ทันที
-  // ※ ต้องอยู่ก่อน return ด้านล่าง (กฎของ hooks)
-  const [lockedBy, setLockedBy] = useState<ReviewLock | null>(null);
-  const lockRequestId = request?.id ?? "";
-  const lockStep = request?.currentStep ?? -1;
-  const mayAct = !!request && canApproveStep(request, me);
-  useEffect(() => {
-    if (!lockRequestId || !me || !mayAct) {
-      /* eslint-disable-next-line react-hooks/set-state-in-effect -- ไม่มีสิทธิ์ = ไม่ต้องจอง */
-      setLockedBy(null);
-      return;
-    }
-    const sync = () => {
-      const res = claimReviewLock(lockRequestId, lockStep, me);
-      setLockedBy(res.ok ? null : res.lock);
-    };
-    const release = () => releaseReviewLock(lockRequestId, me.id);
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === REVIEW_LOCKS_KEY) sync();
-    };
-    sync();
-    const timer = window.setInterval(sync, REVIEW_LOCK_HEARTBEAT_MS);
-    window.addEventListener("storage", onStorage);
-    window.addEventListener("pagehide", release);
-    return () => {
-      window.clearInterval(timer);
-      window.removeEventListener("storage", onStorage);
-      window.removeEventListener("pagehide", release);
-      release();
-    };
-  }, [lockRequestId, lockStep, me, mayAct]);
+  // ล็อก "มีคนกำลังตรวจสอบอยู่" (components/use-review-lock.ts) · ต้องอยู่ก่อน return ด้านล่าง (กฎของ hooks)
+  const lockedBy = useReviewLock(request, me);
 
   if (!loaded) return null;
 

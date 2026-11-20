@@ -48,7 +48,7 @@ const baht = (n: number) => "฿" + n.toLocaleString("en-US");
 function thaiDate(iso: string) {
   const d = new Date(iso);
   if (isNaN(d.getTime())) return "-";
-  return d.toLocaleDateString("th-TH", {
+  return d.toLocaleDateString("th-TH", { timeZone: "Asia/Bangkok",
     day: "numeric",
     month: "short",
     year: "numeric",
