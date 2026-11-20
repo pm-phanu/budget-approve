@@ -8,7 +8,7 @@ import {
   TableRoot,
   TableRow,
 } from "@/components/tailgrids/core/table";
-import { getUsers, updateUser, type Credential } from "@/data/credential";
+import { getUsers, updateUser, withoutPassword, type Credential } from "@/data/credential";
 import { getCurrentUser } from "@/utils/login";
 import {
   DEFAULT_ORGANIZATION,
@@ -75,7 +75,7 @@ export default function Account() {
     /* eslint-disable react-hooks/set-state-in-effect -- localStorage อ่านได้หลังเปิดหน้าเท่านั้น */
     try {
       setMeId(getCurrentUser()?.id ?? "");
-      setUsers(getUsers().map(({ password, ...rest }) => rest));
+      setUsers(getUsers().map(withoutPassword));
       setOrg(loadOrganization());
     } catch (e) {
       setError(e instanceof Error ? e.message : "โหลดข้อมูลไม่สำเร็จ");
@@ -493,7 +493,7 @@ export default function Account() {
                                     )}
                                     {lv.name ? (
                                       <span className="rounded-md bg-[#F1F5F9] px-1.5 py-0.5 text-[#475569]">
-                                        <span className="text-[#94A3B8]">{lv.label} </span>
+                                        <span className="text-[#64748B]">{lv.label} </span>
                                         {lv.name}
                                       </span>
                                     ) : (
@@ -743,7 +743,7 @@ export default function Account() {
                         const label = getRoleLabel(role, positions);
                         return (
                           <Fragment key={role}>
-                            <ArrowRight size={16} className="shrink-0 text-[#94A3B8]" aria-hidden="true" />
+                            <ArrowRight size={16} className="shrink-0 text-[#64748B]" aria-hidden="true" />
                             <span className="flex items-center gap-0.5 rounded-lg border border-[#A7F3D0] bg-[#ECFDF5] p-1 font-semibold text-[#047857]">
                               <button
                                 type="button"
@@ -777,7 +777,7 @@ export default function Account() {
                         );
                       })}
                       {/* ขั้นท้ายตายตัว: เปลี่ยนไม่ได้ */}
-                      <ArrowRight size={16} className="shrink-0 text-[#94A3B8]" aria-hidden="true" />
+                      <ArrowRight size={16} className="shrink-0 text-[#64748B]" aria-hidden="true" />
                       <span
                         className="flex items-center gap-1 rounded-lg border border-[#E2E8F0] bg-white px-3 py-1.5 text-[#475569]"
                         title="ขั้นนี้มีทุกเส้นทาง เปลี่ยนไม่ได้"
@@ -785,7 +785,7 @@ export default function Account() {
                         <Locked3 size={14} aria-hidden="true" />
                         {range.approvers.length === 0 ? "ส่งตรงฝ่ายบัญชี" : "ฝ่ายบัญชี"}
                       </span>
-                      <ArrowRight size={16} className="shrink-0 text-[#94A3B8]" aria-hidden="true" />
+                      <ArrowRight size={16} className="shrink-0 text-[#64748B]" aria-hidden="true" />
                       <span
                         className="flex items-center gap-1 rounded-lg border border-[#E2E8F0] bg-white px-3 py-1.5 text-[#475569]"
                         title="ขั้นนี้มีทุกเส้นทาง เปลี่ยนไม่ได้"

@@ -16,3 +16,16 @@ export function timeAgo(iso: string | null | undefined) {
 // เลขบัญชี 10 หลัก → 123-4-56789-0 (รูปแบบที่คนไทยคุ้น) · แบบอื่นแสดงตามเดิม
 export const formatAccount = (n: string) =>
   /^\d{10}$/.test(n) ? `${n.slice(0, 3)}-${n.slice(3, 4)}-${n.slice(4, 9)}-${n.slice(9)}` : n;
+
+// ใส่ลูกน้ำ เช่น 12500 → "12,500" (ไม่มี ฿)
+export const money = (n: number) => Number(n || 0).toLocaleString("en-US");
+
+// รอมานานเท่าไร (ป้ายในคิวผู้อนุมัติ) เช่น "รอ 3 ชม."
+export function waitLabel(iso: string) {
+  const mins = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 60000));
+  if (mins < 1) return "รอสักครู่";
+  if (mins < 60) return `รอ ${mins} นาที`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `รอ ${hours} ชม.`;
+  return `รอ ${Math.floor(hours / 24)} วัน`;
+}

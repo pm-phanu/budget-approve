@@ -37,6 +37,7 @@ import {
 import { loadRequests, type SavedRequest } from "@/data/request";
 import { getCurrentUser } from "@/utils/login";
 import { SearchField } from "@/components/search-field";
+import { money } from "@/utils/format";
 
 // ════════════════════════════════════════
 //  [1] ชนิดข้อมูล
@@ -76,10 +77,6 @@ const WARN_PERCENT = 80;
 // ════════════════════════════════════════
 
 // ใส่ลูกน้ำให้ตัวเลข เช่น 12500 → "12,500"
-function money(n: number) {
-  return n.toLocaleString("th-TH"); // toLocaleString = ใส่ลูกน้ำแบบไทย
-}
-
 // แปลงคำขอ (ที่หน้าสร้างคำขอบันทึกไว้) → แถวของรายงาน
 function toReportRow(r: SavedRequest, today: Date): ReportRow {
   const created = new Date(r.createdAt);
@@ -472,7 +469,7 @@ export default function Report() {
                 <td className="py-3 font-semibold">{r.title}</td>
                 <td className="py-3">
                   <span className="flex items-center gap-1">
-                    <FileText size={16} className="shrink-0 text-[#94A3B8]" aria-hidden="true" /> {r.doc}
+                    <FileText size={16} className="shrink-0 text-[#64748B]" aria-hidden="true" /> {r.doc}
                   </span>
                 </td>
                 <td className="py-3 text-[#64748B]">{r.dept}</td>

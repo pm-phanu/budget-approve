@@ -204,10 +204,10 @@ export default function BudgetSetting() {
               <ChevronRight
                 size={16}
                 aria-hidden="true"
-                className={`shrink-0 text-[#94A3B8] transition-transform ${toggle.open ? "rotate-90" : ""}`}
+                className={`shrink-0 text-[#64748B] transition-transform ${toggle.open ? "rotate-90" : ""}`}
               />
               <span className={`truncate ${depth === 0 ? "font-bold" : "font-semibold"}`}>{name}</span>
-              <span className="shrink-0 text-xs font-normal text-[#94A3B8]">{toggle.count}</span>
+              <span className="shrink-0 text-xs font-normal text-[#64748B]">{toggle.count}</span>
               {toggle.issue && !toggle.open && (
                 <span className="shrink-0 rounded-full bg-[#FFF1F2] px-2 py-0.5 text-xs font-semibold text-[#BE123C]">มีจุดเกินด้านใน</span>
               )}
@@ -489,7 +489,7 @@ export default function BudgetSetting() {
           </span>
           {projectLocked ? (
             <span
-              className="flex items-center gap-1 text-xs text-[#94A3B8]"
+              className="flex items-center gap-1 text-xs text-[#64748B]"
               title={isSeed ? "โครงการตั้งต้นของระบบ ลบไม่ได้ (ตั้งวงเงินเป็น 0 แทน)" : "มีคำขออ้างอิงโครงการนี้"}
             >
               <Locked3 size={14} aria-hidden="true" /> ลบไม่ได้
@@ -509,7 +509,7 @@ export default function BudgetSetting() {
           {/* งบร่วม: ปุ่มเม็ดยาต่อแผนก กดเปิด / ปิด (บันทึกพร้อมปุ่มบันทึกงบประมาณ) */}
           <div className="mb-4 flex flex-wrap items-center gap-2 text-sm" role="group" aria-label={`แผนกที่ใช้งบ ${p.name || p.id} ร่วม`}>
             <span className="text-[#64748B]">ให้แผนกอื่นใช้ร่วม</span>
-            {siblings.length === 0 && <span className="text-[#94A3B8]">ไม่มีแผนกอื่นในฝ่ายเดียวกัน</span>}
+            {siblings.length === 0 && <span className="text-[#64748B]">ไม่มีแผนกอื่นในฝ่ายเดียวกัน</span>}
             {siblings.map((d) => {
               const on = shared.includes(d.id);
               return (
@@ -576,7 +576,7 @@ export default function BudgetSetting() {
                       </TableCell>
                       <TableCell className="text-center">
                         {hasRequests(c.id) ? (
-                          <span className="text-xs text-[#94A3B8]" title="มีคำขออ้างอิงหมวดนี้ ลบไม่ได้">
+                          <span className="text-xs text-[#64748B]" title="มีคำขออ้างอิงหมวดนี้ ลบไม่ได้">
                             ใช้งานอยู่
                           </span>
                         ) : (
@@ -584,7 +584,7 @@ export default function BudgetSetting() {
                             type="button"
                             aria-label={`ลบหมวด ${c.name || c.id}`}
                             onClick={() => removeCategory(p.id, c.id)}
-                            className="rounded-lg p-1.5 text-[#94A3B8] hover:bg-[#FFF1F2] hover:text-[#BE123C]"
+                            className="rounded-lg p-1.5 text-[#64748B] hover:bg-[#FFF1F2] hover:text-[#BE123C]"
                           >
                             <Close size={16} aria-hidden="true" />
                           </button>

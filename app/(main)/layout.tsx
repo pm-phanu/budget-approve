@@ -22,7 +22,6 @@ import {
   Gear1,
   Plus,
   UserMultiple4,
-  SlidersDoubleHorizontal,
   FileTextMultiple,
   CheckCircle1,
   TrendUp2,
@@ -125,6 +124,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const [askLogout, setAskLogout] = useState(false) // ป็อปอัพยืนยันออกจากระบบ
 
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect -- อ่าน localStorage ได้หลังเปิดหน้าเท่านั้น */
     const currentUser = checkLogin(router, pathname)
 
     if(!currentUser) {
@@ -146,7 +146,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     }
 
     setUser(currentUser)
-
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [router, pathname])
 
   if(!user) return null 
@@ -300,7 +300,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </Sidebar>
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="flex justify-between h-14 items-center gap-4 bg-[#F1F5F9] text-[#111] p-9 pt-15">
+          <header className="flex justify-between h-14 items-center gap-4 bg-[#F8FAFC] text-[#111] p-9 pt-15">
             <div className="flex items-center gap-4">
               <SidebarTrigger aria-label="เปิด/ปิดเมนู">
                 <MenuHamburger1 />
@@ -374,7 +374,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </header>
 
           {/* relative: ข้อความ sr-only (position absolute) ต้องอยู่ในกรอบ main ไม่งั้นดันทั้งหน้ายาว → scroll bar 2 อัน */}
-          <main className="relative flex-1 overflow-auto p-9 bg-[#F1F5F9]">
+          <main className="relative flex-1 overflow-auto p-9 bg-[#F8FAFC]">
             <div>{children}</div>
           </main>
         </div>
@@ -414,6 +414,8 @@ const SidebarMenuItemLink = forwardRef<
     title: string;
     url: string;
     icon: React.FunctionComponent<SVGProps<SVGSVGElement>>;
+    // SidebarMenuButton ส่ง props ที่พิมพ์ไว้สำหรับ <button> มาให้ <a> → ชนิดไม่ตรงกัน จึงรับแบบ any (mergeProps รวมให้)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     [key: string]: any;
   }
 >(({ title, url, icon: Icon, ...props }, ref) => {

@@ -159,7 +159,7 @@ export default function Login() {
 
               <div className="my-6 flex items-center gap-4" aria-hidden="true">
                 <div className="w-full border-t border-[#E5E9F0]"></div>
-                <p className="text-sm text-[#94A3B8]">หรือ</p>
+                <p className="text-sm text-[#64748B]">หรือ</p>
                 <div className="w-full border-t border-[#E5E9F0]"></div>
               </div>
 

@@ -22,24 +22,13 @@ import type { Credential } from "@/data/credential";
 import { ArrowRight, ChevronRight, ClockThree, InfoCircle } from "@tailgrids/icons";
 import { baht } from "@/utils/format";
 import { SearchField } from "@/components/search-field";
+import { thaiDate } from "@/utils/date";
 
 const DETAIL_PATH = "/my-request/detail";
 const NEW_REQUEST_PATH = "/request";
 
 type Filter = "all" | "paid" | "approved" | "rejected";
 
-
-function thaiDate(iso: string | null, withTime = false) {
-  if (!iso) return "-";
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return "-";
-  return d.toLocaleDateString("th-TH", { timeZone: "Asia/Bangkok",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    ...(withTime ? { hour: "2-digit", minute: "2-digit" } : {}),
-  });
-}
 
 // หัวกลุ่มรายเดือน เช่น "พฤศจิกายน 2569"
 function monthLabel(iso: string) {

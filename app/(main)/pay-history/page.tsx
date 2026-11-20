@@ -10,7 +10,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { REQUESTS_KEY, getActedRequests, loadRequests, type SavedRequest } from "@/data/request";
 import { getCurrentUser } from "@/utils/login";
-import { bkkMonth } from "@/utils/date";
+import { bkkMonth, thaiDate } from "@/utils/date";
 import type { Credential } from "@/data/credential";
 import { PAY_DETAIL_PATH, baht, payee } from "@/components/pay-queue";
 import {
@@ -25,19 +25,6 @@ import { ArrowRight, CheckCircle1 } from "@tailgrids/icons";
 import { SearchField } from "@/components/search-field";
 
 type Filter = "all" | "อนุมัติ" | "ตีกลับ";
-
-function thaiDate(iso: string | null | undefined, withTime = false) {
-  if (!iso) return "-";
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return "-";
-  return d.toLocaleDateString("th-TH", {
-    timeZone: "Asia/Bangkok",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    ...(withTime ? { hour: "2-digit", minute: "2-digit" } : {}),
-  });
-}
 
 export default function PayHistoryPage() {
   const [me, setMe] = useState<Credential | null>(null);

@@ -30,7 +30,7 @@ import { getUsers, type Credential } from "@/data/credential";
 import { notifyRequestEvent } from "@/data/notification";
 import { getCurrentUser } from "@/utils/login";
 import { openAttachment, saveAttachments } from "@/utils/attachments";
-import { formatAccount } from "@/utils/format";
+import { formatAccount, money } from "@/utils/format";
 import { ActionPopup } from "@/components/action-popup";
 import { RequestSummary } from "@/components/request-summary";
 import { useVisitKey } from "@/components/use-visit-key";
@@ -135,10 +135,6 @@ function emptyItem(): Item {
 const ALLOWED_FILE = /\.(pdf|jpe?g|png)$/i;
 
 // ใส่ลูกน้ำ เช่น 12500 → "12,500"
-function money(n: number) {
-  return n.toLocaleString("th-TH");
-}
-
 // บัญชีรับเงินคืนของผู้ขอ (ข้อมูลสมมติ ยังไม่มีในข้อมูลผู้ใช้)
 const BANK_ACCOUNT = "ยังไม่ได้ตั้งค่าบัญชีรับเงิน"; // ใช้เมื่อผู้ขอยังไม่มี bankAccount
 
@@ -837,7 +833,7 @@ function NewRequest({ openId }: { openId: string | null }) {
                         err.amount || over ? "border-[#FDA4AF]" : "border-[#E2E8F0]"
                       }`}
                     >
-                      <span className="text-sm text-[#94A3B8]" aria-hidden="true">
+                      <span className="text-sm text-[#64748B]" aria-hidden="true">
                         ฿
                       </span>
                       <input
@@ -859,7 +855,7 @@ function NewRequest({ openId }: { openId: string | null }) {
                     </div>
                     {/* ปุ่มแนบ: ยังไม่มีไฟล์ = ขอบประ · มีแล้ว = เขียว + จำนวนไฟล์ */}
                     <label
-                      className={`flex w-28 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-xl text-sm font-semibold focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[#059669] ${
+                      className={`relative flex w-28 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-xl text-sm font-semibold focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[#059669] ${
                         it.files.length > 0
                           ? "border border-[#A7F3D0] bg-[#ECFDF5] text-[#047857]"
                           : err.files
@@ -883,7 +879,7 @@ function NewRequest({ openId }: { openId: string | null }) {
                       onClick={() => removeItem(i)}
                       aria-label={`ลบรายการที่ ${row}`}
                       title={items.length === 1 ? "ล้างรายการนี้" : `ลบรายการที่ ${row}`}
-                      className="flex w-10 shrink-0 items-center justify-center rounded-xl text-[#94A3B8] hover:bg-[#FEF2F2] hover:text-[#DC2626] disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
+                      className="flex w-10 shrink-0 items-center justify-center rounded-xl text-[#64748B] hover:bg-[#FEF2F2] hover:text-[#DC2626] disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
                     >
                       <Trash1 size={18} />
                     </button>
@@ -928,7 +924,7 @@ function NewRequest({ openId }: { openId: string | null }) {
                             type="button"
                             onClick={() => removeFile(i, f)}
                             aria-label={`ลบไฟล์ ${name}`}
-                            className="rounded p-0.5 text-[#94A3B8] hover:text-[#DC2626]"
+                            className="rounded p-0.5 text-[#64748B] hover:text-[#DC2626]"
                           >
                             <Xmark size={12} aria-hidden="true" />
                           </button>
@@ -1019,7 +1015,7 @@ function NewRequest({ openId }: { openId: string | null }) {
                   </p>
                 </>
               ) : (
-                <p className="mt-1 whitespace-nowrap text-xs text-[#94A3B8]">เลือกโครงการเพื่อดูงบ</p>
+                <p className="mt-1 whitespace-nowrap text-xs text-[#64748B]">เลือกโครงการเพื่อดูงบ</p>
               )}
             </div>
 
@@ -1233,7 +1229,7 @@ function Label({ htmlFor, text, optional }: { htmlFor: string; text: string; opt
   return (
     <label htmlFor={htmlFor} className="mb-1.5 mt-4 block text-sm font-semibold">
       {text}
-      {optional && <span className="ml-1.5 font-normal text-[#94A3B8]">ไม่บังคับ</span>}
+      {optional && <span className="ml-1.5 font-normal text-[#64748B]">ไม่บังคับ</span>}
     </label>
   );
 }

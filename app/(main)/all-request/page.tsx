@@ -16,7 +16,7 @@ import {
   ClockThree,
   } from "@tailgrids/icons";
 import { bkkYear } from "@/utils/date";
-import { baht, timeAgo } from "@/utils/format";
+import { baht, timeAgo, waitLabel } from "@/utils/format";
 import { SearchField } from "@/components/search-field";
 
 /* ------------------------------------------------------------------
@@ -62,18 +62,6 @@ function readBudget(user: CurrentUser | null) {
 
 
 // ป้ายเวลารอ: รอสักครู่ / รอ X นาที / รอ X ชม. / รอ X วัน
-function waitLabel(iso: string) {
-  const mins = Math.max(
-    0,
-    Math.floor((Date.now() - new Date(iso).getTime()) / 60000),
-  );
-  if (mins < 1) return "รอสักครู่";
-  if (mins < 60) return `รอ ${mins} นาที`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `รอ ${hours} ชม.`;
-  return `รอ ${Math.floor(hours / 24)} วัน`;
-}
-
 
 // รอเกิน OVERDUE_DAYS วันแล้วหรือยัง (ใช้ทำป้ายเวลารอเป็นสีแดง)
 function isOverdue(iso: string) {

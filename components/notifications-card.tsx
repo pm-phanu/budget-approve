@@ -47,7 +47,7 @@ export default function NotificationsCard({
         </div>
 
         {notifications.length === 0 ? (
-          <p className="py-8 text-center text-sm text-[#94A3B8]">ยังไม่มีการแจ้งเตือน</p>
+          <p className="py-8 text-center text-sm text-[#64748B]">ยังไม่มีการแจ้งเตือน</p>
         ) : (
           <ul className="divide-y divide-gray-100">
             {notifications.slice(0, limit).map((n) => {

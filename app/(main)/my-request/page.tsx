@@ -9,6 +9,7 @@ import { onHeaderSearch, readSearchParam } from "@/utils/search";
 import { ArrowRight, Check, Close, InfoCircle } from "@tailgrids/icons";
 import { baht } from "@/utils/format";
 import { SearchField } from "@/components/search-field";
+import { thaiDate } from "@/utils/date";
 
 /* ------------------------------------------------------------------
    ตั้งค่า
@@ -40,16 +41,6 @@ type StepState = "done" | "rejected" | "current" | "pending";
 ------------------------------------------------------------------- */
 
 // "14 ต.ค. 2569"
-function thaiDate(iso: string) {
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return "-";
-  return d.toLocaleDateString("th-TH", { timeZone: "Asia/Bangkok",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-}
-
 // จัดคำขอเข้ากลุ่ม: ร่าง / ถูกตีกลับ / จ่ายเงินแล้ว (ผ่านครบทุกขั้น) / กำลังดำเนินการ
 function groupOf(r: ExpenseRequest): Group {
   if (r.status === "ร่าง") return "draft";

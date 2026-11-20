@@ -3,13 +3,7 @@
 import { BudgetCard } from "@/components/budget-card";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import {
-  REQUESTS_KEY,
-  getActedRequests,
-  historyType,
-  loadRequests,
-  type SavedRequest,
-} from "@/data/request";
+import { REQUESTS_KEY, getActedRequests, loadRequests, type SavedRequest, sentAt, arrivedAt } from "@/data/request";
 import { getDepartmentBudget } from "@/data/budget";
 import { canApproveStep } from "@/data/approval";
 import type { Credential } from "@/data/credential";
@@ -18,7 +12,7 @@ import MyRequestsCard from "@/components/my-requests-card";
 import NotificationsCard from "@/components/notifications-card";
 import { ArrowRight, Check, CheckCircle1, ClockThree } from "@tailgrids/icons";
 import { bkkYear } from "@/utils/date";
-import { baht, timeAgo } from "@/utils/format";
+import { baht, timeAgo, waitLabel } from "@/utils/format";
 
 /* ------------------------------------------------------------------
    ชนิดข้อมูล: ใช้ของกลางใน data/ (คำขอ = SavedRequest · ผู้ใช้ = Credential)
@@ -60,37 +54,9 @@ function readBudget(user: CurrentUser | null) {
 // "เมื่อ 2 ชั่วโมงที่แล้ว"
 
 // ป้ายเวลารอ: รอสักครู่ / รอ X นาที / รอ X ชม. / รอ X วัน
-function waitLabel(iso: string) {
-  const mins = Math.max(
-    0,
-    Math.floor((Date.now() - new Date(iso).getTime()) / 60000),
-  );
-  if (mins < 1) return "รอสักครู่";
-  if (mins < 60) return `รอ ${mins} นาที`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `รอ ${hours} ชม.`;
-  return `รอ ${Math.floor(hours / 24)} วัน`;
-}
-
 // เวลาที่คำขอ "ส่งคำขอ / ส่งใหม่" ครั้งล่าสุด (ถูกตีกลับแล้วส่งใหม่ → เวลานี้เปลี่ยน)
-function sentAt(r: ExpenseRequest) {
-  let latest = r.createdAt;
-  for (const h of r.history ?? []) {
-    const t = historyType(h);
-    if ((t === "ส่งคำขอ" || t === "ส่งใหม่") && h.at > latest) latest = h.at;
-  }
-  return latest;
-}
-
 // เวลาที่คำขอ "มาถึงผอ." = เวลาที่ขั้นก่อนหน้า (หัวหน้า) อนุมัติ
 // ถ้าส่งใหม่หลังจากนั้น ให้นับจากเวลาส่งใหม่แทน
-function arrivedAt(r: ExpenseRequest) {
-  const prev = r.approvalSteps[r.currentStep - 1];
-  const base = prev?.at ?? sentAt(r);
-  const sent = sentAt(r);
-  return sent > base ? sent : base;
-}
-
 // ป้ายสถานะของคำขอที่คุณอนุมัติไปแล้ว (บอกว่าตอนนี้ไปถึงขั้นไหน)
 function statusBadge(r: ExpenseRequest) {
   if (r.status === "อนุมัติแล้ว")
@@ -207,7 +173,7 @@ export default function DirectorHome() {
             </h1>
             <p className="text-sm text-gray-500 mt-3">
               {today} · คำขอรอคุณอนุมัติ{" "}
-              <span className="font-semibold text-[#00a86b]">
+              <span className="font-semibold text-[#047857]">
                 {pending.length} รายการ
               </span>
             </p>

@@ -35,6 +35,7 @@ import { baht } from "@/utils/format";
 import { ActionPopup } from "@/components/action-popup";
 import { RequestSummary } from "@/components/request-summary";
 import { useVisitKey } from "@/components/use-visit-key";
+import { thaiDate } from "@/utils/date";
 
 /* ------------------------------------------------------------------
    ตั้งค่า
@@ -71,17 +72,6 @@ function loadAll(): Req[] {
 /* ------------------------------------------------------------------
    ฟังก์ชันช่วย
 ------------------------------------------------------------------- */
-
-function thaiDate(iso?: string | null) {
-  if (!iso) return "-";
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return "-";
-  return d.toLocaleDateString("th-TH", { timeZone: "Asia/Bangkok",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-}
 
 function thaiDateTime(iso?: string | null) {
   if (!iso) return "";
@@ -583,7 +573,7 @@ function ReviewContent({ homePath }: { homePath: string }) {
               </div>
 
               <label htmlFor="comment" className="mb-1.5 mt-4 block text-sm font-semibold">
-                ความเห็น <span className="font-normal text-[#94A3B8]">ไม่บังคับ</span>
+                ความเห็น <span className="font-normal text-[#64748B]">ไม่บังคับ</span>
               </label>
               <TextArea
                 id="comment"
@@ -735,7 +725,7 @@ function ReviewContent({ homePath }: { homePath: string }) {
 
             <label htmlFor="reject-comment" className="mb-1.5 mt-4 block text-sm font-semibold">
               สิ่งที่ผู้ขอต้องแก้{" "}
-              <span className="font-normal text-[#94A3B8]">
+              <span className="font-normal text-[#64748B]">
                 {rejectReason === "อื่นๆ" ? "จำเป็นเมื่อเลือกอื่นๆ" : "ไม่บังคับ"}
               </span>
             </label>
@@ -752,7 +742,7 @@ function ReviewContent({ homePath }: { homePath: string }) {
                 placeholder="เช่น ใบเสร็จรายการที่ 2 ไม่ชัด ขอไฟล์ใหม่"
                 className="resize-none pb-8 text-sm"
               />
-              <span className="money absolute bottom-2.5 right-3 text-xs text-[#94A3B8]" aria-hidden="true">
+              <span className="money absolute bottom-2.5 right-3 text-xs text-[#64748B]" aria-hidden="true">
                 {rejectComment.length}/{REJECT_COMMENT_MAX}
               </span>
             </div>

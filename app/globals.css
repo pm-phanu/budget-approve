@@ -118,8 +118,8 @@
   --color-button-error-outline-hover-text: #b91c1c;
 
   /* Success */
-  --color-button-success-background: #16a34a;
-  --color-button-success-hover-background: #15803d;
+  --color-button-success-background: #15803d;
+  --color-button-success-hover-background: #166534;
   --color-button-success-border: #22c55e;
   --color-button-success-text: #ffffff;
   --color-button-success-focus-ring: rgba(22, 163, 74, 0.2);

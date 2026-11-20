@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { REQUESTS_KEY, historyType, loadRequests, type SavedRequest } from "@/data/request";
+import { REQUESTS_KEY, historyType, loadRequests, type SavedRequest, arrivedAt } from "@/data/request";
 import { getDepartmentBudget } from "@/data/budget";
 import { canApproveStep } from "@/data/approval";
 import type { Credential } from "@/data/credential";
@@ -19,7 +19,7 @@ import {
   ChevronDown,
   ClockThree,
 } from "@tailgrids/icons";
-import { baht, timeAgo } from "@/utils/format";
+import { baht, timeAgo, waitLabel } from "@/utils/format";
 
 /* ------------------------------------------------------------------
    ตั้งค่า
@@ -73,14 +73,6 @@ function ageMs(iso: string) {
 // "เมื่อ 2 ชั่วโมงที่แล้ว"
 
 // "รอ 2 ชม." / "รอ 1 วัน"
-function waitLabel(iso: string) {
-  const mins = Math.floor(ageMs(iso) / 60000);
-  if (mins < 60) return "รอสักครู่";
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `รอ ${hours} ชม.`;
-  return `รอ ${Math.floor(hours / 24)} วัน`;
-}
-
 function waitDays(iso: string) {
   return Math.floor(ageMs(iso) / 86400000);
 }
@@ -102,13 +94,6 @@ function resentAt(r: ExpenseRequest) {
 
 // เวลาที่คำขอ "มาถึงบัญชี" = เวลาที่ขั้นก่อนหน้าอนุมัติ (ไม่มีขั้นก่อนหน้า = เวลาที่ส่ง)
 // บัญชี/การเงินตีกลับแล้วส่งใหม่ตรงมาที่บัญชี → ขั้นก่อนหน้ายังเป็นเวลาเก่า จึงใช้เวลาส่งใหม่แทน
-function arrivedAt(r: ExpenseRequest) {
-  const prev = r.approvalSteps[r.currentStep - 1];
-  const base = prev?.at ?? r.createdAt;
-  const resent = resentAt(r);
-  return resent && resent > base ? resent : base;
-}
-
 // ป้ายสถานะของคำขอที่บัญชีดำเนินการไปแล้ว
 // ป้ายสถานะ: class ร่วมใน globals.css (status-*)
 function statusBadge(r: ExpenseRequest) {

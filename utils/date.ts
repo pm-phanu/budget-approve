@@ -33,3 +33,17 @@ export function shiftMonth(key: string, n: number) {
 export function monthLabel(key: string) {
   return new Date(`${key}-15T00:00:00Z`).toLocaleDateString("th-TH", { month: "short", timeZone: TZ });
 }
+
+// วันที่แบบไทย เช่น "21 พ.ย. 2569" · withTime → "21 พ.ย. 2569 14:05" · ไม่มี/ผิดรูปแบบ = "-"
+export function thaiDate(iso: string | null | undefined, withTime = false) {
+  if (!iso) return "-";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "-";
+  return d.toLocaleDateString("th-TH", {
+    timeZone: TZ,
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    ...(withTime ? { hour: "2-digit", minute: "2-digit" } : {}),
+  });
+}

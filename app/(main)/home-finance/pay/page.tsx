@@ -13,7 +13,7 @@ import { loadRequests, type SavedRequest } from "@/data/request";
 import { actOnRequest, canApproveStep } from "@/data/approval";
 import { useReviewLock } from "@/components/use-review-lock";
 import { getCurrentUser } from "@/utils/login";
-import { bkkDay } from "@/utils/date";
+import { bkkDay, thaiDate } from "@/utils/date";
 import type { Credential } from "@/data/credential";
 import { HeroCard } from "@/components/budget-card";
 import { Bank1, Check, Xmark } from "@tailgrids/icons";
@@ -26,11 +26,6 @@ import { useVisitKey } from "@/components/use-visit-key";
 const LIST_PATH = "/pay-request";
 
 // ---------- ฟังก์ชันช่วย ----------
-
-function thaiDate(iso: string | null) {
-  if (!iso) return "-";
-  return new Date(iso).toLocaleDateString("th-TH", { timeZone: "Asia/Bangkok", day: "numeric", month: "short", year: "numeric" });
-}
 
 // ชื่อผู้รับเงิน: สำรองจ่าย = ผู้ขอ (โอนคืน) · ใบแจ้งหนี้ = ผู้ขายตามใบแจ้งหนี้
 function payee(r: SavedRequest) {

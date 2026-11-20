@@ -1,5 +1,5 @@
 import { useRouter } from "next/navigation";
-import { getUsers, type Credential } from "@/data/credential";
+import { getUsers, withoutPassword, type Credential } from "@/data/credential";
 
 type Router = ReturnType<typeof useRouter>;
 
@@ -17,10 +17,7 @@ export const getCurrentUser = (): Credential | null => {
     // current_user เป็นภาพ ณ ตอน login → ถ้าข้อมูลผู้ใช้เปลี่ยนทีหลัง (เช่น เพิ่ม departmentId)
     // ให้ใช้ข้อมูลล่าสุดจากรายชื่อผู้ใช้ (ไม่รวมรหัสผ่าน)
     const latest = getUsers().find((u) => u.id === user.id);
-    if (!latest) return user;
-    const fresh: Credential = { ...latest };
-    delete (fresh as { password?: string }).password;
-    return fresh;
+    return latest ? withoutPassword(latest) : user;
   } catch {
     return null;
   }

@@ -322,7 +322,7 @@ export const updateUser = (id: string, patch: Partial<Omit<User, "id" | "passwor
   saveUsers(getUsers().map((u) => (u.id === id ? { ...u, ...patch } : u)));
 };
 
-const withoutPassword = (user: User): Credential => {
+export const withoutPassword = (user: User): Credential => {
   const credential = { ...user };
   delete credential.password;
   return credential;

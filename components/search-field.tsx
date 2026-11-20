@@ -27,7 +27,7 @@ export function SearchField({ value, onChange, label, placeholder, id, name, tit
         className,
       )}
     >
-      <Search1 size={18} className="shrink-0 text-[#94A3B8]" aria-hidden="true" />
+      <Search1 size={18} className="shrink-0 text-[#64748B]" aria-hidden="true" />
       <input
         id={id}
         name={name}
@@ -50,7 +50,7 @@ export function SearchField({ value, onChange, label, placeholder, id, name, tit
           type="button"
           aria-label="ล้างคำค้น"
           onClick={() => onChange("")}
-          className="flex size-8 shrink-0 items-center justify-center rounded-lg text-[#94A3B8] transition-colors hover:bg-[#F1F5F9] hover:text-[#475569] focus-visible:outline-2 focus-visible:outline-[#059669]"
+          className="flex size-8 shrink-0 items-center justify-center rounded-lg text-[#64748B] transition-colors hover:bg-[#F1F5F9] hover:text-[#475569] focus-visible:outline-2 focus-visible:outline-[#059669]"
         >
           <Close size={14} aria-hidden="true" />
         </button>

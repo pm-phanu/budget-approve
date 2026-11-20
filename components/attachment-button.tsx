@@ -27,7 +27,7 @@ export default function AttachmentButton({ requestId, name }: { requestId: strin
       onClick={async () => {
         if (!(await openAttachment(requestId, name))) setMissing(true);
       }}
-      className="rounded p-1 text-[#94A3B8] hover:text-[#047857]"
+      className="rounded p-1 text-[#64748B] hover:text-[#047857]"
     >
       <Eye size={16} aria-hidden="true" />
     </button>

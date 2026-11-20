@@ -20,6 +20,7 @@ import type { Credential } from "@/data/credential";
 import { ArrowRight, CheckCircle1 } from "@tailgrids/icons";
 import { baht } from "@/utils/format";
 import { SearchField } from "@/components/search-field";
+import { thaiDate } from "@/utils/date";
 
 // หน้ารายละเอียดแยกตาม role (เหมือนหน้า "คำขอรออนุมัติทั้งหมด")
 const APPROVE_PATHS: Record<string, string> = {
@@ -30,19 +31,6 @@ const DEFAULT_APPROVE_PATH = "/home-department-head/approve";
 
 type Filter = "all" | "อนุมัติ" | "ตีกลับ";
 
-
-function thaiDateTime(iso: string | null) {
-  if (!iso) return "-";
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return "-";
-  return d.toLocaleDateString("th-TH", { timeZone: "Asia/Bangkok",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 function monthLabel(iso: string | null) {
   const d = new Date(iso ?? "");
@@ -222,7 +210,7 @@ export default function ApprovalHistory() {
                           {r.title}
                         </Link>
                         <p className="text-xs text-[#64748B]">
-                          {r.requester?.fullName ?? "-"} · {r.id} · ขั้น {step.label} · {thaiDateTime(step.at)}
+                          {r.requester?.fullName ?? "-"} · {r.id} · ขั้น {step.label} · {thaiDate(step.at, true)}
                         </p>
                         {step.note && (
                           <p className={`mt-1 text-sm ${rejected ? "text-[#9F1239]" : "text-[#475569]"}`}>
