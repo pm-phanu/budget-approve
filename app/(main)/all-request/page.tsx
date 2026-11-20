@@ -14,10 +14,10 @@ import {
   Check,
   CheckCircle1,
   ClockThree,
-  Search1,
-} from "@tailgrids/icons";
+  } from "@tailgrids/icons";
 import { bkkYear } from "@/utils/date";
 import { baht, timeAgo } from "@/utils/format";
+import { SearchField } from "@/components/search-field";
 
 /* ------------------------------------------------------------------
    ตั้งค่า
@@ -236,17 +236,13 @@ export default function AllRequestDH() {
                 {q ? `${shown.length} จาก ${pending.length}` : pending.length} รายการ, รอนานสุดอยู่บน
               </span>
             </h2>
-            <label className="flex w-full items-center gap-2 rounded-xl border border-[#E2E8F0] px-3 py-2 focus-within:border-[#059669] sm:w-72">
-              <Search1 size={18} className="shrink-0 text-[#94A3B8]" aria-hidden="true" />
-              <span className="sr-only">ค้นหาคำขอ</span>
-              <input
-                type="search"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="ค้นหาชื่อคำขอ ผู้ขอ หรือเลขที่"
-                className="w-full border-0 bg-transparent p-0 text-sm outline-none focus:ring-0"
-              />
-            </label>
+            <SearchField
+              label="ค้นหาคำขอ"
+              value={query}
+              onChange={setQuery}
+              placeholder="ค้นหาชื่อคำขอ ผู้ขอ หรือเลขที่"
+              className="sm:w-72"
+            />
           </div>
 
           {/* หัวตาราง: ใช้ grid เดียวกับแถว */}

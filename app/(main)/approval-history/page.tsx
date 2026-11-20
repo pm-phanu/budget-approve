@@ -17,8 +17,9 @@ import {
 } from "@/data/request";
 import { getCurrentUser } from "@/utils/login";
 import type { Credential } from "@/data/credential";
-import { ArrowRight, CheckCircle1, Search1 } from "@tailgrids/icons";
+import { ArrowRight, CheckCircle1 } from "@tailgrids/icons";
 import { baht } from "@/utils/format";
+import { SearchField } from "@/components/search-field";
 
 // หน้ารายละเอียดแยกตาม role (เหมือนหน้า "คำขอรออนุมัติทั้งหมด")
 const APPROVE_PATHS: Record<string, string> = {
@@ -163,17 +164,13 @@ export default function ApprovalHistory() {
             {filter === "all" ? "ทั้งหมด" : filter}{" "}
             <span className="text-sm font-normal text-[#64748B]">{shown.length} ครั้ง</span>
           </h2>
-          <label className="flex w-full items-center gap-2 rounded-xl border border-[#E2E8F0] px-3 py-2 focus-within:border-[#059669] sm:w-72">
-            <Search1 size={18} className="shrink-0 text-[#94A3B8]" aria-hidden="true" />
-            <span className="sr-only">ค้นหา</span>
-            <input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="ค้นหาชื่อคำขอ ผู้ขอ หรือเลขที่"
-              className="w-full border-0 bg-transparent p-0 text-sm outline-none focus:ring-0"
-            />
-          </label>
+          <SearchField
+            label="ค้นหา"
+            value={query}
+            onChange={setQuery}
+            placeholder="ค้นหาชื่อคำขอ ผู้ขอ หรือเลขที่"
+            className="sm:w-72"
+          />
         </div>
 
         {shown.length === 0 ? (

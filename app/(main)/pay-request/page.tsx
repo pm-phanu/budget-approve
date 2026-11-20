@@ -12,7 +12,8 @@ import { REQUESTS_KEY, loadRequests, type SavedRequest } from "@/data/request";
 import { getCurrentUser } from "@/utils/login";
 import { onHeaderSearch, readSearchParam } from "@/utils/search";
 import { DUE_DAYS, PayQueueTable, baht, getPayQueue, payee, waitingDays } from "@/components/pay-queue";
-import { ArrowRight, Search1 } from "@tailgrids/icons";
+import { ArrowRight } from "@tailgrids/icons";
+import { SearchField } from "@/components/search-field";
 
 type Tab = "all" | "advance" | "invoice";
 
@@ -99,17 +100,13 @@ export default function PayRequestPage() {
               </button>
             ))}
           </div>
-          <label className="ml-auto flex w-72 items-center gap-2 rounded-xl border border-[#E2E8F0] px-3 py-2 focus-within:border-[#059669]">
-            <Search1 size={18} className="shrink-0 text-[#94A3B8]" aria-hidden="true" />
-            <span className="sr-only">ค้นหา</span>
-            <input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="ค้นหาเลขที่เอกสาร / ผู้รับเงิน"
-              className="w-full border-0 bg-transparent p-0 text-sm outline-none focus:ring-0"
-            />
-          </label>
+          <SearchField
+            label="ค้นหา"
+            value={query}
+            onChange={setQuery}
+            placeholder="ค้นหาเลขที่เอกสาร / ผู้รับเงิน"
+            className="ml-auto w-72"
+          />
         </div>
 
         <PayQueueTable

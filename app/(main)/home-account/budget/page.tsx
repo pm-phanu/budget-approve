@@ -53,6 +53,7 @@ import { loadRequests, type SavedRequest } from "@/data/request";
 import { getCurrentUser } from "@/utils/login";
 import { bkkYear } from "@/utils/date";
 import { baht } from "@/utils/format";
+import { ActionPopup } from "@/components/action-popup";
 
 const toBE = (year: number) => year + 543; // แสดงปีเป็น พ.ศ.
 // สีของแต่ละสายงานในแท่งงบบอร์ด (เขียวเข้ม → อ่อน ตามธีม)
@@ -80,6 +81,7 @@ export default function BudgetSetting() {
   const [year, setYear] = useState(bkkYear());
   const [errors, setErrors] = useState<string[]>([]);
   const [message, setMessage] = useState("");
+  const [savedOver, setSavedOver] = useState<string[] | null>(null); // ป็อปอัพบันทึกงบสำเร็จ · หมวดที่วงเงินต่ำกว่ายอดใช้ไป
 
   // ฟอร์มเพิ่มโครงการ (แผนก = แผนกที่เลือกอยู่ในขั้นที่ 3)
   const [newName, setNewName] = useState("");
@@ -411,6 +413,7 @@ export default function BudgetSetting() {
         ? `บันทึกแล้ว · หมวดที่วงเงินต่ำกว่ายอดใช้ไป: ${over.join(", ")}`
         : "บันทึกงบประมาณแล้ว",
     );
+    setSavedOver(over);
   }
 
   // ใครแก้ เมื่อไร (ใส่ในประวัติ)
@@ -1181,6 +1184,17 @@ export default function BudgetSetting() {
           </div>
         )}
       </div>
+      <ActionPopup
+        open={savedOver !== null}
+        tone={savedOver?.length ? "warning" : "success"}
+        title="บันทึกงบประมาณแล้ว"
+        message={
+          savedOver?.length
+            ? `หมวดที่วงเงินต่ำกว่ายอดใช้ไป: ${savedOver.join(", ")}`
+            : `งบปี ${toBE(year)} มีผลกับคำขอใหม่ทันที`
+        }
+        onConfirm={() => setSavedOver(null)}
+      />
     </div>
   );
 }

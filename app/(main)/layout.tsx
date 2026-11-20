@@ -14,7 +14,6 @@ import {
   SidebarTrigger,
 } from "@/components/tailgrids/core/sidebar";
 import {
-  Search1,
   MenuHamburger1,
   ClockThree,
   DashboardSquare1,
@@ -40,6 +39,8 @@ import { Credential, User } from "@/data/credential";
 import { isApproverRole } from "@/data/approval";
 import { checkLogin, doLogout, getHomePath, HOME_PATHS } from "@/utils/login";
 import { HEADER_SEARCH_EVENT } from "@/utils/search";
+import { SearchField } from "@/components/search-field";
+import { ActionPopup } from "@/components/action-popup";
 
 type Role = User['role']
 
@@ -120,6 +121,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const pathname = usePathname()
 
   const [user, setUser] = useState<Credential | null>(null)
+  const [headerQuery, setHeaderQuery] = useState("") // คำค้นในช่องบน header
+  const [askLogout, setAskLogout] = useState(false) // ป็อปอัพยืนยันออกจากระบบ
 
   useEffect(() => {
     const currentUser = checkLogin(router, pathname)
@@ -180,7 +183,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       : undefined
   const isHome = !currentTitle && !isApprovePage && !isMyRequestDetail && !isPayDetail
 
-  const handleLogout = () => doLogout(router)
+  const handleLogout = () => setAskLogout(true)
 
   // ช่องค้นหาบน header: ค้นในรายการหลักของ role นี้
   // การเงิน = คำขอทำจ่าย · ผู้อนุมัติ = คำขอรออนุมัติทั้งหมด · คนอื่น = คำขอของฉัน
@@ -348,22 +351,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
             <div className="menuLinks flex items-center gap-4">
               {/* ค้นหา: กด Enter → ไปหน้ารายการหลักของ role พร้อมคำค้น (utils/search.ts) */}
-              <form
-                role="search"
-                onSubmit={handleSearch}
-                className="flex justify-center items-center bg-white border border-[#E2E8F0] rounded-lg px-4 shadow-2xl focus-within:border-[#059669]"
-              >
-                <Search1 aria-hidden="true" />
-                <label htmlFor="header-search" className="sr-only">
-                  {searchTarget.label}
-                </label>
-                <input
+              <form role="search" onSubmit={handleSearch} className="w-64 lg:w-80">
+                <SearchField
                   id="header-search"
                   name="q"
-                  type="search"
+                  label={searchTarget.label}
+                  value={headerQuery}
+                  onChange={setHeaderQuery}
                   placeholder={`${searchTarget.label}...`}
                   title="พิมพ์ชื่อคำขอ ผู้ขอ หรือเลขที่ แล้วกด Enter"
-                  className="border-0 focus:ring-0 w-full"
                 />
               </form>
               <NotificationBell user={user} />
@@ -382,6 +378,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </main>
         </div>
       </SidebarProvider>
+      <ActionPopup
+        open={askLogout}
+        tone="warning"
+        title="ออกจากระบบ?"
+        message="งานที่ยังไม่ได้บันทึกในหน้านี้จะหายไป"
+        confirmLabel="ออกจากระบบ"
+        onConfirm={() => {
+          setAskLogout(false)
+          doLogout(router)
+        }}
+        onCancel={() => setAskLogout(false)}
+      />
     </div>
   );
 }

@@ -32,6 +32,7 @@ import { useReviewLock } from "@/components/use-review-lock";
 import { getCurrentUser } from "@/utils/login";
 import type { Credential } from "@/data/credential";
 import { baht } from "@/utils/format";
+import { ActionPopup } from "@/components/action-popup";
 
 /* ------------------------------------------------------------------
    ตั้งค่า
@@ -169,6 +170,7 @@ function ReviewContent({ homePath }: { homePath: string }) {
   // คนที่ login (ใช้เช็คสิทธิ์อนุมัติ) · ขั้นที่เห็นตอนเปิดหน้า (ใช้กันกดซ้อน ดู actOnRequest)
   const [me, setMe] = useState<Credential | null>(null);
   const [openedStep, setOpenedStep] = useState(0);
+  const [done, setDone] = useState<"approve" | "reject" | null>(null); // ป็อปอัพบันทึกสำเร็จ → พากลับหน้าหลัก
   const [notice, setNotice] = useState(""); // บันทึกไม่สำเร็จ (มีคนกดไปก่อน) → แสดงด้านบน
 
   useEffect(() => {
@@ -245,7 +247,14 @@ function ReviewContent({ homePath }: { homePath: string }) {
       reloadLatest();
       return;
     }
-    router.push(homePath);
+    finish("approve");
+  };
+
+  // บันทึกสำเร็จ → ป็อปอัพแป๊บนึง แล้วกลับหน้าหลักของ role
+  const finish = (kind: "approve" | "reject") => {
+    setShowReject(false);
+    setDone(kind);
+    setTimeout(() => router.push(homePath), 1200);
   };
 
   // ---- ป๊อบอัพตีกลับ: เปิด / ปิด / ยืนยัน ----
@@ -287,7 +296,7 @@ function ReviewContent({ homePath }: { homePath: string }) {
       reloadLatest();
       return;
     }
-    router.push(homePath);
+    finish("reject");
   };
 
   // ---- timeline: ส่งคำขอ + ทุกขั้นในเส้นทางอนุมัติ ----
@@ -752,6 +761,13 @@ function ReviewContent({ homePath }: { homePath: string }) {
           </DialogFooter>
         </Dialog>
       </ModalOverlay>
+
+      <ActionPopup
+        open={done !== null}
+        tone={done === "reject" ? "danger" : "success"}
+        title={done === "reject" ? "ตีกลับคำขอแล้ว" : "อนุมัติคำขอแล้ว"}
+        message={`${done === "reject" ? `แจ้ง${requesterName}ให้แก้ไขแล้ว` : "ส่งต่อขั้นถัดไปแล้ว"} กำลังพากลับหน้าหลัก…`}
+      />
     </div>
   );
 }

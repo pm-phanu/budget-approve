@@ -29,7 +29,6 @@ import {
   Close,
   InfoCircle,
   Locked3,
-  Search1,
   Trash1,
   UserMultiple4,
 } from "@tailgrids/icons";
@@ -57,6 +56,8 @@ import {
   type ApprovalRule,
   type StepRole,
 } from "@/data/approval";
+import { SearchField } from "@/components/search-field";
+import { ActionPopup } from "@/components/action-popup";
 
 export default function Account() {
   const [users, setUsers] = useState<Credential[]>([]);
@@ -154,6 +155,7 @@ export default function Account() {
   const [rules, setRules] = useState<ApprovalRule[]>(DEFAULT_RULES);
   const [ruleErrors, setRuleErrors] = useState<string[]>([]);
   const [ruleMessage, setRuleMessage] = useState("");
+  const [rulePopup, setRulePopup] = useState<{ title: string; message: string } | null>(null); // ป็อปอัพบันทึก/คืนค่ากฎสำเร็จ
   const [positions, setPositions] = useState<ApproverPosition[]>(DEFAULT_POSITIONS);
   // กฎที่แก้แล้วยังไม่กดบันทึก · ยืนยันก่อนคืนค่าเริ่มต้น
   const [rulesDirty, setRulesDirty] = useState(false);
@@ -251,6 +253,7 @@ export default function Account() {
       setRulesDirty(false);
       setRuleErrors([]);
       setRuleMessage("บันทึกแล้ว · คำขอใหม่จะใช้กฎนี้ทันที (คำขอที่ส่งไปแล้วใช้เส้นทางเดิม)");
+      setRulePopup({ title: "บันทึกกฎการอนุมัติแล้ว", message: "คำขอใหม่ใช้กฎนี้ทันที คำขอที่ส่งไปแล้วใช้เส้นทางเดิม" });
     } catch {
       setRuleErrors(validateApprovalRules(rules, positions));
       setRuleMessage("");
@@ -263,6 +266,7 @@ export default function Account() {
     setRulesDirty(false);
     setRuleErrors([]);
     setRuleMessage("คืนค่าเริ่มต้นตาม requirement แล้ว");
+    setRulePopup({ title: "คืนค่ากฎเริ่มต้นแล้ว", message: "กลับไปใช้วงเงินและผู้อนุมัติตาม requirement" });
   };
 
   // ชั้นสังกัดที่ยังขาด (ตามบทบาท): กรรมการผู้จัดการไม่ต้องสังกัด · ผอ.ฝ่าย ถึงฝ่ายพอ · คนอื่นต้องถึงแผนก
@@ -352,17 +356,13 @@ export default function Account() {
                 {shownUsers.length === users.length ? users.length : `${shownUsers.length} จาก ${users.length}`} คน
               </span>
             </h2>
-            <label className="flex w-full items-center gap-2 rounded-xl border border-[#E2E8F0] px-3 py-2 focus-within:border-[#059669] sm:w-72">
-              <Search1 size={18} className="shrink-0 text-[#94A3B8]" aria-hidden="true" />
-              <span className="sr-only">ค้นหาผู้ใช้</span>
-              <input
-                type="search"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="ค้นหาชื่อ รหัส หรือ username"
-                className="w-full border-0 bg-transparent p-0 text-sm outline-none focus:ring-0"
-              />
-            </label>
+            <SearchField
+              label="ค้นหาผู้ใช้"
+              value={query}
+              onChange={setQuery}
+              placeholder="ค้นหาชื่อ รหัส หรือ username"
+              className="sm:w-72"
+            />
           </div>
 
           {/* ยังไม่กำหนดสังกัด → กดเพื่อกรองเฉพาะคนกลุ่มนี้ */}
@@ -911,6 +911,12 @@ export default function Account() {
           </div>
         )}
       </div>
+      <ActionPopup
+        open={rulePopup !== null}
+        title={rulePopup?.title ?? ""}
+        message={rulePopup?.message}
+        onConfirm={() => setRulePopup(null)}
+      />
     </div>
   );
 }
