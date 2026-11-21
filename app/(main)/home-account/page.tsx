@@ -3,7 +3,7 @@
 import { UserAffiliation } from "@/components/user-affiliation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { REQUESTS_KEY, historyType, loadRequests, type SavedRequest, arrivedAt } from "@/data/request";
+import { REQUESTS_KEY, historyType, loadRequests, type SavedRequest, arrivedAt, sentAt } from "@/data/request";
 import { getDepartmentBudget } from "@/data/budget";
 import { canApproveStep } from "@/data/approval";
 import type { Credential } from "@/data/credential";
@@ -261,11 +261,12 @@ export default function AccountantHome() {
   const passed = doneThisMonth.filter((m) => m.result === "อนุมัติ").length;
   const rejected = doneThisMonth.filter((m) => m.result === "ตีกลับ").length;
 
-  // ยอดเบิกเดือนนี้ vs เดือนก่อน (นับคำขอที่ส่งแล้ว ไม่รวมร่าง)
-  const sent = requests.filter((r) => r.status !== "ร่าง");
+  // ยอดเบิกเดือนนี้ vs เดือนก่อน: นับตามวันที่ส่ง (sentAt · ร่างที่ส่งทีหลังไม่ไปตกเดือนที่บันทึกร่าง)
+  // ไม่รวมร่าง และใบที่ถูกตีกลับ (ยังไม่มีผล จนกว่าจะส่งใหม่)
+  const sent = requests.filter((r) => r.status !== "ร่าง" && r.status !== "ตีกลับ");
   const sumOf = (key: string) =>
     sent
-      .filter((r) => inMonth(r.createdAt, key))
+      .filter((r) => inMonth(sentAt(r), key))
       .reduce((s, r) => s + Number(r.total || 0), 0);
   const monthTotal = month ? sumOf(month) : 0;
   const prevTotal = month ? sumOf(shiftMonth(month, -1)) : 0;

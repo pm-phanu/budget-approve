@@ -30,9 +30,10 @@ export function checkedAt(r: SavedRequest) {
   return r.approvalSteps[r.currentStep - 1]?.at ?? null;
 }
 
-// วันที่การเงินจ่าย = เวลาของขั้นการเงิน
+// วันที่การเงินจ่าย = วันโอนที่การเงินกรอก (แก้ย้อนหลังได้) · คำขอเก่าที่ไม่มีวันโอน = เวลาที่กดบันทึกขั้นการเงิน
+// ※ หน้ารายงานใช้วันเดียวกันนี้ → ยอด "เดือนนี้" ทุกหน้าตรงกัน
 export function paidAt(r: SavedRequest) {
-  return r.approvalSteps.find((s) => s.role === "FINANCE")?.at ?? "";
+  return r.payment?.date ?? r.approvalSteps.find((s) => s.role === "FINANCE")?.at ?? "";
 }
 
 export const waitingDays = (r: SavedRequest) => {
