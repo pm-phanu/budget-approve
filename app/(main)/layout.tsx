@@ -35,7 +35,8 @@ import { Link } from "@/components/tailgrids/core/link";
 import { NotificationBell } from "@/components/notification-bell";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Credential, User } from "@/data/credential";
-import { isApproverRole } from "@/data/approval";
+import { getRoleLabel, isApproverRole } from "@/data/approval"
+import { getUserAffiliation, loadOrganization } from "@/data/organization";
 import { checkLogin, doLogout, getHomePath, HOME_PATHS } from "@/utils/login";
 import { HEADER_SEARCH_EVENT } from "@/utils/search";
 import { SearchField } from "@/components/search-field";
@@ -199,6 +200,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       : undefined
   const isHome = !currentTitle && !isApprovePage && !isMyRequestDetail && !isPayDetail
 
+  // สังกัดของผู้ใช้: ชั้นที่ลึกสุด (แผนก > ฝ่าย > สายงาน) เด่นสุด เพราะเป็นหน่วยที่ทำงานจริงทุกวัน
+  const { lineOfWork, division, department } = getUserAffiliation(loadOrganization(), user)
+  const mainUnit = department?.name ?? division?.name ?? lineOfWork?.name ?? (user.role === "MANAGING_DIRECTOR" ? "ทั้งบริษัท" : "ยังไม่กำหนดสังกัด")
+  const parentUnits = [department && division?.name, (department || division) && lineOfWork?.name].filter(Boolean).join(" · ")
+  const roleLabel = user.role === "EMPLOYEE" ? "พนักงาน" : getRoleLabel(user.role)
+
   const handleLogout = () => setAskLogout(true)
 
   // ช่องค้นหาบน header: ค้นในรายการหลักของ role นี้
@@ -230,6 +237,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </span>
             <span className="text-2xl text-white font-bold">budget flow</span>
           </SidebarHeader>
+
+          {/* ผู้ใช้รู้ว่าตัวเองอยู่ แผนก / ฝ่าย / สายงาน ไหน · แก้สังกัดได้ที่ จัดการผู้ใช้ (ผู้ดูแลระบบ) */}
+          <section aria-label="ข้อมูลผู้ใช้และสังกัด" className="mx-4 mt-2 rounded-lg bg-[#1E293B] p-3">
+            <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+              <span className="text-sm text-[#CBD5E1]">{user.fullName}</span>
+              <span className="shrink-0 rounded-full bg-[#059669]/20 px-2 py-0.5 text-xs font-medium text-[#6EE7B7]">{roleLabel}</span>
+            </div>
+            <p className="mt-2 text-base font-semibold leading-snug text-white">{mainUnit}</p>
+            {parentUnits && <p className="mt-0.5 text-xs leading-snug text-[#94A3B8]">{parentUnits}</p>}
+          </section>
 
           <SidebarContent className="flex flex-col gap-8 px-4">
             <SidebarGroup>
