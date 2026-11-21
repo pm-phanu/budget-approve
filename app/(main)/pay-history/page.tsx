@@ -12,7 +12,7 @@ import { REQUESTS_KEY, getActedRequests, loadRequests, type SavedRequest } from 
 import { getCurrentUser } from "@/utils/login";
 import { bkkMonth, thaiDate } from "@/utils/date";
 import type { Credential } from "@/data/credential";
-import { PAY_DETAIL_PATH, baht, payee } from "@/components/pay-queue";
+import { PAY_DETAIL_PATH, baht, paidAt, payee } from "@/components/pay-queue";
 import {
   TableBody,
   TableCell,
@@ -48,7 +48,7 @@ export default function PayHistoryPage() {
   const paidRows = acted.filter((a) => a.step.status === "อนุมัติ");
   const rejectedRows = acted.filter((a) => a.step.status === "ตีกลับ");
   const thisMonth = bkkMonth();
-  const paidMonth = paidRows.filter((a) => bkkMonth(a.step.at ?? "") === thisMonth);
+  const paidMonth = paidRows.filter((a) => bkkMonth(paidAt(a.request)) === thisMonth);
   const sum = (list: typeof acted) => list.reduce((s, a) => s + Number(a.request.total || 0), 0);
 
   const q = query.trim().toLowerCase();

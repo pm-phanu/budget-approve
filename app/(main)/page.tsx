@@ -59,7 +59,8 @@ export default function Home() {
       (r) =>
         (r.status === "อนุมัติแล้ว" || r.status === "จ่ายแล้ว") &&
         year !== null &&
-        bkkYear(r.createdAt) === year,
+        // ปีที่อนุมัติ = ตอนบัญชีกดผ่าน · ข้อมูลเก่าที่ไม่มีเวลาขั้นบัญชี ใช้วันสร้างแทน
+        bkkYear(r.approvalSteps.find((s) => s.role === "ACCOUNTANT" && s.status === "อนุมัติ")?.at ?? r.createdAt) === year,
     )
     .reduce((sum, r) => sum + r.total, 0);
 
