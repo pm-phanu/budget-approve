@@ -1,5 +1,6 @@
 "use client";
 
+import { UserAffiliation } from "@/components/user-affiliation";
 import { BudgetCard } from "@/components/budget-card";
 import {
   ClockThree,
@@ -80,6 +81,7 @@ export default function Home() {
           <h1 className="text-[32px] font-bold text-[#0F172A]">
             สวัสดี {me ? me.fullName : "-"}
           </h1>
+          <UserAffiliation user={me} />
         </header>
 
         {/* <main> มีอยู่แล้วใน layout → ตรงนี้ใช้ div */}

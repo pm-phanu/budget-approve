@@ -8,6 +8,7 @@
 //  รายการเต็มอยู่ที่ "คำขอทำจ่าย" (/pay-request) · ที่ทำไปแล้วอยู่ "ประวัติการทำจ่าย" (/pay-history)
 // ════════════════════════════════════════════════════════════
 
+import { UserAffiliation } from "@/components/user-affiliation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { REQUESTS_KEY, getActedRequests, loadRequests, type SavedRequest } from "@/data/request";
@@ -101,6 +102,7 @@ export default function FinancePage() {
     <div className="text-[#0F172A]">
       <header className="mb-9">
         <h1 className="text-[32px] font-bold">สวัสดี {me ? me.fullName : "-"}</h1>
+        <UserAffiliation user={me} />
         <p className="mt-3 text-sm text-[#64748B]">
           {todayLabel} · คำขอรอคุณทำจ่าย{" "}
           <span className="font-semibold text-[#047857]">{pending.length} รายการ</span>
