@@ -20,7 +20,7 @@
 // ════════════════════════════════════════════════════════════
 
 import { useEffect, useState } from "react";
-import { bkkMonth, bkkYear, monthLabel, shiftMonth } from "@/utils/date";
+import { bkkDaysAgo, bkkMonth, bkkYear, monthLabel, shiftMonth } from "@/utils/date";
 import {
   FileText,
   ClockThree,
@@ -45,8 +45,8 @@ import { money } from "@/utils/format";
 // คำขอ 1 ใบ ในรูปที่หน้ารายงานใช้ (แปลงมาจาก SavedRequest ด้วย toReportRow)
 type ReportRow = {
   doc: string; // เลขที่เอกสาร เช่น REQ-1794659
-  daysAgo: number; // สร้างมาแล้วกี่วัน (ใช้กรองตามแท็บ)
-  date: string; // วันที่แบบอ่านง่าย เช่น "14 พ.ย."
+  daysAgo: number; // จ่ายมาแล้วกี่วัน ตามปฏิทินไทย (ใช้กรองตามแท็บ)
+  date: string; // วันที่จ่ายแบบอ่านง่าย เช่น "14 พ.ย."
   monthKey: string; // ปี-เดือน เช่น "2026-11" (ใช้รวมยอดในกราฟ)
   dept: string; // แผนกเจ้าของโครงการ
   title: string;
@@ -62,10 +62,10 @@ const YEAR = bkkYear(); // ปีงบประมาณปัจจุบั�
 
 // แท็บช่วงเวลา: days = ย้อนหลังกี่วัน
 const periods = [
-  { label: "รายสัปดาห์", days: 7 },
-  { label: "รายเดือน", days: 30 },
-  { label: "รายไตรมาส", days: 90 },
-  { label: "รายปี", days: 365 },
+  { label: "7 วันล่าสุด", days: 7 },
+  { label: "30 วันล่าสุด", days: 30 },
+  { label: "90 วันล่าสุด", days: 90 },
+  { label: "365 วันล่าสุด", days: 365 },
 ];
 
 
@@ -78,10 +78,11 @@ const WARN_PERCENT = 80;
 
 // ใส่ลูกน้ำให้ตัวเลข เช่น 12500 → "12,500"
 // แปลงคำขอ (ที่หน้าสร้างคำขอบันทึกไว้) → แถวของรายงาน
-function toReportRow(r: SavedRequest, today: Date): ReportRow {
+function toReportRow(r: SavedRequest): ReportRow {
   const created = new Date(r.createdAt);
   const oneDay = 24 * 60 * 60 * 1000; // 1 วัน เป็นมิลลิวินาที
-  const daysAgo = Math.floor((today.getTime() - created.getTime()) / oneDay);
+  // รายงานนับเงินที่ออกไปจริง → ใช้วันที่การเงินโอน · คำขอเก่าที่ไม่มีวันโอนใช้วันสร้างแทน
+  const paid = new Date(r.payment?.date ?? r.createdAt);
 
   // ระยะเวลาอนุมัติ = ส่งคำขอ → ขั้นบัญชีกดผ่าน (ขั้นสุดท้ายก่อนการเงิน)
   const checked = r.approvalSteps.find((s) => s.role === "ACCOUNTANT" && s.status === "อนุมัติ");
@@ -91,12 +92,12 @@ function toReportRow(r: SavedRequest, today: Date): ReportRow {
 
   return {
     doc: r.id,
-    daysAgo,
-    date: created.toLocaleDateString("th-TH", { timeZone: "Asia/Bangkok",
+    daysAgo: bkkDaysAgo(paid),
+    date: paid.toLocaleDateString("th-TH", { timeZone: "Asia/Bangkok",
       day: "2-digit",
       month: "short",
     }), // เช่น "14 พ.ย."
-    monthKey: bkkMonth(created), // "2026-11" ตามเวลาไทย (utils/date.ts)
+    monthKey: bkkMonth(paid), // "2026-11" ตามเวลาไทย (utils/date.ts)
     dept: r.project ? r.project.dept : "ไม่ระบุแผนก", // แผนกเจ้าของโครงการ
     title: r.title,
     requester: r.requester ? r.requester.fullName : "-",
@@ -121,7 +122,7 @@ function lastSixMonths(today: Date) {
 export default function Report() {
   // ---------- [4.1] state ----------
   // [ของ, setของ] = useState(ค่าเริ่มต้น) · ค่าในกล่องเปลี่ยน → หน้าจอวาดใหม่ → ตัวเลขทุกอย่างข้างล่างคิดใหม่เอง
-  const [days, setDays] = useState(30); // แท็บที่เลือก (เริ่มที่รายเดือน)
+  const [days, setDays] = useState(30); // แท็บที่เลือก (เริ่มที่ 30 วันล่าสุด)
   const [dept, setDept] = useState(""); // แผนกที่เลือกในตาราง ("" = ทุกแผนก)
   const [search, setSearch] = useState(""); // คำค้นเลขที่เอกสาร
   const [all, setAll] = useState<ReportRow[]>([]); // คำขอที่จ่ายแล้ว (แปลงเป็นแถวรายงานแล้ว)
@@ -132,14 +133,13 @@ export default function Report() {
   // อ่านคำขอจริงครั้งเดียวตอนเปิดหน้า ([] = ทำครั้งเดียว)
   // ※ นับเฉพาะ "จ่ายแล้ว" (บัญชีตรวจ + การเงินจ่ายเสร็จ) เพราะเป็นเงินที่ออกไปจริง
   useEffect(() => {
-    const today = new Date();
     const paid = loadRequests().filter((r) => r.status === "จ่ายแล้ว");
     const yearProjects = addRequestsToBudget(paid).filter((p) => p.year === YEAR); // โครงการปีนี้
     // งบทั้งปี = งบบอร์ดที่บัญชีกรอกในหน้า "ตั้งงบประมาณ" · ยังไม่กรอก = รวมวงเงินโครงการปีนี้แทน
     const allocation = loadAllocations().find((a) => a.year === YEAR);
     const fromProjects = yearProjects.reduce((sum, p) => sum + projectLimit(p), 0);
     /* eslint-disable react-hooks/set-state-in-effect -- localStorage อ่านได้หลังเปิดหน้าเท่านั้น */
-    setAll(paid.map((r) => toReportRow(r, today)));
+    setAll(paid.map(toReportRow));
     setBudget(yearProjects);
     setBoardTotal(allocation?.boardTotal ?? fromProjects);
     const me = getCurrentUser(); // ห้ามอ่าน localStorage เอง → ใช้ฟังก์ชันกลางของทีม
@@ -244,7 +244,7 @@ export default function Report() {
         </div>
         {/* เงื่อนไขของรายงาน: โชว์เฉพาะตอนพิมพ์ (คนอ่านกระดาษไม่เห็นแท็บที่เลือก) */}
         <p className="mt-3 hidden text-sm text-[#334155] print:block">
-          <b>ช่วงเวลา:</b> {periods.find((p) => p.days === days)?.label} ({days} วันล่าสุด)
+          <b>ช่วงเวลา:</b> {periods.find((p) => p.days === days)?.label} (นับตามวันที่จ่าย)
           · <b>ตารางรายการ:</b> {currentDept || "ทุกแผนก"}
           {search && <> · <b>ค้นหา:</b> {search}</>}
           · <b>พิมพ์โดย:</b> {printedBy}
@@ -453,7 +453,7 @@ export default function Report() {
         <table className="w-full min-w-[640px] text-sm">
           <thead>
             <tr className="border-b border-[#E2E8F0] text-left text-xs text-[#64748B]">
-              <th className="py-2 font-semibold">วันที่</th>
+              <th className="py-2 font-semibold">วันที่จ่าย</th>
               <th className="py-2 font-semibold">รายการ</th>
               <th className="py-2 font-semibold">เลขที่เอกสาร</th>
               <th className="py-2 font-semibold">แผนก</th>
