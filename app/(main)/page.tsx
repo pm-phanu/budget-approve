@@ -1,7 +1,7 @@
 "use client";
 
 import { UserAffiliation } from "@/components/user-affiliation";
-import { BudgetCard } from "@/components/budget-card";
+import { BudgetCard, SharedBudgetNote } from "@/components/budget-card";
 import {
   ClockThree,
   CheckCircle1,
@@ -13,7 +13,7 @@ import NotificationsCard from "@/components/notifications-card";
 import { getCurrentUser } from "@/utils/login";
 import type { Credential } from "@/data/credential";
 import { loadRequests, type SavedRequest } from "@/data/request";
-import { getDepartmentBudget, getSharedBudget } from "@/data/budget";
+import { getDepartmentBudget, getSharedBudget, type Project } from "@/data/budget";
 import { loadOrganization } from "@/data/organization";
 import { bkkYear } from "@/utils/date";
 import { money } from "@/utils/format";
@@ -72,7 +72,7 @@ export default function Home() {
   // งบร่วมที่แผนกอื่นแชร์มา (แสดงแยก ไม่รวมในวงเงินแผนก)
   const shared = me
     ? getSharedBudget(me.departmentId, requests, loadOrganization(), year ?? undefined)
-    : { remaining: 0, projects: [] };
+    : { remaining: 0, projects: [] as Project[] };
 
   return (
     <div>
@@ -93,11 +93,7 @@ export default function Home() {
               limit={budget.limit}
               used={budget.used}
               year={year}
-              note={
-                shared.projects.length > 0
-                  ? `+ งบร่วมจากแผนกอื่น ฿${money(shared.remaining)} (${shared.projects.length} โครงการ)`
-                  : undefined
-              }
+              note={<SharedBudgetNote projects={shared.projects} org={loadOrganization()} />}
             />
 
             {/* ตัวเลขสรุป: ตัวเลขเด่น ป้ายเล็ก */}

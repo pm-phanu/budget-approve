@@ -1,11 +1,11 @@
 "use client";
 
 import { UserAffiliation } from "@/components/user-affiliation";
-import { BudgetCard } from "@/components/budget-card";
+import { BudgetCard, SharedBudgetNote } from "@/components/budget-card";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { REQUESTS_KEY, getActedRequests, historyType, loadRequests, type SavedRequest, sentAt } from "@/data/request";
-import { getDepartmentBudget, getSharedBudget } from "@/data/budget";
+import { getDepartmentBudget, getSharedBudget, type Project } from "@/data/budget";
 import { loadOrganization } from "@/data/organization";
 import { canApproveStep } from "@/data/approval";
 import type { Credential } from "@/data/credential";
@@ -51,7 +51,7 @@ function readBudget(user: CurrentUser | null) {
   const { limit, used } = getDepartmentBudget(user?.departmentId, requests, year);
   // งบร่วมที่แผนกอื่นแชร์มา (แสดงแยก ไม่รวมในวงเงินแผนก)
   const shared = getSharedBudget(user?.departmentId, requests, loadOrganization(), year);
-  return { limit, used, shared: shared.remaining, sharedCount: shared.projects.length };
+  return { limit, used, shared: shared.projects };
 }
 
 /* ------------------------------------------------------------------
@@ -85,7 +85,7 @@ function statusBadge(r: ExpenseRequest) {
 export default function DH() {
   const [requests, setRequests] = useState<ExpenseRequest[]>([]);
   const [me, setMe] = useState<CurrentUser | null>(null);
-  const [budget, setBudget] = useState({ limit: 0, used: 0, shared: 0, sharedCount: 0 });
+  const [budget, setBudget] = useState<{ limit: number; used: number; shared: Project[] }>({ limit: 0, used: 0, shared: [] });
   // ปีและวันที่ปัจจุบัน: ตั้งค่าใน useEffect เท่านั้น (เลี่ยง new Date() ตอน prerender)
   const [currentYear, setCurrentYear] = useState<number | null>(null);
   const [today, setToday] = useState("");
@@ -182,11 +182,7 @@ export default function DH() {
             limit={budget.limit}
             used={budget.used}
             year={currentYear}
-            note={
-              budget.sharedCount > 0
-                ? `+ งบร่วมจากแผนกอื่น ${baht(budget.shared)} (${budget.sharedCount} โครงการ)`
-                : undefined
-            }
+            note={<SharedBudgetNote projects={budget.shared} org={loadOrganization()} />}
           />
 
           {/* card2 */}
