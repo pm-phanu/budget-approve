@@ -5,15 +5,15 @@
 
 //   [1] ชนิดข้อมูล
 //   [2] ค่าคงที่: แท็บช่วงเวลา   (งบอ่านจาก data/budget.ts · คำขอจาก data/request.ts)
-//   [3] ฟังก์ชันช่วย (ใส่ลูกน้ำ, แปลงคำขอเป็นแถวรายงาน, 6 เดือนล่าสุด)
+//   [3] ฟังก์ชันช่วย (ใส่ลูกน้ำ, แปลงคำขอเป็นแถวรายงาน, แท่งกราฟตามแท็บ)
 //   [4] หน้าหลัก (ส่วนคิด)
 //       [4.1] state + อ่านคำขอจริง   [4.2] กรองตามช่วงเวลา
 //       [4.3] ตัวเลขบนการ์ด   [4.4] เบิกสูงสุด 4 อันดับ
-//       [4.5] ตารางรายฝ่าย    [4.6] กราฟ 6 เดือน
+//       [4.5] ตารางรายฝ่าย    [4.6] กราฟตามแท็บ
 //       [4.7] สรุปงบตามโครงการ / หมวด
 //   [5] หน้าจอ
 //       [5.1] หัวข้อ          [5.2] แท็บช่วงเวลา   [5.3] การ์ด 4 ใบ
-//       [5.4] กราฟ 6 เดือน    [5.5] เบิกสูงสุด      [5.6] งบตามโครงการ / หมวด
+//       [5.4] กราฟตามแท็บ     [5.5] เบิกสูงสุด      [5.6] งบตามโครงการ / หมวด
 //       [5.7] ตารางรายฝ่าย
 //   [6] ชิ้นส่วนที่ใช้ซ้ำ
 //
@@ -106,14 +106,40 @@ function toReportRow(r: SavedRequest): ReportRow {
   };
 }
 
-// 6 เดือนล่าสุด (รวมเดือนนี้ ตามเวลาไทย) → [{ key: "2026-06", label: "มิ.ย." }, ...]
-function lastSixMonths(today: Date) {
-  const list = [];
-  for (let i = 5; i >= 0; i--) {
-    const key = shiftMonth(bkkMonth(today), -i); // ย้อนทีละเดือน
-    list.push({ key, label: monthLabel(key) });
+// วันที่ย้อนไป n วัน (ตามเวลาไทย) แบบอ่านง่าย เช่น "21 พ.ย." · withMonth = false → "21"
+function dayLabel(n: number, withMonth = true) {
+  return new Date(Date.now() - n * 86400000).toLocaleDateString("th-TH", {
+    timeZone: "Asia/Bangkok",
+    day: "numeric",
+    ...(withMonth ? { month: "short" as const } : {}),
+  });
+}
+
+// แท่งกราฟตามแท็บ (เก่า → ใหม่): 7 / 30 วัน = รายวัน · 90 วัน = รายสัปดาห์ · 365 วัน = รายเดือน
+// ใช้ list ที่กรองตามแท็บแล้ว → ยอดรวมทุกแท่ง = ยอดบนการ์ด "คำขอเบิกในช่วงนี้"
+function chartBars(list: ReportRow[], days: number) {
+  const sum = (rows: ReportRow[]) => rows.reduce((s, r) => s + r.amount, 0);
+
+  if (days >= 365) {
+    // 365 วันคร่อม 13 เดือนปฏิทิน (เดือนแรกไม่เต็ม) → 13 แท่ง ยอดจึงตรงกับการ์ด
+    const now = bkkMonth();
+    return Array.from({ length: 13 }, (_, i) => shiftMonth(now, i - 12)).map((key) => ({
+      key,
+      // เดือนของปีก่อนใส่ปีย่อ (พ.ศ.) ไม่ให้ "พ.ย." ซ้ำกับปีนี้
+      label: key.startsWith(now.slice(0, 4)) ? monthLabel(key) : `${monthLabel(key)} ${(Number(key.slice(0, 4)) + 543) % 100}`,
+      amount: sum(list.filter((r) => r.monthKey === key)),
+    }));
   }
-  return list;
+
+  const size = days >= 90 ? 7 : 1; // จำนวนวันต่อแท่ง
+  const count = Math.ceil(days / size); // 90 วัน = 13 สัปดาห์ (สัปดาห์เก่าสุดมี 6 วัน)
+  return Array.from({ length: count }, (_, i) => count - 1 - i).map((b) => ({
+    key: String(b),
+    // ป้าย = วันแรกของแท่ง · 30 แท่งแสดงแค่วันที่ (ป้ายยาวไม่พอที่)
+    label: dayLabel(Math.min(b * size + size - 1, days - 1), days <= 7 || size > 1),
+    // วันโอนในอนาคต (daysAgo ติดลบ) นับเป็นวันนี้ ไม่ให้หลุดจากกราฟ
+    amount: sum(list.filter((r) => Math.floor(Math.max(0, r.daysAgo) / size) === b)),
+  }));
 }
 
 // ════════════════════════════════════════
@@ -183,15 +209,11 @@ export default function Report() {
     .sort((a, b) => a.daysAgo - b.daysAgo); // ใหม่ → เก่า
   const rowsTotal = rows.reduce((sum, r) => sum + r.amount, 0);
 
-  // ---------- [4.6] กราฟ 6 เดือน ----------
-  // แต่ละเดือน: เก็บคำขอที่ปี-เดือนตรงกัน → บวกยอด
-  const chart = lastSixMonths(new Date()).map((m) => ({
-    month: m.label,
-    amount: all
-      .filter((r) => r.monthKey === m.key) // เก็บคำขอของเดือนนี้
-      .reduce((sum, r) => sum + r.amount, 0), // บวกยอดเงินของเดือนนั้น
-  }));
-  // ความสูงแท่ง: เทียบกับเดือนที่ยอดมากที่สุด
+  // ---------- [4.6] กราฟตามแท็บ ----------
+  const chart = chartBars(list, days);
+  const chartUnit = days >= 365 ? "รายเดือน" : days >= 90 ? "รายสัปดาห์" : "รายวัน";
+  const manyBars = chart.length > 13; // 30 แท่ง: ซ่อนตัวเลขบนแท่ง (ดูได้จาก tooltip) + ระยะห่างแคบลง
+  // ความสูงแท่ง: เทียบกับแท่งที่ยอดมากที่สุด
   const maxAmount = Math.max(1, ...chart.map((c) => c.amount)); // อย่างน้อย 1 กันหารด้วย 0 ตอนยังไม่มีข้อมูล // ... แตกลิสต์ออกเป็นตัวเลขทีละตัว ให้ Math.max หาค่าที่มากที่สุด
 
   // ---------- [4.7] สรุปงบตามโครงการ / หมวด ----------
@@ -297,35 +319,40 @@ export default function Report() {
 
       {/* grid 4 คอลัมน์: กราฟ 3 คอลัมน์ / เบิกสูงสุด 1 คอลัมน์ */}
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-4">
-        {/* ---------- [5.4] กราฟ 6 เดือน ---------- */}
+        {/* ---------- [5.4] กราฟตามแท็บ ---------- */}
         <section className="rounded-xl xl:col-span-3 border border-[#E2E8F0] bg-white p-6 shadow-2xl print:p-4 print:shadow-none">
-          <h2 className="mb-4 text-lg font-bold">ยอดเบิกจ่ายย้อนหลัง 6 เดือน</h2>
-          <div className="flex h-56 items-end gap-3 border-b border-[#E2E8F0] px-2 sm:gap-6 sm:px-4 print:h-40">
-            {/* map = วาดแท่งกราฟทีละเดือน · i = ลำดับเดือน */}
+          <h2 className="mb-4 text-lg font-bold">
+            ยอดเบิกจ่าย{chartUnit} · {periods.find((p) => p.days === days)?.label}
+          </h2>
+          <div className={`flex h-56 items-end border-b border-[#E2E8F0] px-2 sm:px-4 print:h-40 ${manyBars ? "gap-1" : "gap-3 sm:gap-6"}`}>
+            {/* map = วาดแท่งกราฟทีละช่วง · i = ลำดับแท่ง */}
             {chart.map((c, i) => (
               <div
-                key={c.month}
-                className="flex h-full flex-1 flex-col items-center justify-end"
+                key={c.key}
+                title={`${c.label} ฿${money(c.amount)}`}
+                className="flex h-full min-w-0 flex-1 flex-col items-center justify-end"
               >
-                <span className="money mb-1 text-xs text-[#64748B]">
-                  {money(c.amount)}
-                </span>
+                {!manyBars && (
+                  <span className="money mb-1 text-xs text-[#64748B]">
+                    {money(c.amount)}
+                  </span>
+                )}
                 <div
                   role="img"
-                  aria-label={`${c.month} ฿${money(c.amount)}`}
-                  className={`w-full rounded-t-lg ${i === chart.length - 1 ? "bg-[#059669]" : "bg-[#CBD5E1]"}`} // แท่งสุดท้าย (เดือนล่าสุด) = สีเขียว · อื่นๆ = สีเทา
-                  style={{ height: `${(c.amount / maxAmount) * 85}%` }} // ความสูง = ยอดเดือนนี้ ÷ ยอดสูงสุด (แท่งสูงสุดสูง 85%)
+                  aria-label={`${c.label} ฿${money(c.amount)}`}
+                  className={`w-full ${manyBars ? "rounded-t" : "rounded-t-lg"} ${i === chart.length - 1 ? "bg-[#059669]" : "bg-[#CBD5E1]"}`} // แท่งสุดท้าย (ช่วงล่าสุด) = สีเขียว · อื่นๆ = สีเทา
+                  style={{ height: `${(c.amount / maxAmount) * 85}%` }} // ความสูง = ยอดของแท่ง ÷ ยอดสูงสุด (แท่งสูงสุดสูง 85%)
                 />
               </div>
             ))}
           </div>
-          <div className="flex gap-3 px-2 pt-2 sm:gap-6 sm:px-4" aria-hidden="true">
+          <div className={`flex px-2 pt-2 sm:px-4 ${manyBars ? "gap-1" : "gap-3 sm:gap-6"}`} aria-hidden="true">
             {chart.map((c, i) => (
               <span
-                key={c.month}
-                className={`flex-1 text-center text-sm ${i === chart.length - 1 ? "font-bold text-[#047857]" : "text-[#64748B]"}`}
+                key={c.key}
+                className={`min-w-0 flex-1 text-center ${manyBars ? "text-xs" : "text-sm"} ${i === chart.length - 1 ? "font-bold text-[#047857]" : "text-[#64748B]"}`}
               >
-                {c.month}
+                {c.label}
               </span>
             ))}
           </div>
