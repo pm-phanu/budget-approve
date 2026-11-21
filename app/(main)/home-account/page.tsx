@@ -1,5 +1,6 @@
 "use client";
 
+import { UserAffiliation } from "@/components/user-affiliation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { REQUESTS_KEY, historyType, loadRequests, type SavedRequest, arrivedAt } from "@/data/request";
@@ -288,6 +289,7 @@ export default function AccountantHome() {
             <h1 className="text-[32px] font-bold">
               สวัสดี {me ? me.fullName : "-"}
             </h1>
+            <UserAffiliation user={me} />
             <p className="mt-3 text-sm text-[#64748B]">
               {today} · คำขอรอคุณตรวจ{" "}
               <span className="font-semibold text-[#047857]">{pending.length} รายการ</span>

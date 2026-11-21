@@ -1,5 +1,6 @@
 "use client";
 
+import { UserAffiliation } from "@/components/user-affiliation";
 import { BudgetCard } from "@/components/budget-card";
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -173,6 +174,7 @@ export default function MD() {
             <h1 className="text-[32px] font-bold text-[#111]">
               สวัสดี {me ? me.fullName : "-"}
             </h1>
+            <UserAffiliation user={me} />
             <p className="text-sm text-[#64748B] mt-3">
               {today} · คำขอรอคุณอนุมัติ{" "}
               <span className="font-semibold text-[#047857]">
