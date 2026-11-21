@@ -7,6 +7,8 @@
 import type { ReactNode } from "react";
 import { Wallet2 } from "@tailgrids/icons";
 import { baht } from "@/utils/format";
+import { projectLimit, projectUsed, type Project } from "@/data/budget";
+import { getDepartmentPath, type Organization } from "@/data/organization";
 
 
 export function HeroCard({
@@ -70,7 +72,7 @@ export function BudgetCard({
       <p className="mt-1 text-xs text-emerald-300/80">
         {limit > 0 ? `จากงบทั้งปี ${baht(limit)}` : "ยังไม่ได้ตั้งงบปีนี้"}
       </p>
-      {note && <p className="mt-1 text-xs text-emerald-200">{note}</p>}
+      {note && <div className="mt-1 text-xs text-emerald-200">{note}</div>}
 
       <div className="mt-auto pt-3">
         <div className="mb-1.5 flex justify-between text-xs text-emerald-200">
@@ -85,5 +87,37 @@ export function BudgetCard({
         </div>
       </div>
     </HeroCard>
+  );
+}
+
+// บรรทัดงบร่วมใต้ยอดของ BudgetCard: แยกตามแผนกเจ้าของงบ พร้อมฝ่าย / สายงาน ให้รู้ว่าเป็นเงินของใคร
+export function SharedBudgetNote({ projects, org }: { projects: Project[]; org: Organization }) {
+  if (projects.length === 0) return null;
+
+  // รวมยอดคงเหลือต่อแผนกเจ้าของ (1 แผนกแชร์มาได้หลายโครงการ)
+  const owners = new Map<string, { remaining: number; count: number }>();
+  for (const p of projects) {
+    const o = owners.get(p.departmentId) ?? { remaining: 0, count: 0 };
+    owners.set(p.departmentId, {
+      remaining: o.remaining + Math.max(0, projectLimit(p) - projectUsed(p)),
+      count: o.count + 1,
+    });
+  }
+
+  return (
+    <span className="flex flex-col gap-1">
+      <span>+ งบร่วมที่แผนกอื่นแชร์ให้ใช้</span>
+      {[...owners].map(([departmentId, { remaining, count }]) => {
+        const { department, division, lineOfWork } = getDepartmentPath(org, departmentId);
+        const parents = [division?.name, lineOfWork?.name].filter(Boolean).join(" ");
+        return (
+          <span key={departmentId} className="block rounded-md bg-white/10 px-2 py-1">
+            <span className="font-semibold text-white">{department?.name ?? departmentId}</span>{" "}
+            <span className="money">{baht(remaining)}</span> ({count} โครงการ)
+            {parents && <span className="block text-emerald-300/80">ใน{parents}</span>}
+          </span>
+        );
+      })}
+    </span>
   );
 }
